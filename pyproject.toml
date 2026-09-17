@@ -30,6 +30,7 @@ dev = [
     "ruff>=0.7",
     "mypy>=1.13",
     "types-PyMySQL",
+    "pytest-asyncio>=1.4.0",
 ]
 
 [project.scripts]
@@ -46,6 +47,7 @@ packages = ["src/shabetz"]
 testpaths = ["tests"]
 addopts = "-q --strict-markers"
 markers = ["integration: requires a live MySQL database"]
+asyncio_mode = "auto"
 
 [tool.ruff]
 line-length = 100

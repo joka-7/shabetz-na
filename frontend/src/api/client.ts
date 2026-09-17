@@ -26,6 +26,24 @@ export function getCsrfToken(): string | null {
   return csrfToken;
 }
 
+/**
+ * Recover the CSRF token from its cookie.
+ *
+ * Sign-in through Google finishes as a redirect rather than a JSON response,
+ * so there is no body to read the token from. The server sets it readable for
+ * exactly this case; it is useless on its own without the HttpOnly session
+ * cookie that accompanies it.
+ */
+export function adoptCsrfTokenFromCookie(cookieName = "shabetz_csrf"): string | null {
+  const match = document.cookie
+    .split("; ")
+    .find((entry) => entry.startsWith(`${cookieName}=`));
+  if (!match) return null;
+  const value = decodeURIComponent(match.slice(cookieName.length + 1));
+  if (value) csrfToken = value;
+  return value || null;
+}
+
 const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 export async function request<T>(

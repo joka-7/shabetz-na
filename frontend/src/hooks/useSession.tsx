@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { ApiError, api, setCsrfToken } from "@/api/client";
+import { ApiError, adoptCsrfTokenFromCookie, api, setCsrfToken } from "@/api/client";
 import type { Capabilities, SessionResponse, User } from "@/types/api";
 
 interface SessionState {
@@ -26,7 +26,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(async () => {
     try {
-      setUser(await api.get<User>("/api/auth/me"));
+      const me = await api.get<User>("/api/auth/me");
+      // A session may already exist from a Google redirect, which carried its
+      // CSRF token in a cookie rather than a response body.
+      adoptCsrfTokenFromCookie();
+      setUser(me);
     } catch (error) {
       // A 401 here is the normal signed-out state, not a failure to report.
       if (!(error instanceof ApiError) || error.status !== 401) throw error;

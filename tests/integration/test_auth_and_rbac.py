@@ -215,3 +215,81 @@ def test_staff_cannot_request_time_off_for_someone_else(
         json={"person_id": bob["id"], "start_date": "2026-10-01", "end_date": "2026-10-02"},
     )
     assert response.status_code == 403
+
+
+# ------------------------------------------------------------- Google sign-in
+
+
+def test_google_routes_are_absent_when_unconfigured(client: TestClient) -> None:
+    """No credentials means the feature does not exist, not that it is broken."""
+    assert client.get("/api/meta/capabilities").json()["google_enabled"] is False
+    assert client.get("/api/auth/google/authorize", follow_redirects=False).status_code == 404
+    assert (
+        client.get("/api/auth/google/callback?code=x&state=y", follow_redirects=False).status_code
+        == 404
+    )
+
+
+def test_google_authorize_redirects_and_sets_a_state_cookie(app, settings, session_factory) -> None:
+    """With credentials present the flow starts at Google, guarded by state."""
+    from urllib.parse import parse_qs, urlparse
+
+    from shabetz.api.deps import settings_dep
+
+    configured = settings.model_copy(
+        update={
+            "google_client_id": "client-id.apps.googleusercontent.com",
+            "google_client_secret": "client-secret",
+        }
+    )
+    app.dependency_overrides[settings_dep] = lambda: configured
+
+    with TestClient(app) as configured_client:
+        assert configured_client.get("/api/meta/capabilities").json()["google_enabled"] is True
+
+        response = configured_client.get("/api/auth/google/authorize", follow_redirects=False)
+        assert response.status_code == 307
+
+        location = urlparse(response.headers["location"])
+        assert location.netloc == "accounts.google.com"
+        query = parse_qs(location.query)
+        assert query["code_challenge_method"] == ["S256"]
+        assert query["state"][0]
+
+        # The cookie carrying state must not be readable by scripts.
+        cookie_header = response.headers["set-cookie"]
+        assert "shabetz_oauth_state=" in cookie_header
+        assert "httponly" in cookie_header.lower()
+
+
+def test_google_callback_without_state_returns_to_login_with_a_reason(app, settings) -> None:
+    from shabetz.api.deps import settings_dep
+
+    configured = settings.model_copy(
+        update={
+            "google_client_id": "client-id",
+            "google_client_secret": "client-secret",
+        }
+    )
+    app.dependency_overrides[settings_dep] = lambda: configured
+
+    with TestClient(app) as configured_client:
+        response = configured_client.get(
+            "/api/auth/google/callback?code=some-code&state=unmatched",
+            follow_redirects=False,
+        )
+        assert response.status_code == 303
+        assert response.headers["location"] == "/?auth_error=failed"
+
+
+def test_google_callback_reports_cancellation(app, settings) -> None:
+    from shabetz.api.deps import settings_dep
+
+    configured = settings.model_copy(update={"google_client_id": "c", "google_client_secret": "s"})
+    app.dependency_overrides[settings_dep] = lambda: configured
+
+    with TestClient(app) as configured_client:
+        response = configured_client.get(
+            "/api/auth/google/callback?error=access_denied", follow_redirects=False
+        )
+        assert response.headers["location"] == "/?auth_error=cancelled"

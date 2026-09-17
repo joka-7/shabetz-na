@@ -4,6 +4,13 @@ import { ApiError } from "@/api/client";
 import { useSession } from "@/hooks/useSession";
 import { ErrorNotice } from "@/components/ui";
 
+const GOOGLE_ERRORS: Record<string, string> = {
+  cancelled: "Google sign-in was cancelled.",
+  failed: "Google sign-in could not be completed. Please try again.",
+  // Google authenticates existing accounts; it never creates one.
+  "no-account": "That Google account is not registered here. Ask an administrator to invite it.",
+};
+
 export function LoginPage({ needsSetup }: { needsSetup: boolean }) {
   const { signIn, bootstrap, capabilities } = useSession();
   const [email, setEmail] = useState("");
@@ -11,6 +18,10 @@ export function LoginPage({ needsSetup }: { needsSetup: boolean }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // A failed Google round trip comes back as a redirect, so its reason arrives
+  // in the query string rather than a response we could catch.
+  const googleError = GOOGLE_ERRORS[new URLSearchParams(window.location.search).get("auth_error") ?? ""];
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -66,7 +77,7 @@ export function LoginPage({ needsSetup }: { needsSetup: boolean }) {
             )}
           </div>
 
-          {error && <ErrorNotice message={error} />}
+          {(error || googleError) && <ErrorNotice message={error ?? googleError!} />}
 
           <button className="btn-primary w-full justify-center" disabled={busy} type="submit">
             {busy ? "Working…" : needsSetup ? "Create administrator" : "Sign in"}
