@@ -17,11 +17,17 @@ from sqlalchemy import (
     Index,
     Integer,
     JSON,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
 )
 from sqlalchemy.dialects.mysql import LONGBLOB
+
+# MySQL gets LONGBLOB so a long horizon across a large roster is not capped at
+# BLOB's 64 KiB; other dialects fall back to their own large-binary type, which
+# is what lets the authorization suite run without a MySQL server.
+PayloadBlob = LargeBinary().with_variant(LONGBLOB(), "mysql")
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..domain.enums import DivisionPolicy, TimeOffStatus, UserRole
@@ -314,7 +320,7 @@ class ScheduleRun(Base):
     )
     params_json: Mapped[dict] = mapped_column(JSON)
     summary_json: Mapped[dict] = mapped_column(JSON)
-    payload_gz: Mapped[bytes] = mapped_column(LONGBLOB)
+    payload_gz: Mapped[bytes] = mapped_column(PayloadBlob)
     created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
 
 

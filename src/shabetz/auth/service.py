@@ -88,6 +88,10 @@ def authenticate_password(
         if user.failed_login_count >= max_attempts:
             user.locked_until = utcnow() + timedelta(minutes=lockout_minutes)
             user.failed_login_count = 0
+        # Commit the counter before raising. A failed sign-in aborts the
+        # request transaction, which would otherwise roll this increment back
+        # and leave the lockout permanently unreachable.
+        db.commit()
         raise AuthError("Invalid email or password")
 
     if user.password_hash and needs_rehash(user.password_hash):
