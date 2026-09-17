@@ -1,0 +1,26 @@
+services:
+  db:
+    image: mysql:8.0
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      # Generated schedules are stored as a single compressed blob; the 4 MB
+      # default packet size is not enough for a long horizon on a large roster.
+      - --max-allowed-packet=67108864
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: shabetz
+      MYSQL_USER: shabetz
+      MYSQL_PASSWORD: shabetz
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    volumes:
+      - shabetz_mysql:/var/lib/mysql
+
+volumes:
+  shabetz_mysql:
