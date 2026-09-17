@@ -17,28 +17,45 @@ from shabetz.exporters.renderers import (
 PAYLOAD = {
     "assignments": [
         {
-            "person_id": 2, "person_name": "Rivka Shalev", "division_id": 1,
-            "job_id": 1, "job_name": "Night watch", "template_id": 3,
-            "template_name": "Evening", "calendar_date": "2026-10-01",
-            "start_abs": 16.0, "end_abs": 24.0, "role": "MEMBER",
-            "is_division_fallback": True, "satisfied_requirement_id": None,
+            "person_id": 2,
+            "person_name": "Rivka Shalev",
+            "division_id": 1,
+            "job_id": 1,
+            "job_name": "Night watch",
+            "template_id": 3,
+            "template_name": "Evening",
+            "calendar_date": "2026-10-01",
+            "start_abs": 16.0,
+            "end_abs": 24.0,
+            "role": "MEMBER",
+            "is_division_fallback": True,
+            "satisfied_requirement_id": None,
         },
         {
-            "person_id": 1, "person_name": "Yosef Mizrahi", "division_id": 1,
-            "job_id": 1, "job_name": "Night watch", "template_id": 1,
-            "template_name": "Overnight", "calendar_date": "2026-10-01",
-            "start_abs": 22.0, "end_abs": 30.0, "role": "ROLE",
-            "is_division_fallback": False, "satisfied_requirement_id": 1,
+            "person_id": 1,
+            "person_name": "Yosef Mizrahi",
+            "division_id": 1,
+            "job_id": 1,
+            "job_name": "Night watch",
+            "template_id": 1,
+            "template_name": "Overnight",
+            "calendar_date": "2026-10-01",
+            "start_abs": 22.0,
+            "end_abs": 30.0,
+            "role": "ROLE",
+            "is_division_fallback": False,
+            "satisfied_requirement_id": 1,
         },
     ],
-    "warnings": [
-        {"kind": "UNDERSTAFFED", "severity": "ERROR", "message": "Short by two"}
-    ],
+    "warnings": [{"kind": "UNDERSTAFFED", "severity": "ERROR", "message": "Short by two"}],
 }
 PARAMS = {"start_date": "2026-10-01", "end_date": "2026-10-07", "rest_period_hours": 8.0}
 SUMMARY = {
-    "total_assignments": 2, "total_people": 4, "people_used": 2,
-    "utilization_rate": 0.5, "understaffed_shift_count": 1,
+    "total_assignments": 2,
+    "total_people": 4,
+    "people_used": 2,
+    "utilization_rate": 0.5,
+    "understaffed_shift_count": 1,
     "division_fallback_count": 1,
 }
 
@@ -79,9 +96,7 @@ def test_html_includes_rows_warnings_and_repeating_header() -> None:
 
 def test_html_escapes_names() -> None:
     payload = {
-        "assignments": [
-            {**PAYLOAD["assignments"][0], "person_name": "<script>alert(1)</script>"}
-        ],
+        "assignments": [{**PAYLOAD["assignments"][0], "person_name": "<script>alert(1)</script>"}],
         "warnings": [],
     }
     html = render_html(payload, PARAMS, SUMMARY, "x" * 10).content.decode("utf-8")

@@ -6,8 +6,8 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date
 
-from ..domain.models import Assignment, Person, ScheduleParams, ScheduleWarning
 from ..domain.enums import WarningSeverity
+from ..domain.models import Assignment, Person, ScheduleParams, ScheduleWarning
 
 
 @dataclass(frozen=True, slots=True)

@@ -55,9 +55,7 @@ def revoke(db: DbSession, session_id: str) -> None:
 
 def revoke_all_for_user(db: DbSession, user_id: int) -> int:
     rows = db.scalars(
-        select(SessionRow).where(
-            SessionRow.user_id == user_id, SessionRow.revoked_at.is_(None)
-        )
+        select(SessionRow).where(SessionRow.user_id == user_id, SessionRow.revoked_at.is_(None))
     ).all()
     now = utcnow()
     for row in rows:

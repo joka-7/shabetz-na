@@ -6,7 +6,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from shabetz.domain.enums import AssignmentRole, DivisionPolicy, WarningKind, WarningSeverity
+from shabetz.domain.enums import AssignmentRole, WarningKind, WarningSeverity
 from shabetz.domain.models import EPS, TimeOffPeriod
 from shabetz.domain.state import SchedulerState
 from shabetz.scheduling.greedy import SimpleGreedyScheduler
@@ -107,9 +107,7 @@ def test_window_ending_at_midnight_does_not_cross() -> None:
 
 def test_job_sort_key_ordering() -> None:
     """Named directly so a regression reports itself instead of a shortfall."""
-    scarce = job(
-        10, "Scarce", 1, (template(9, "Day", 8.0),), (requirement(1, 100, 3, count=1),)
-    )
+    scarce = job(10, "Scarce", 1, (template(9, "Day", 8.0),), (requirement(1, 100, 3, count=1),))
     broad = job(20, "Broad", 4, three_eight_hour_blocks())
     other = job(30, "Other", 2, three_eight_hour_blocks())
     assert [j.id for j in sorted([broad, other, scarce], key=lambda j: j.sort_key)] == [

@@ -30,9 +30,7 @@ class DbSchedulingRepository(JobSchedulingRepository):
             .where(orm.Division.is_active.is_(True))
             .order_by(orm.Division.display_order, orm.Division.id)
         ).all()
-        return [
-            Division(id=r.id, name=r.name, display_order=r.display_order) for r in rows
-        ]
+        return [Division(id=r.id, name=r.name, display_order=r.display_order) for r in rows]
 
     def load_people(self, window_start: date, window_end: date) -> list[Person]:
         rows = self._session.scalars(
@@ -74,15 +72,9 @@ class DbSchedulingRepository(JobSchedulingRepository):
             select(orm.Job)
             .where(orm.Job.is_active.is_(True))
             .options(
-                selectinload(orm.Job.shift_links).selectinload(
-                    orm.JobShiftTemplate.shift_template
-                ),
-                selectinload(orm.Job.requirements).selectinload(
-                    orm.JobSkillRequirement.skill
-                ),
-                selectinload(orm.Job.requirements).selectinload(
-                    orm.JobSkillRequirement.min_level
-                ),
+                selectinload(orm.Job.shift_links).selectinload(orm.JobShiftTemplate.shift_template),
+                selectinload(orm.Job.requirements).selectinload(orm.JobSkillRequirement.skill),
+                selectinload(orm.Job.requirements).selectinload(orm.JobSkillRequirement.min_level),
             )
             .order_by(orm.Job.id)
         ).all()
@@ -96,9 +88,7 @@ class DbSchedulingRepository(JobSchedulingRepository):
                     start_hour=link.shift_template.start_hour,
                     duration_hours=link.shift_template.duration_hours,
                 )
-                for link in sorted(
-                    row.shift_links, key=lambda link: link.shift_template.start_hour
-                )
+                for link in sorted(row.shift_links, key=lambda link: link.shift_template.start_hour)
                 if link.shift_template.is_active
             )
             requirements = tuple(

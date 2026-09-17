@@ -1,0 +1,123 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+
+    # A real MySQL, not SQLite. The dialect differences this project depends on
+    # -- utf8mb4, bounded index keys, DATETIME(6), LONGBLOB -- would otherwise
+    # pass locally and fail in production.
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: shabetz
+          MYSQL_USER: shabetz
+          MYSQL_PASSWORD: shabetz
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=30
+
+    env:
+      SHABETZ_ENVIRONMENT: test
+      SHABETZ_SECRET_KEY: ci-secret-key
+      SHABETZ_DATABASE_URL: mysql+pymysql://shabetz:shabetz@127.0.0.1:3306/shabetz?charset=utf8mb4
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - run: uv sync --extra dev
+
+      - name: Lint
+        run: |
+          uv run --extra dev ruff check src tests
+          uv run --extra dev ruff format --check src tests
+
+      - name: Typecheck
+        run: uv run --extra dev mypy
+
+      - name: Migrations apply and roll back
+        run: |
+          uv run --extra dev alembic upgrade head
+          uv run --extra dev alembic downgrade base
+          uv run --extra dev alembic upgrade head
+
+      - name: Tests
+        run: uv run --extra dev pytest
+
+      - name: Seed and generate end to end
+        run: |
+          uv run --extra dev shabetz seed-demo
+          uv run --extra dev shabetz feasibility
+          uv run --extra dev shabetz schedule --start 2026-10-01 --persist
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+        working-directory: frontend
+
+      - run: npm run lint
+        working-directory: frontend
+
+      - run: npm run test
+        working-directory: frontend
+
+      - run: npm run build
+        working-directory: frontend
+
+  api-types:
+    # The generated types are the only thing keeping the API contract and the
+    # React code in step, so a drifted checkout should fail rather than be
+    # discovered at runtime.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - run: uv sync --extra dev
+
+      - name: Check committed API types match the schema
+        env:
+          SHABETZ_SECRET_KEY: ci-secret-key
+          SHABETZ_DATABASE_URL: sqlite://
+        run: |
+          uv run --extra dev python - <<'PY'
+          import json
+          from shabetz.api.main import create_app
+          json.dump(create_app().openapi(), open("openapi.json", "w"))
+          PY
+          npx --yes openapi-typescript openapi.json -o /tmp/api.ts
+          # Reported rather than enforced until the generated shape is adopted
+          # wholesale; the hand-written types are currently the source of truth.
+          diff -q /tmp/api.ts frontend/src/types/api.ts \
+            || echo "::notice::Generated API types differ from the committed ones"

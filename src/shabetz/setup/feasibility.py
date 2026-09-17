@@ -69,9 +69,7 @@ class FeasibilityReport:
     messages: tuple[str, ...] = field(default_factory=tuple)
 
 
-def _windows_are_mutually_exclusive(
-    a: ShiftTemplate, b: ShiftTemplate, rest_hours: float
-) -> bool:
+def _windows_are_mutually_exclusive(a: ShiftTemplate, b: ShiftTemplate, rest_hours: float) -> bool:
     """Whether the rest rule forces disjoint crews for two windows on one day.
 
     Compared on a single day's timeline in both directions, since either window
@@ -88,9 +86,7 @@ def _windows_are_mutually_exclusive(
     return a.start_hour < b_end - EPS and b.start_hour < a_end - EPS
 
 
-def _peak_concurrency(
-    templates: dict[int, ShiftTemplate], demand: dict[int, int]
-) -> int:
+def _peak_concurrency(templates: dict[int, ShiftTemplate], demand: dict[int, int]) -> int:
     """Most people on duty at any one moment.
 
     Summed across templates rather than per template, because two separate
@@ -221,8 +217,7 @@ def _minimum_distinct(
             # A window may share a group only if it can share crews with every
             # window already in it.
             if all(
-                not _windows_are_mutually_exclusive(template, other, rest_hours)
-                for other in group
+                not _windows_are_mutually_exclusive(template, other, rest_hours) for other in group
             ):
                 group.append(template)
                 placed = True
@@ -322,9 +317,7 @@ def _skill_floors(
 
     floors = []
     for (skill_id, min_rank), (name, needed) in sorted(needs.items()):
-        available = sum(
-            1 for p in members if p.skill_ranks.get(skill_id, -1) >= min_rank
-        )
+        available = sum(1 for p in members if p.skill_ranks.get(skill_id, -1) >= min_rank)
         floors.append(
             SkillFloor(
                 skill_id=skill_id,

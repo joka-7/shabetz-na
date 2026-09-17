@@ -76,13 +76,19 @@ def test_adding_people_flips_infeasible_to_ok() -> None:
 
     short = analyze(
         [person(i, division_id=1, weekdays=FIVE_DAYS) for i in range(1, 16)],
-        jobs, divisions, 8.0, True,
+        jobs,
+        divisions,
+        8.0,
+        True,
     )
     assert short.verdict is FeasibilityVerdict.INFEASIBLE
 
     plenty = analyze(
         [person(i, division_id=1, weekdays=FIVE_DAYS) for i in range(1, 40)],
-        jobs, divisions, 8.0, True,
+        jobs,
+        divisions,
+        8.0,
+        True,
     )
     assert plenty.verdict is FeasibilityVerdict.OK
 
@@ -97,7 +103,10 @@ def test_shorter_rest_lowers_the_floor() -> None:
 def test_missing_skill_holders_reported_per_division() -> None:
     blocks = three_eight_hour_blocks()
     led = job(
-        1, "Led work", 2, blocks,
+        1,
+        "Led work",
+        2,
+        blocks,
         (requirement(1, 100, 3, name="Team Leader", count=1),),
     )
     # Nobody holds the leadership skill at all.

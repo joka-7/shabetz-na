@@ -60,9 +60,7 @@ def test_indexed_text_columns_are_bounded(mysql_ddl: str) -> None:
 def test_bounded_columns_fit_within_the_innodb_key_limit(mysql_ddl: str) -> None:
     """At four bytes per utf8mb4 character the ceiling is 768 characters."""
     too_long = [
-        int(match)
-        for match in re.findall(r"VARCHAR\((\d+)\)", mysql_ddl)
-        if int(match) > 768
+        int(match) for match in re.findall(r"VARCHAR\((\d+)\)", mysql_ddl) if int(match) > 768
     ]
     assert too_long == []
 

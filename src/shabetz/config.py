@@ -11,9 +11,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_prefix="SHABETZ_", env_file=".env", extra="ignore"
-    )
+    model_config = SettingsConfigDict(env_prefix="SHABETZ_", env_file=".env", extra="ignore")
 
     environment: Literal["dev", "test", "prod"] = "dev"
 
@@ -55,9 +53,7 @@ class Settings(BaseSettings):
         if self.secret_key:
             return self.secret_key
         if self.environment == "prod":
-            raise RuntimeError(
-                "SHABETZ_SECRET_KEY must be set when SHABETZ_ENVIRONMENT=prod"
-            )
+            raise RuntimeError("SHABETZ_SECRET_KEY must be set when SHABETZ_ENVIRONMENT=prod")
         return secrets.token_urlsafe(32)
 
 

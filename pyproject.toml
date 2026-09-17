@@ -63,3 +63,9 @@ mypy_path = "src"
 strict_optional = true
 warn_unused_ignores = true
 disallow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+# Optional extra: absence is detected and handled at runtime, so a missing
+# stub must not fail the typecheck of a default install.
+module = ["weasyprint.*"]
+ignore_missing_imports = true

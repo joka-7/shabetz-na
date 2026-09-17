@@ -75,9 +75,7 @@ class SimpleGreedyScheduler(SchedulingStrategy):
             for job in ordered_jobs:
                 for template in job.shift_templates:
                     slot = ShiftSlot.build(job, template, day, day_index)
-                    picked = self._staff_slot(
-                        job, slot, by_division, rotation, active, state, day
-                    )
+                    picked = self._staff_slot(job, slot, by_division, rotation, active, state, day)
                     assignments.extend(picked)
                     self._record_shortfalls(job, slot, picked, warnings)
 
@@ -119,9 +117,7 @@ class SimpleGreedyScheduler(SchedulingStrategy):
         for requirement in self._role_requirements_by_scarcity(job, tiers):
             still_needed = requirement.required_count or 0
             already = sum(
-                1
-                for assignment in chosen
-                if assignment.satisfied_requirement_id == requirement.id
+                1 for assignment in chosen if assignment.satisfied_requirement_id == requirement.id
             )
             for _ in range(max(0, still_needed - already)):
                 if len(chosen) >= job.required_people_per_shift:
@@ -245,9 +241,7 @@ class SimpleGreedyScheduler(SchedulingStrategy):
             )
 
         for requirement in job.role_requirements:
-            filled = sum(
-                1 for a in picked if a.satisfied_requirement_id == requirement.id
-            )
+            filled = sum(1 for a in picked if a.satisfied_requirement_id == requirement.id)
             if filled < (requirement.required_count or 0):
                 warnings.append(
                     ScheduleWarning(

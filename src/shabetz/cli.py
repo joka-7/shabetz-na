@@ -30,9 +30,7 @@ def create_admin(
         if setup_is_complete(db):
             typer.secho("An account already exists; use the web interface.", fg="red")
             raise typer.Exit(1)
-        user = bootstrap_first_admin(
-            db, email=email, full_name=full_name, password=password
-        )
+        user = bootstrap_first_admin(db, email=email, full_name=full_name, password=password)
         typer.secho(f"Created administrator {user.email}", fg="green")
 
 
@@ -87,7 +85,12 @@ def seed_demo(
         db.add(day_window)
         db.flush()
 
-        jobs = [
+        JobSpec = tuple[
+            orm.Job,
+            list[orm.ShiftTemplate],
+            list[tuple[orm.Skill, orm.ProficiencyLevel, int | None]],
+        ]
+        jobs: list[JobSpec] = [
             (
                 orm.Job(
                     name="Facility care",
@@ -164,9 +167,7 @@ def seed_demo(
                     grants.append((by_skill["Coding"], rank_of["Expert"]))
                 for skill, level in grants:
                     db.add(
-                        orm.PersonSkill(
-                            person_id=person.id, skill_id=skill.id, level_id=level.id
-                        )
+                        orm.PersonSkill(person_id=person.id, skill_id=skill.id, level_id=level.id)
                     )
                 rng.random()
 
@@ -237,9 +238,9 @@ def schedule(
 
         rotation = list(summary.active_division_by_day.items())[:6]
         if rotation:
-            typer.echo("  active division    : " + ", ".join(
-                f"{day}={div}" for day, div in rotation
-            ))
+            typer.echo(
+                "  active division    : " + ", ".join(f"{day}={div}" for day, div in rotation)
+            )
         if persist:
             typer.secho(f"  run id             : {schedule_id}", fg="green")
 

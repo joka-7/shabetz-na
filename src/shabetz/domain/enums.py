@@ -8,10 +8,10 @@ in code.  Only genuinely fixed vocabulary belongs in this module.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 
-class DivisionPolicy(str, Enum):
+class DivisionPolicy(StrEnum):
     """How a job may draw staff relative to the rotation's active division."""
 
     ACTIVE_DIVISION_ONLY = "ACTIVE_DIVISION_ONLY"
@@ -19,39 +19,39 @@ class DivisionPolicy(str, Enum):
     ANY_DIVISION = "ANY_DIVISION"
 
 
-class AssignmentRole(str, Enum):
+class AssignmentRole(StrEnum):
     """Why a person occupies a slot: to satisfy a named role, or as general fill."""
 
     ROLE = "ROLE"
     MEMBER = "MEMBER"
 
 
-class WarningSeverity(str, Enum):
+class WarningSeverity(StrEnum):
     ERROR = "ERROR"
     WARNING = "WARNING"
     INFO = "INFO"
 
 
-class WarningKind(str, Enum):
+class WarningKind(StrEnum):
     UNDERSTAFFED = "UNDERSTAFFED"
     MISSING_ROLE = "MISSING_ROLE"
     DIVISION_FALLBACK = "DIVISION_FALLBACK"
 
 
-class UserRole(str, Enum):
+class UserRole(StrEnum):
     ADMIN = "ADMIN"
     SCHEDULER = "SCHEDULER"
     STAFF = "STAFF"
 
 
-class TimeOffStatus(str, Enum):
+class TimeOffStatus(StrEnum):
     PENDING = "PENDING"
     APPROVED = "APPROVED"
     DENIED = "DENIED"
     CANCELLED = "CANCELLED"
 
 
-class FeasibilityVerdict(str, Enum):
+class FeasibilityVerdict(StrEnum):
     OK = "OK"
     TIGHT = "TIGHT"
     INFEASIBLE = "INFEASIBLE"

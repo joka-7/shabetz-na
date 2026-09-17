@@ -16,9 +16,7 @@ class WeakPassword(ValueError):
 
 def validate_password(password: str) -> None:
     if len(password) < MIN_PASSWORD_LENGTH:
-        raise WeakPassword(
-            f"Password must be at least {MIN_PASSWORD_LENGTH} characters long"
-        )
+        raise WeakPassword(f"Password must be at least {MIN_PASSWORD_LENGTH} characters long")
 
 
 def hash_password(password: str) -> str:

@@ -22,14 +22,26 @@ def test_rotation_cadence_and_wraparound() -> None:
 def test_rotation_block_length_is_configurable() -> None:
     rotation = DivisionRotation(ORDER, block_days=3, anchor=D1)
     assert [rotation.active_division(D1 + timedelta(days=i)) for i in range(6)] == [
-        11, 11, 11, 22, 22, 22,
+        11,
+        11,
+        11,
+        22,
+        22,
+        22,
     ]
 
 
 def test_rotation_supports_any_number_of_divisions() -> None:
     rotation = DivisionRotation((5, 6, 7, 8, 9, 10, 11), block_days=1, anchor=D1)
     assert [rotation.active_division(D1 + timedelta(days=i)) for i in range(8)] == [
-        5, 6, 7, 8, 9, 10, 11, 5,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        5,
     ]
 
 

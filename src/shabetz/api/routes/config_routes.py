@@ -6,8 +6,9 @@ Everything the original specification hardcoded is edited through here.
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, status
-from sqlalchemy import select
-from sqlalchemy.orm import Session as DbSession, selectinload
+from sqlalchemy import delete, select
+from sqlalchemy.orm import Session as DbSession
+from sqlalchemy.orm import selectinload
 
 from ...db import models as orm
 from ...db.models import User
@@ -41,9 +42,7 @@ router = APIRouter(prefix="/api/config", tags=["configuration"])
 
 def _audit(db: DbSession, user: User, entity: str, entity_id: object, action: str) -> None:
     db.add(
-        orm.AuditLog(
-            user_id=user.id, entity_type=entity, entity_id=str(entity_id), action=action
-        )
+        orm.AuditLog(user_id=user.id, entity_type=entity, entity_id=str(entity_id), action=action)
     )
 
 
@@ -134,9 +133,7 @@ def create_level(
     db: DbSession = Depends(get_db),
     user: User = Depends(require_admin),
 ) -> orm.ProficiencyLevel:
-    clash = db.scalar(
-        select(orm.ProficiencyLevel).where(orm.ProficiencyLevel.rank == payload.rank)
-    )
+    clash = db.scalar(select(orm.ProficiencyLevel).where(orm.ProficiencyLevel.rank == payload.rank))
     if clash is not None:
         raise Conflict(f"Rank {payload.rank} is already used by {clash.name!r}")
     row = orm.ProficiencyLevel(**payload.model_dump())
@@ -168,11 +165,11 @@ def delete_level(
 
 
 @router.get("/skills", response_model=list[SkillOut])
-def list_skills(db: DbSession = Depends(get_db), _: User = Depends(current_user)) -> list[orm.Skill]:
+def list_skills(
+    db: DbSession = Depends(get_db), _: User = Depends(current_user)
+) -> list[orm.Skill]:
     return list(
-        db.scalars(
-            select(orm.Skill).where(orm.Skill.is_active.is_(True)).order_by(orm.Skill.name)
-        )
+        db.scalars(select(orm.Skill).where(orm.Skill.is_active.is_(True)).order_by(orm.Skill.name))
     )
 
 
@@ -258,9 +255,7 @@ def delete_template(
         raise NotFound("Shift template not found")
     row.is_active = False
     db.execute(
-        orm.JobShiftTemplate.__table__.delete().where(
-            orm.JobShiftTemplate.shift_template_id == template_id
-        )
+        delete(orm.JobShiftTemplate).where(orm.JobShiftTemplate.shift_template_id == template_id)
     )
     _audit(db, user, "shift_template", template_id, "delete")
 
@@ -337,9 +332,7 @@ def _apply_job(db: DbSession, row: orm.Job, payload: JobIn) -> None:
     row.shift_links = [
         orm.JobShiftTemplate(shift_template_id=tid) for tid in payload.shift_template_ids
     ]
-    row.requirements = [
-        orm.JobSkillRequirement(**req.model_dump()) for req in payload.requirements
-    ]
+    row.requirements = [orm.JobSkillRequirement(**req.model_dump()) for req in payload.requirements]
 
 
 @router.post("/jobs", response_model=JobOut, status_code=status.HTTP_201_CREATED)
@@ -402,7 +395,9 @@ def _people_query():  # type: ignore[no-untyped-def]
 
 
 @router.get("/people", response_model=list[PersonOut])
-def list_people(db: DbSession = Depends(get_db), _: User = Depends(current_user)) -> list[PersonOut]:
+def list_people(
+    db: DbSession = Depends(get_db), _: User = Depends(current_user)
+) -> list[PersonOut]:
     return [_person_out(row) for row in db.scalars(_people_query()).all()]
 
 
@@ -415,9 +410,7 @@ def _apply_person(db: DbSession, row: orm.Person, payload: PersonIn) -> None:
     row.working_days = [
         orm.PersonWorkingDay(weekday=d) for d in sorted(set(payload.working_weekdays))
     ]
-    row.skills = [
-        orm.PersonSkill(skill_id=s.skill_id, level_id=s.level_id) for s in payload.skills
-    ]
+    row.skills = [orm.PersonSkill(skill_id=s.skill_id, level_id=s.level_id) for s in payload.skills]
 
 
 @router.post("/people", response_model=PersonOut, status_code=status.HTTP_201_CREATED)
@@ -474,17 +467,13 @@ def put_settings(
     payload: SettingsIn, db: DbSession = Depends(get_db), user: User = Depends(require_admin)
 ) -> SettingsOut:
     current = load_settings(db)
-    updated = SchedulingSettings(
-        **payload.model_dump(), setup_completed=current.setup_completed
-    )
+    updated = SchedulingSettings(**payload.model_dump(), setup_completed=current.setup_completed)
     save_settings(db, updated)
     _audit(db, user, "settings", "scheduling", "update")
     return SettingsOut(**updated.model_dump())
 
 
 @router.get("/feasibility", response_model=FeasibilityOut)
-def feasibility(
-    db: DbSession = Depends(get_db), _: User = Depends(current_user)
-) -> FeasibilityOut:
+def feasibility(db: DbSession = Depends(get_db), _: User = Depends(current_user)) -> FeasibilityOut:
     report = JobOrchestrationService(db).feasibility()
     return FeasibilityOut.model_validate(report)

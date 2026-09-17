@@ -201,9 +201,7 @@ class ShiftSlot:
     duration_hours: float
 
     @classmethod
-    def build(
-        cls, job: Job, template: ShiftTemplate, day: date, day_index: int
-    ) -> ShiftSlot:
+    def build(cls, job: Job, template: ShiftTemplate, day: date, day_index: int) -> ShiftSlot:
         return cls(
             job_id=job.id,
             job_name=job.name,

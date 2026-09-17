@@ -21,9 +21,7 @@ from .settings_service import SchedulingSettings, load_settings
 
 
 class JobOrchestrationService:
-    def __init__(
-        self, session: DbSession, strategy: SchedulingStrategy | None = None
-    ) -> None:
+    def __init__(self, session: DbSession, strategy: SchedulingStrategy | None = None) -> None:
         self._db = session
         self._repo = DbSchedulingRepository(session)
         self._strategy = strategy or SimpleGreedyScheduler()

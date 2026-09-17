@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 
-class ExportFormat(str, Enum):
+class ExportFormat(StrEnum):
     CSV = "csv"
     HTML = "html"
     PDF = "pdf"

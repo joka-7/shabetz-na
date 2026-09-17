@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import csv
 import io
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -76,13 +76,17 @@ def render_csv(payload: dict, params: dict, summary: dict, schedule_id: str) -> 
 
 
 def render_html(payload: dict, params: dict, summary: dict, schedule_id: str) -> ExportedFile:
-    html = _env().get_template("schedule.html.j2").render(
-        rows=_rows(payload),
-        warnings=payload.get("warnings", []),
-        params=params,
-        summary=summary,
-        schedule_id=schedule_id,
-        generated_at=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+    html = (
+        _env()
+        .get_template("schedule.html.j2")
+        .render(
+            rows=_rows(payload),
+            warnings=payload.get("warnings", []),
+            params=params,
+            summary=summary,
+            schedule_id=schedule_id,
+            generated_at=datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC"),
+        )
     )
     return ExportedFile(
         html.encode("utf-8"), "text/html; charset=utf-8", f"{_stem(params, schedule_id)}.html"

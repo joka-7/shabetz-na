@@ -9,12 +9,12 @@ indexed or unique is given an explicit bounded length rather than ``TEXT``.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import DateTime, MetaData
 from sqlalchemy.dialects.mysql import DATETIME as MYSQL_DATETIME
 from sqlalchemy.engine import Dialect
-from sqlalchemy.orm import DeclarativeBase, mapped_column
+from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.types import TypeDecorator
 
 TABLE_ARGS = {
@@ -54,12 +54,12 @@ class UtcDateTime(TypeDecorator[datetime]):
             return None
         if value.tzinfo is None:
             return value
-        return value.astimezone(timezone.utc).replace(tzinfo=None)
+        return value.astimezone(UTC).replace(tzinfo=None)
 
     def process_result_value(self, value: datetime | None, dialect: Dialect) -> datetime | None:
         if value is None:
             return None
-        return value.replace(tzinfo=timezone.utc)
+        return value.replace(tzinfo=UTC)
 
 
 class Base(DeclarativeBase):
@@ -67,8 +67,4 @@ class Base(DeclarativeBase):
 
 
 def utcnow() -> datetime:
-    return datetime.now(timezone.utc)
-
-
-def timestamp_column(**kwargs: object):  # type: ignore[no-untyped-def]
-    return mapped_column(UtcDateTime, default=utcnow, **kwargs)
+    return datetime.now(UTC)

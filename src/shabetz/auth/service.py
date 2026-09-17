@@ -59,14 +59,10 @@ def create_user(
     return user
 
 
-def bootstrap_first_admin(
-    db: DbSession, *, email: str, full_name: str, password: str
-) -> User:
+def bootstrap_first_admin(db: DbSession, *, email: str, full_name: str, password: str) -> User:
     if setup_is_complete(db):
         raise AuthError("Setup has already been completed")
-    return create_user(
-        db, email=email, full_name=full_name, role=UserRole.ADMIN, password=password
-    )
+    return create_user(db, email=email, full_name=full_name, role=UserRole.ADMIN, password=password)
 
 
 def _find_by_email(db: DbSession, email: str) -> User | None:

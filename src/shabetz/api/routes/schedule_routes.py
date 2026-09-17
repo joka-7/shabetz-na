@@ -150,9 +150,7 @@ def my_assignments(
 
 
 @router.get("/divisions")
-def division_status(
-    db: DbSession = Depends(get_db), _: User = Depends(current_user)
-) -> dict:
+def division_status(db: DbSession = Depends(get_db), _: User = Depends(current_user)) -> dict:
     repo = DbSchedulingRepository(db)
     divisions = repo.load_divisions()
     today = date.today()

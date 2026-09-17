@@ -10,28 +10,28 @@ from __future__ import annotations
 from datetime import date, datetime
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     Date,
     Float,
     ForeignKey,
     Index,
     Integer,
-    JSON,
     LargeBinary,
     String,
     Text,
     UniqueConstraint,
 )
 from sqlalchemy.dialects.mysql import LONGBLOB
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from ..domain.enums import DivisionPolicy, TimeOffStatus, UserRole
+from .base import TABLE_ARGS, Base, UtcDateTime, utcnow
 
 # MySQL gets LONGBLOB so a long horizon across a large roster is not capped at
 # BLOB's 64 KiB; other dialects fall back to their own large-binary type, which
 # is what lets the authorization suite run without a MySQL server.
 PayloadBlob = LargeBinary().with_variant(LONGBLOB(), "mysql")
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-from ..domain.enums import DivisionPolicy, TimeOffStatus, UserRole
-from .base import TABLE_ARGS, Base, UtcDateTime, utcnow
 
 # Bounded lengths for indexed or unique text columns; see db.base for why.
 NAME_LEN = 120
@@ -49,9 +49,7 @@ class User(Base):
     # Either credential may be absent: an account can be password-only,
     # Google-only, or both once a Google identity is linked.
     password_hash: Mapped[str | None] = mapped_column(String(TOKEN_LEN), default=None)
-    google_sub: Mapped[str | None] = mapped_column(
-        String(TOKEN_LEN), unique=True, default=None
-    )
+    google_sub: Mapped[str | None] = mapped_column(String(TOKEN_LEN), unique=True, default=None)
     full_name: Mapped[str] = mapped_column(String(NAME_LEN))
     role: Mapped[UserRole] = mapped_column(String(32), default=UserRole.STAFF)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -237,9 +235,7 @@ class PersonSkill(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     person_id: Mapped[int] = mapped_column(ForeignKey("people.id", ondelete="CASCADE"))
     skill_id: Mapped[int] = mapped_column(ForeignKey("skills.id", ondelete="RESTRICT"))
-    level_id: Mapped[int] = mapped_column(
-        ForeignKey("proficiency_levels.id", ondelete="RESTRICT")
-    )
+    level_id: Mapped[int] = mapped_column(ForeignKey("proficiency_levels.id", ondelete="RESTRICT"))
 
     person: Mapped[Person] = relationship(back_populates="skills")
     skill: Mapped[Skill] = relationship()

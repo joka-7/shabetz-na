@@ -7,7 +7,6 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session, sessionmaker
 
 from shabetz.auth.service import create_user
-from shabetz.db.models import User
 from shabetz.domain.enums import UserRole
 from tests.integration.conftest import ADMIN_PASSWORD, Actor
 
