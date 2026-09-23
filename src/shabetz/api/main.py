@@ -7,7 +7,14 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from ..config import get_settings
 from .errors import install_handlers
-from .routes import auth_routes, config_routes, meta_routes, schedule_routes, timeoff_routes
+from .routes import (
+    auth_routes,
+    config_routes,
+    meta_routes,
+    schedule_routes,
+    timeoff_routes,
+    user_routes,
+)
 
 
 def create_app() -> FastAPI:
@@ -39,6 +46,7 @@ def create_app() -> FastAPI:
         config_routes,
         schedule_routes,
         timeoff_routes,
+        user_routes,
     ):
         app.include_router(module.router)
 

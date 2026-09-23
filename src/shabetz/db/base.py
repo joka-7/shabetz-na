@@ -10,8 +10,10 @@ indexed or unique is given an explicit bounded length rather than ``TEXT``.
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from enum import Enum
+from typing import Any
 
-from sqlalchemy import DateTime, MetaData
+from sqlalchemy import DateTime, MetaData, String
 from sqlalchemy.dialects.mysql import DATETIME as MYSQL_DATETIME
 from sqlalchemy.engine import Dialect
 from sqlalchemy.orm import DeclarativeBase
@@ -60,6 +62,38 @@ class UtcDateTime(TypeDecorator[datetime]):
         if value is None:
             return None
         return value.replace(tzinfo=UTC)
+
+
+class StrEnumType(TypeDecorator[Any]):
+    """A string column that round-trips as its enum member.
+
+    Declaring ``Mapped[SomeEnum]`` over a plain ``String`` stores the value but
+    loads a bare ``str`` back, so every ``x is SomeEnum.MEMBER`` comparison
+    silently evaluates False while ``==`` still passes. That reads as working
+    code and fails quietly, so the coercion belongs in the column type rather
+    than in each comparison.
+    """
+
+    impl = String
+    cache_ok = True
+
+    def __init__(self, enum_class: type[Enum], length: int = 32) -> None:
+        self._enum_class = enum_class
+        super().__init__(length=length)
+
+    def process_bind_param(self, value: Any, dialect: Dialect) -> str | None:
+        if value is None:
+            return None
+        if isinstance(value, self._enum_class):
+            return str(value.value)
+        # Accept the raw value too, so a plain string from an API payload is
+        # still validated against the enum rather than stored blindly.
+        return str(self._enum_class(value).value)
+
+    def process_result_value(self, value: Any, dialect: Dialect) -> Any:
+        if value is None:
+            return None
+        return self._enum_class(value)
 
 
 class Base(DeclarativeBase):

@@ -26,7 +26,7 @@ from sqlalchemy.dialects.mysql import LONGBLOB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..domain.enums import DivisionPolicy, TimeOffStatus, UserRole
-from .base import TABLE_ARGS, Base, UtcDateTime, utcnow
+from .base import TABLE_ARGS, Base, StrEnumType, UtcDateTime, utcnow
 
 # MySQL gets LONGBLOB so a long horizon across a large roster is not capped at
 # BLOB's 64 KiB; other dialects fall back to their own large-binary type, which
@@ -51,7 +51,7 @@ class User(Base):
     password_hash: Mapped[str | None] = mapped_column(String(TOKEN_LEN), default=None)
     google_sub: Mapped[str | None] = mapped_column(String(TOKEN_LEN), unique=True, default=None)
     full_name: Mapped[str] = mapped_column(String(NAME_LEN))
-    role: Mapped[UserRole] = mapped_column(String(32), default=UserRole.STAFF)
+    role: Mapped[UserRole] = mapped_column(StrEnumType(UserRole), default=UserRole.STAFF)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     person_id: Mapped[int | None] = mapped_column(
         ForeignKey("people.id", ondelete="SET NULL"), default=None
@@ -145,7 +145,8 @@ class Job(Base):
     name: Mapped[str] = mapped_column(String(LONG_NAME_LEN))
     required_people_per_shift: Mapped[int] = mapped_column(Integer, default=1)
     division_policy: Mapped[DivisionPolicy] = mapped_column(
-        String(40), default=DivisionPolicy.ACTIVE_DIVISION_PREFERRED
+        StrEnumType(DivisionPolicy, length=40),
+        default=DivisionPolicy.ACTIVE_DIVISION_PREFERRED,
     )
     priority: Mapped[int | None] = mapped_column(Integer, default=None)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -275,7 +276,9 @@ class TimeOff(Base):
     start_date: Mapped[date] = mapped_column(Date)
     end_date: Mapped[date] = mapped_column(Date)
     reason: Mapped[str | None] = mapped_column(Text, default=None)
-    status: Mapped[TimeOffStatus] = mapped_column(String(20), default=TimeOffStatus.PENDING)
+    status: Mapped[TimeOffStatus] = mapped_column(
+        StrEnumType(TimeOffStatus, length=20), default=TimeOffStatus.PENDING
+    )
     requested_by: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), default=None
     )

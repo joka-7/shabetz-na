@@ -40,6 +40,40 @@ class UserOut(BaseModel):
     person_id: int | None = None
 
 
+class UserAdminOut(UserOut):
+    """What an administrator sees when managing accounts.
+
+    Carries whether each sign-in method is usable, so an invited account that
+    cannot yet sign in is visible as such rather than looking ready.
+    """
+
+    has_password: bool = False
+    has_google: bool = False
+    last_login_at: datetime | None = None
+    is_locked: bool = False
+
+
+class UserCreate(BaseModel):
+    email: str = Field(min_length=3, max_length=255)
+    full_name: str = Field(min_length=1, max_length=120)
+    role: UserRole = UserRole.STAFF
+    # Optional: an account may instead be reached through Google, or have its
+    # password set later.
+    password: str | None = None
+    person_id: int | None = None
+
+
+class UserUpdate(BaseModel):
+    full_name: str | None = Field(default=None, min_length=1, max_length=120)
+    role: UserRole | None = None
+    is_active: bool | None = None
+    person_id: int | None = None
+
+
+class PasswordSet(BaseModel):
+    password: str
+
+
 class SessionOut(BaseModel):
     user: UserOut
     csrf_token: str

@@ -207,3 +207,10 @@ export interface Capabilities {
   pdf_available: boolean;
   setup_complete: boolean;
 }
+
+export interface AdminUser extends User {
+  has_password: boolean;
+  has_google: boolean;
+  last_login_at: string | null;
+  is_locked: boolean;
+}

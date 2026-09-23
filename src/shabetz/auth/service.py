@@ -69,6 +69,53 @@ def _find_by_email(db: DbSession, email: str) -> User | None:
     return db.scalar(select(User).where(User.email == email.strip().lower()))
 
 
+class LastAdminError(Exception):
+    """Refused because it would leave the system with no way in.
+
+    Distinct from AuthError: this is not a failed sign-in, it is a
+    configuration change that would lock everyone out permanently.
+    """
+
+
+def active_admin_count(db: DbSession, *, excluding: int | None = None) -> int:
+    query = (
+        select(func.count())
+        .select_from(User)
+        .where(User.role == UserRole.ADMIN, User.is_active.is_(True))
+    )
+    if excluding is not None:
+        query = query.where(User.id != excluding)
+    return db.scalar(query) or 0
+
+
+def assert_not_last_admin(db: DbSession, user: User) -> None:
+    """Guard a change that would strip the final administrator.
+
+    Demoting or deactivating the only admin leaves nobody able to manage
+    configuration or restore access, and the bootstrap route is long closed by
+    then, so the database would have to be edited by hand.
+    """
+    if (
+        user.role is UserRole.ADMIN
+        and user.is_active
+        and active_admin_count(db, excluding=user.id) == 0
+    ):
+        raise LastAdminError("This is the only administrator; promote another account first")
+
+
+def email_is_taken(db: DbSession, email: str, *, excluding: int | None = None) -> bool:
+    existing = _find_by_email(db, email)
+    return existing is not None and existing.id != excluding
+
+
+def set_password(db: DbSession, user: User, password: str) -> None:
+    user.password_hash = hash_password(password)
+    # A password change should end sessions opened with the old one.
+    from .sessions import revoke_all_for_user
+
+    revoke_all_for_user(db, user.id)
+
+
 def authenticate_password(
     db: DbSession, email: str, password: str, *, max_attempts: int, lockout_minutes: int
 ) -> User:

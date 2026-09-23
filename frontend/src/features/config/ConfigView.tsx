@@ -7,6 +7,7 @@ import { PeopleStep } from "@/features/setup/steps/PeopleStep";
 import { RulesStep } from "@/features/setup/steps/RulesStep";
 import { ShiftTemplatesStep } from "@/features/setup/steps/ShiftTemplatesStep";
 import { SkillsStep } from "@/features/setup/steps/SkillsStep";
+import { UsersAdmin } from "./UsersAdmin";
 
 /**
  * Ongoing configuration.
@@ -23,6 +24,7 @@ const SECTIONS = [
   { id: "jobs", label: "Jobs", Component: JobsStep },
   { id: "people", label: "People", Component: PeopleStep },
   { id: "rules", label: "Rules", Component: RulesStep },
+  { id: "users", label: "Accounts", Component: UsersAdmin },
 ] as const;
 
 export function ConfigView() {
@@ -53,11 +55,14 @@ export function ConfigView() {
           <section.Component />
         </div>
         {/* Any structural change alters what can be staffed, so the verdict
-            sits alongside the editors rather than only in the wizard. */}
-        <div className="card">
-          <h2 className="label">Can this be staffed?</h2>
-          <FeasibilityPanel />
-        </div>
+            sits alongside the editors rather than only in the wizard. Accounts
+            are the exception: they change who may sign in, not staffing. */}
+        {active !== "users" && (
+          <div className="card">
+            <h2 className="label">Can this be staffed?</h2>
+            <FeasibilityPanel />
+          </div>
+        )}
       </div>
     </div>
   );
