@@ -14,8 +14,10 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+# Anchored to the root: unanchored, these matched frontend/src/lib/ and kept
+# the frontend's shared modules out of the repository.
+/lib/
+/lib64/
 parts/
 sdist/
 var/
@@ -216,3 +218,22 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Project-specific
+.venv/
+.env
+*.db
+node_modules/
+frontend/dist/
+.ruff_cache/
+frontend/package-lock.json.bak
+openapi.json
+
+# Built frontend copied into the package for the executable and server
+src/shabetz/web/
+
+# The template above ignores *.spec and *.manifest everywhere; the packaging
+# files are source, so they are kept explicitly.
+!packaging/*.spec
+!packaging/*.manifest
+*.tsbuildinfo

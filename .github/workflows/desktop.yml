@@ -1,0 +1,138 @@
+name: Windows desktop app
+
+on:
+  pull_request:
+  push:
+    branches: ["main"]
+    tags: ["v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # A Windows executable can only be built on Windows.
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build the frontend into the package
+        shell: pwsh
+        run: |
+          npm ci --prefix frontend
+          npm run build --prefix frontend
+          if (Test-Path src/shabetz/web) { Remove-Item -Recurse -Force src/shabetz/web }
+          Copy-Item -Recurse frontend/dist src/shabetz/web
+
+      - uses: astral-sh/setup-uv@v4
+
+      - run: uv sync --extra desktop --extra build
+
+      - name: Bundle the executable
+        run: uv run --extra desktop --extra build pyinstaller packaging/shabetz.spec --noconfirm
+
+      - name: Check the native window libraries were bundled
+        shell: pwsh
+        run: |
+          $env:LOCALAPPDATA = Join-Path $env:RUNNER_TEMP "shabetz-selftest"
+          $check = Start-Process -FilePath "dist/Shabetz/Shabetz.exe" `
+            -ArgumentList "--self-test" -Wait -PassThru
+          if ($check.ExitCode -ne 0) {
+            Get-Content (Join-Path $env:LOCALAPPDATA "Shabetz/shabetz.log") -ErrorAction SilentlyContinue
+            throw "The window libraries are missing from the bundle"
+          }
+
+      # Built is not the same as working: launch the real executable, with an
+      # empty data folder as a new user would have, and check it serves.
+      - name: Smoke-test the executable
+        shell: pwsh
+        run: |
+          $data = Join-Path $env:RUNNER_TEMP "shabetz-smoke"
+          New-Item -ItemType Directory -Force $data | Out-Null
+          $env:LOCALAPPDATA = $data
+          $app = Start-Process -FilePath "dist/Shabetz/Shabetz.exe" `
+            -ArgumentList "--no-window", "--port", "8790" -PassThru
+
+          $ok = $false
+          foreach ($i in 1..60) {
+            try {
+              $health = Invoke-RestMethod http://127.0.0.1:8790/api/meta/health
+              if ($health.app -eq "shabetz") { $ok = $true; break }
+            } catch { Start-Sleep -Milliseconds 500 }
+          }
+          if (-not $ok) {
+            Get-Content (Join-Path $data "Shabetz/shabetz.log") -ErrorAction SilentlyContinue
+            throw "The executable did not start"
+          }
+
+          $caps = Invoke-RestMethod http://127.0.0.1:8790/api/meta/capabilities
+          if ($caps.deployment -ne "desktop") { throw "Not running in desktop mode" }
+          if ($caps.setup_code_required) { throw "Desktop must not ask for a setup code" }
+
+          $page = Invoke-WebRequest http://127.0.0.1:8790/ -UseBasicParsing
+          if ($page.StatusCode -ne 200 -or $page.Content -notmatch "<div id=`"root`">") {
+            throw "The frontend was not served"
+          }
+
+          # Migrations ran from inside the bundle if the database exists.
+          if (-not (Test-Path (Join-Path $data "Shabetz/shabetz.db"))) {
+            throw "No database was created"
+          }
+
+          Stop-Process -Id $app.Id -Force
+          Write-Host "Executable started, migrated its database and served the app."
+
+      - name: Version
+        id: version
+        shell: pwsh
+        run: |
+          if ("${{ github.ref_type }}" -eq "tag") {
+            $v = "${{ github.ref_name }}".TrimStart("v")
+          } else {
+            $v = "0.0.0-dev.${{ github.run_number }}"
+          }
+          "value=$v" >> $env:GITHUB_OUTPUT
+
+      - name: Build the installer
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup --no-progress -y
+          }
+          & $iscc "/DAppVersion=${{ steps.version.outputs.value }}" packaging/installer.iss
+          if ($LASTEXITCODE -ne 0) { throw "Installer build failed" }
+
+      - name: Portable zip
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist/Shabetz/* `
+            -DestinationPath "dist/Shabetz-Portable-${{ steps.version.outputs.value }}.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Shabetz-Windows-${{ steps.version.outputs.value }}
+          path: |
+            dist/Shabetz-Setup-*.exe
+            dist/Shabetz-Portable-*.zip
+          if-no-files-found: error
+
+      # A version tag publishes a download page with the installer attached.
+      - name: Publish release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/Shabetz-Setup-*.exe
+            dist/Shabetz-Portable-*.zip

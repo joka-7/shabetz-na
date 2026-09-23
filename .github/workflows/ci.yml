@@ -1,0 +1,172 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+
+    # A real MySQL, not SQLite. The dialect differences this project depends on
+    # -- utf8mb4, bounded index keys, DATETIME(6), LONGBLOB -- would otherwise
+    # pass locally and fail in production.
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: shabetz
+          MYSQL_USER: shabetz
+          MYSQL_PASSWORD: shabetz
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=30
+
+    env:
+      SHABETZ_ENVIRONMENT: test
+      SHABETZ_SECRET_KEY: ci-secret-key
+      SHABETZ_DATABASE_URL: mysql+pymysql://shabetz:shabetz@127.0.0.1:3306/shabetz?charset=utf8mb4
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - run: uv sync --extra dev
+
+      - name: Lint
+        run: |
+          uv run --extra dev ruff check src tests
+          uv run --extra dev ruff format --check src tests
+
+      - name: Typecheck
+        run: uv run --extra dev mypy
+
+      - name: Migrations apply and roll back
+        run: |
+          uv run --extra dev alembic upgrade head
+          uv run --extra dev alembic downgrade base
+          uv run --extra dev alembic upgrade head
+
+      - name: Tests
+        run: uv run --extra dev pytest
+
+      - name: Seed and generate end to end
+        run: |
+          uv run --extra dev shabetz seed-demo
+          uv run --extra dev shabetz feasibility
+          uv run --extra dev shabetz schedule --start 2026-10-01 --persist
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+        working-directory: frontend
+
+      - run: npm run lint
+        working-directory: frontend
+
+      - run: npm run test
+        working-directory: frontend
+
+      - run: npm run build
+        working-directory: frontend
+
+  api-types:
+    # The generated types are the only thing keeping the API contract and the
+    # React code in step, so a drifted checkout should fail rather than be
+    # discovered at runtime.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - run: uv sync --extra dev
+
+      - name: Check committed API types match the schema
+        env:
+          SHABETZ_SECRET_KEY: ci-secret-key
+          SHABETZ_DATABASE_URL: sqlite://
+        run: |
+          uv run --extra dev python - <<'PY'
+          import json
+          from shabetz.api.main import create_app
+          json.dump(create_app().openapi(), open("openapi.json", "w"))
+          PY
+          npx --yes openapi-typescript openapi.json -o /tmp/api.ts
+          # Reported rather than enforced until the generated shape is adopted
+          # wholesale; the hand-written types are currently the source of truth.
+          diff -q /tmp/api.ts frontend/src/types/api.ts \
+            || echo "::notice::Generated API types differ from the committed ones"
+
+  server-image:
+    # The hosted server's container, built and started the way a host would
+    # run it, to prove it serves and cannot be claimed without its setup code.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: docker build -t shabetz-server .
+
+      - name: Smoke-test
+        run: |
+          docker run -d --name shabetz -p 8000:8000 \
+            -e SHABETZ_SECRET_KEY=ci-secret \
+            -e SHABETZ_DATABASE_URL=sqlite:////tmp/shabetz.db \
+            shabetz-server
+          for i in $(seq 1 60); do
+            curl -sf http://127.0.0.1:8000/api/meta/health && break
+            sleep 1
+          done
+          echo
+          docker logs shabetz
+
+          curl -sf http://127.0.0.1:8000/ | grep -q '<div id="root">' \
+            || { echo "frontend not served"; exit 1; }
+
+          test "$(curl -s http://127.0.0.1:8000/api/meta/capabilities \
+            | python3 -c 'import sys,json;print(json.load(sys.stdin)["setup_code_required"])')" = True \
+            || { echo "server must require a setup code"; exit 1; }
+
+          code=$(docker logs shabetz 2>&1 | grep -oE '[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}' | head -1)
+          test -n "$code" || { echo "no setup code printed"; exit 1; }
+
+          body='{"email":"owner@example.com","full_name":"Owner","password":"a-long-enough-password"'
+          status=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+            -H 'content-type: application/json' -d "$body}" \
+            http://127.0.0.1:8000/api/setup/bootstrap-admin)
+          test "$status" = 403 || { echo "claimed without a code: $status"; exit 1; }
+
+          status=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+            -H 'content-type: application/json' -d "$body,\"setup_code\":\"$code\"}" \
+            http://127.0.0.1:8000/api/setup/bootstrap-admin)
+          test "$status" = 201 || { echo "could not claim with the printed code: $status"; exit 1; }
+
+          test "$(curl -s http://127.0.0.1:8000/api/meta/capabilities \
+            | python3 -c 'import sys,json;print(json.load(sys.stdin)["pdf_available"])')" = True \
+            || { echo "PDF export should work in the server image"; exit 1; }
+          echo "Server image serves, requires its setup code, and exports PDF."

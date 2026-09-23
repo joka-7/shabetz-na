@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Schedule {{ params.start_date }} to {{ params.end_date }}</title>
+<style>
+  @page { size: A4 landscape; margin: 14mm; }
+  body { font-family: "Helvetica Neue", Arial, sans-serif; font-size: 10pt; color: #1a1a1a; }
+  h1 { font-size: 16pt; margin: 0 0 2mm; }
+  .meta { color: #555; font-size: 9pt; margin-bottom: 5mm; }
+  .cards { display: flex; gap: 4mm; margin-bottom: 5mm; flex-wrap: wrap; }
+  .card { border: 1px solid #d5d5d5; border-radius: 3px; padding: 2.5mm 4mm; min-width: 32mm; }
+  .card .label { font-size: 7.5pt; text-transform: uppercase; letter-spacing: .4pt; color: #666; }
+  .card .value { font-size: 14pt; font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; }
+  /* Repeat the header on every page so a long roster stays readable in print. */
+  thead { display: table-header-group; }
+  tr { page-break-inside: avoid; }
+  th { background: #f2f2f2; text-align: left; font-size: 8.5pt; text-transform: uppercase;
+       letter-spacing: .3pt; padding: 1.8mm 2mm; border-bottom: 1px solid #c9c9c9; }
+  td { padding: 1.5mm 2mm; border-bottom: 1px solid #ececec; }
+  tbody tr:nth-child(even) { background: #fafafa; }
+  .role { font-weight: 600; }
+  .badge { display: inline-block; padding: 0.3mm 1.5mm; border-radius: 2px;
+           font-size: 8pt; border: 1px solid #bbb; }
+  .fallback { color: #8a4b00; border-color: #e0b070; background: #fff6e8; }
+  .warnings { margin-top: 6mm; }
+  .warnings h2 { font-size: 12pt; margin-bottom: 2mm; }
+  .w { padding: 1.2mm 2mm; border-left: 3px solid #ccc; margin-bottom: 1mm; font-size: 9pt; }
+  .w.ERROR { border-color: #c0392b; background: #fdf0ef; }
+  .w.WARNING { border-color: #d68910; background: #fdf6e9; }
+  .w.INFO { border-color: #7f8c8d; background: #f5f6f6; }
+</style>
+</head>
+<body>
+  <h1>{{ summary.get('organization_name') or 'Shift schedule' }}</h1>
+  <div class="meta">
+    {{ params.start_date }} to {{ params.end_date }} &middot;
+    rest window {{ params.rest_period_hours }}h &middot;
+    generated {{ generated_at }} &middot; run {{ schedule_id[:8] }}
+  </div>
+
+  <div class="cards">
+    <div class="card"><div class="label">Assignments</div>
+      <div class="value">{{ summary.total_assignments }}</div></div>
+    <div class="card"><div class="label">Staff used</div>
+      <div class="value">{{ summary.people_used }} / {{ summary.total_people }}</div></div>
+    <div class="card"><div class="label">Utilisation</div>
+      <div class="value">{{ '%.0f' % (summary.utilization_rate * 100) }}%</div></div>
+    <div class="card"><div class="label">Understaffed</div>
+      <div class="value">{{ summary.understaffed_shift_count }}</div></div>
+    <div class="card"><div class="label">Borrowed</div>
+      <div class="value">{{ summary.division_fallback_count }}</div></div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th><th>Shift</th><th>Time</th><th>Job</th><th>Person</th><th>Role</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td>{{ row.calendar_date }}</td>
+        <td>{{ row.template_name }}</td>
+        <td>{{ row.clock_start }}&ndash;{{ row.clock_end }}</td>
+        <td>{{ row.job_name }}</td>
+        <td>
+          {{ row.person_name }}
+          {% if row.is_division_fallback %}<span class="badge fallback">borrowed</span>{% endif %}
+        </td>
+        <td class="role">{{ 'Role' if row.role == 'ROLE' else '' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6">No assignments were generated for this period.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if warnings %}
+  <div class="warnings">
+    <h2>Warnings ({{ warnings | length }})</h2>
+    {% for w in warnings %}
+    <div class="w {{ w.severity }}">{{ w.message }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</body>
+</html>
