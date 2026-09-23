@@ -68,5 +68,23 @@ types: ## Regenerate frontend API types from the running API
 	@echo "Requires the API on :8000 (make api)"
 	npx --yes openapi-typescript http://127.0.0.1:8000/openapi.json -o frontend/src/types/api.ts
 
+.PHONY: web
+web: ## Build the frontend into the package (needed by desktop and server)
+	$(NPM) run build
+	rm -rf src/shabetz/web
+	cp -r frontend/dist src/shabetz/web
+
+.PHONY: desktop
+desktop: web ## Bundle the desktop app (a Windows .exe when run on Windows)
+	uv run --extra desktop --extra build pyinstaller packaging/shabetz.spec --noconfirm
+
+.PHONY: desktop-run
+desktop-run: web ## Run the desktop app from source
+	$(UV) shabetz desktop
+
+.PHONY: serve
+serve: web ## Run the hosted server locally
+	$(UV) shabetz serve
+
 .PHONY: check
 check: lint test ## Lint, typecheck and test everything

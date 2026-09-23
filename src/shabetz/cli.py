@@ -39,6 +39,7 @@ def serve(
     migrate: bool = typer.Option(True, help="Apply database migrations before starting."),
     forwarded_allow_ips: str = typer.Option(
         "127.0.0.1",
+        envvar="SHABETZ_FORWARDED_ALLOW_IPS",
         help=(
             "Proxies trusted to report the real client address. Set this to your "
             "reverse proxy's address, or per-address sign-in throttling will see "

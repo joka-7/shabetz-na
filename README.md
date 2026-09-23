@@ -19,7 +19,18 @@ range that respects:
 Schedules export to CSV, HTML and PDF, and staff can see their own shifts and
 request time off.
 
-## Quick start
+## Two ways to run it
+
+| | For | Data |
+| :-- | :-- | :-- |
+| **Windows desktop app** | One computer, no technical setup. Download an installer, double-click, done. See [docs/INSTALL-WINDOWS.md](docs/INSTALL-WINDOWS.md). | SQLite, in the user's own folder |
+| **Hosted website** | People signing in from anywhere with their own accounts. See [docs/HOSTING.md](docs/HOSTING.md). | MySQL |
+
+Both are the same application. The installer is built by GitHub Actions on
+Windows (`.github/workflows/desktop.yml`); pushing a `v*` tag publishes it as a
+release.
+
+## Quick start (development)
 
 ```bash
 make install                       # backend and frontend dependencies
@@ -130,6 +141,8 @@ staffed before general pools drain the roster, named roles being filled before
 general head count, availability being seeded so an hour-zero shift is
 reachable, and understaffing being reported rather than swallowed.
 
-CI runs the backend suite against a real MySQL service container rather than
-SQLite, because the dialect differences above would otherwise pass locally and
-fail in production.
+The unit and API tests run on SQLite. CI separately applies and rolls back the
+migrations, seeds a configuration and generates a schedule against a real
+MySQL 8 service container, because the dialect differences above would
+otherwise pass locally and fail in production. It also builds and smoke-tests
+the server image and the Windows executable.

@@ -157,6 +157,26 @@ def open_window(url: str) -> bool:
     return True
 
 
+def window_support_self_test() -> int:
+    """Exit 0 when the native window can be created on this machine.
+
+    The build's smoke test runs without a window, so without this a bundle
+    missing the window libraries would pass the build and then open in the
+    browser on every user's machine.
+    """
+    try:
+        import webview  # noqa: F401
+
+        if sys.platform == "win32":
+            # WebView2 is driven through the .NET bridge; this is what a bundle
+            # most often loses.
+            import clr  # type: ignore[import-not-found]  # noqa: F401
+    except Exception:
+        log.exception("Window libraries are not available")
+        return 1
+    return 0
+
+
 def _wait_for(thread: threading.Thread) -> None:
     """Block until ``thread`` ends, still responsive to an interrupt.
 
@@ -200,10 +220,20 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Run the server without opening a window (for testing).",
     )
+    parser.add_argument(
+        "--self-test",
+        action="store_true",
+        help="Check the native window libraries are bundled, then exit.",
+    )
     args = parser.parse_args(argv)
 
     directory = data_dir()
     _configure_logging(directory)
+
+    if args.self_test:
+        # After logging is set up, so a failure's reason reaches the log file
+        # the build prints.
+        return window_support_self_test()
     _stop_cleanly_on_terminate()
     log.info("Starting %s; data in %s", APP_NAME, directory)
 
