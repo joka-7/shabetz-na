@@ -5,6 +5,7 @@ import { ErrorNotice, LanguageSwitch } from "@/components/ui";
 import { useI18n } from "@/i18n";
 import type { MessageKey } from "@/i18n";
 import { errorText } from "@/i18n/errors";
+import { PasswordReset } from "./PasswordReset";
 
 const GOOGLE_ERRORS: Record<string, MessageKey> = {
   cancelled: "login.googleCancelled",
@@ -23,6 +24,13 @@ export function LoginPage({ needsSetup }: { needsSetup: boolean }) {
   const needsCode = needsSetup && Boolean(capabilities?.setup_code_required);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [capsLock, setCapsLock] = useState(false);
+  // A password that "stopped working" is very often typed with the keyboard
+  // switched to Hebrew, or with Caps Lock on; both are invisible in a
+  // password field, so they are pointed out.
+  const typingHebrew = /[\u0590-\u05FF]/.test(password);
+  const canReset = !needsSetup && Boolean(capabilities?.password_recovery);
 
   // A failed Google round trip comes back as a redirect, so its reason arrives
   // in the query string rather than a response we could catch.
@@ -57,6 +65,10 @@ export function LoginPage({ needsSetup }: { needsSetup: boolean }) {
 
         {needsSetup && <p className="mb-4 text-sm text-slate-500">{t("login.setupIntro")}</p>}
 
+        {resetting ? (
+          <PasswordReset onCancel={() => setResetting(false)} />
+        ) : (
+        <>
         <form onSubmit={submit} className="space-y-3">
           {/* On a hosted server the first administrator must prove they
               deployed it; otherwise the site belongs to whoever loads it first. */}
@@ -92,7 +104,14 @@ export function LoginPage({ needsSetup }: { needsSetup: boolean }) {
             <label className="label" htmlFor="password">{t("login.password")}</label>
             <input id="password" className="input" type="password"
                    autoComplete={needsSetup ? "new-password" : "current-password"}
-                   value={password} required onChange={(e) => setPassword(e.target.value)} />
+                   value={password} required onChange={(e) => setPassword(e.target.value)}
+                   onKeyUp={(e) => setCapsLock(e.getModifierState("CapsLock"))} />
+            {typingHebrew && (
+              <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">{t("login.hebrewKeyboard")}</p>
+            )}
+            {capsLock && (
+              <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">{t("login.capsLock")}</p>
+            )}
             {needsSetup && (
               <p className="mt-1 text-xs text-slate-500">{t("login.passwordHint")}</p>
             )}
@@ -110,6 +129,18 @@ export function LoginPage({ needsSetup }: { needsSetup: boolean }) {
           <a className="btn-ghost mt-3 w-full justify-center" href="/api/auth/google/authorize">
             {t("login.google")}
           </a>
+        )}
+
+        {canReset && (
+          <button
+            type="button"
+            className="mt-3 w-full text-center text-xs text-slate-500 underline"
+            onClick={() => setResetting(true)}
+          >
+            {t("login.forgot")}
+          </button>
+        )}
+        </>
         )}
       </div>
     </div>

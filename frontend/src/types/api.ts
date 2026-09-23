@@ -213,6 +213,8 @@ export interface Capabilities {
   export_formats: string[];
   pdf_available: boolean;
   setup_complete: boolean;
+  /** Desktop only: a reset code can be written to the app's own folder. */
+  password_recovery?: boolean;
 }
 
 export interface AdminUser extends User {

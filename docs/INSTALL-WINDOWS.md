@@ -76,10 +76,14 @@ stick, a cloud folder). **To restore:** close Shabetz and put the copy back.
   website.
 - **Nothing happens when I open it.** Look in `shabetz.log` (see above) and
   send the last lines to whoever supports you.
-- **I forgot the administrator password.** If another administrator exists,
-  they can set a new one under Configuration → Accounts. If you were the only
-  one, the data can only be recovered by someone technical editing the
-  database, so create a second administrator account once you are set up.
+- **I forgot the password.** On the sign-in screen click **Forgot your
+  password? / שכחת את הסיסמה?**, then **Create a reset code**. A small file
+  opens with a code (and the administrator email addresses). Type the code and
+  a new password, and you are signed in. The code works once, for 15 minutes.
+- **My password is right but it won't let me in.** Check the keyboard is typing
+  English (switch with Alt+Shift) and Caps Lock is off; the sign-in screen warns
+  about both. After many wrong tries the app pauses sign-in for 15 minutes;
+  wait, or reset the password as above, which ends the pause at once.
 
 ## The desktop app and the website are separate
 

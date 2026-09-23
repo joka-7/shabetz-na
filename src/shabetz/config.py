@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     # Where the built frontend lives. Empty means "look in the usual places".
     static_dir: str = ""
 
+    # The desktop app's own folder. Set by the launcher; enables the password
+    # reset that works by writing a code into it.
+    data_dir: str = ""
+
     google_client_id: str = ""
     google_client_secret: str = ""
     google_redirect_uri: str = "http://localhost:5173/auth/google/callback"
@@ -57,6 +61,10 @@ class Settings(BaseSettings):
     @property
     def google_enabled(self) -> bool:
         return bool(self.google_client_id and self.google_client_secret)
+
+    @property
+    def password_recovery_enabled(self) -> bool:
+        return self.deployment == "desktop" and bool(self.data_dir)
 
     @property
     def setup_token_required(self) -> bool:

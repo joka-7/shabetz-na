@@ -103,6 +103,11 @@ def assert_not_last_admin(db: DbSession, user: User) -> None:
         raise LastAdminError("This is the only administrator; promote another account first")
 
 
+def find_active_user_by_email(db: DbSession, email: str) -> User | None:
+    user = _find_by_email(db, email)
+    return user if user is not None and user.is_active else None
+
+
 def email_is_taken(db: DbSession, email: str, *, excluding: int | None = None) -> bool:
     existing = _find_by_email(db, email)
     return existing is not None and existing.id != excluding
