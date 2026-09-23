@@ -14,8 +14,10 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+# Anchored to the root: unanchored, these matched frontend/src/lib/ and kept
+# the frontend's shared modules out of the repository.
+/lib/
+/lib64/
 parts/
 sdist/
 var/
