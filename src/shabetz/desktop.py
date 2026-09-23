@@ -69,6 +69,7 @@ def configure_environment(directory: Path) -> str:
     os.environ["SHABETZ_ENVIRONMENT"] = "prod"
     os.environ["SHABETZ_DATABASE_URL"] = database_url
     os.environ["SHABETZ_SECRET_KEY"] = load_or_create_secret(directory)
+    os.environ["SHABETZ_DATA_DIR"] = str(directory)
     # Plain http on the loopback interface, so the cookie cannot be Secure.
     os.environ["SHABETZ_COOKIE_SECURE"] = "false"
 

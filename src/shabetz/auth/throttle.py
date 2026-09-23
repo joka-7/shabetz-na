@@ -58,3 +58,7 @@ class FailureThrottle:
             if len(entries) < self._max:
                 return 0
             return max(1, int(self._window - (self._clock() - entries[0])) + 1)
+
+    def clear(self, key: str) -> None:
+        with self._lock:
+            self._failures.pop(key, None)

@@ -3,24 +3,29 @@
 from __future__ import annotations
 
 import secrets
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 from fastapi.responses import RedirectResponse
+from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
-from ...auth import google
+from ...auth import google, recovery
 from ...auth import service as auth_service
-from ...auth.passwords import WeakPassword
+from ...auth.passwords import WeakPassword, validate_password
+from ...auth.recovery import RecoveryCodes
 from ...auth.sessions import create_session, revoke
 from ...auth.throttle import FailureThrottle
 from ...config import Settings
 from ...db.models import User
+from ...domain.enums import UserRole
 from ...services.settings_service import load_settings, save_settings
 from ..deps import (
     client_address,
     current_user,
     get_db,
     login_throttle,
+    recovery_codes,
     require_admin,
     settings_dep,
 )
@@ -33,7 +38,14 @@ from ..errors import (
     Unauthorized,
     UnprocessableConfig,
 )
-from ..schemas import BootstrapAdminRequest, LoginRequest, SessionOut, UserOut
+from ..schemas import (
+    BootstrapAdminRequest,
+    LoginRequest,
+    RecoveryCompleteRequest,
+    RecoveryStartOut,
+    SessionOut,
+    UserOut,
+)
 
 router = APIRouter(prefix="/api", tags=["auth"])
 
@@ -159,6 +171,71 @@ def login(
         throttle.record_failure(address)
         raise Unauthorized("Invalid email or password") from exc
 
+    return _issue_session(response, db, user, settings, request)
+
+
+# ------------------------------------------------------- desktop password reset
+
+
+@router.post("/auth/recovery/start", response_model=RecoveryStartOut)
+def start_recovery(
+    db: DbSession = Depends(get_db),
+    settings: Settings = Depends(settings_dep),
+    codes: RecoveryCodes = Depends(recovery_codes),
+) -> RecoveryStartOut:
+    """Write a one-time reset code into the desktop app's own folder.
+
+    Only the desktop app offers this: being able to open that folder is being
+    the person the data belongs to. A hosted server answers as if the route did
+    not exist.
+    """
+    if not settings.password_recovery_enabled:
+        raise NotFound()
+    directory = Path(settings.data_dir)
+    admins = db.scalars(
+        select(User.email)
+        .where(User.role == UserRole.ADMIN, User.is_active.is_(True))
+        .order_by(User.email)
+    ).all()
+    path = recovery.write_code_file(directory, codes.issue(), list(admins))
+    recovery.open_for_user(path)
+    return RecoveryStartOut(file_path=str(path))
+
+
+@router.post("/auth/recovery/complete")
+def complete_recovery(
+    payload: RecoveryCompleteRequest,
+    request: Request,
+    response: Response,
+    db: DbSession = Depends(get_db),
+    settings: Settings = Depends(settings_dep),
+    codes: RecoveryCodes = Depends(recovery_codes),
+) -> SessionOut:
+    """Set a new password with the code from the file, and sign in."""
+    if not settings.password_recovery_enabled:
+        raise NotFound()
+    # Checked first, so a too-short password does not spend the code.
+    try:
+        validate_password(payload.password)
+    except WeakPassword as exc:
+        raise UnprocessableConfig(str(exc)) from exc
+
+    # Checked before the code too. Saying whether an account exists is harmless
+    # here: the code file lists the administrators anyway.
+    user = auth_service.find_active_user_by_email(db, payload.email)
+    if user is None:
+        raise UnprocessableConfig("No account uses that email address")
+    if not codes.redeem(payload.code):
+        raise Forbidden("Incorrect or expired reset code")
+
+    auth_service.set_password(db, user, payload.password)
+    user.failed_login_count = 0
+    user.locked_until = None
+    recovery.remove_code_file(Path(settings.data_dir))
+    # Whatever tripped the address throttle on the way here is resolved now.
+    throttle = getattr(request.app.state, "login_throttle", None)
+    if throttle is not None:
+        throttle.clear(client_address(request))
     return _issue_session(response, db, user, settings, request)
 
 

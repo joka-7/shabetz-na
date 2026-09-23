@@ -409,10 +409,27 @@ export const en = {
   "login.password": "Password",
   "login.passwordHint": "At least 12 characters.",
   "login.google": "Continue with Google",
+  "login.forgot": "Forgot your password?",
+  "login.hebrewKeyboard":
+    "The password contains Hebrew letters — is the keyboard set to Hebrew? Switch it with Alt+Shift.",
+  "login.capsLock": "Caps Lock is on.",
   "login.googleCancelled": "Google sign-in was cancelled.",
   "login.googleFailed": "Google sign-in could not be completed. Please try again.",
   "login.googleNoAccount":
     "That Google account is not registered here. Ask an administrator to invite it.",
+
+  // -------------------------------------------------------- password reset
+  "reset.title": "Reset your password",
+  "reset.intro":
+    "Shabetz will write a one-time code into a file on this computer and open it. Type the code here with a new password. The file also lists the administrator email addresses.",
+  "reset.createCode": "Create a reset code",
+  "reset.fileOpened":
+    "A file with the code should have opened. If it did not, open it yourself — it is here:",
+  "reset.code": "Code from the file",
+  "reset.newPassword": "New password",
+  "reset.submit": "Set the new password and sign in",
+  "reset.newCode": "Create a new code",
+  "reset.back": "Back to sign in",
 
   // ------------------------------------------------------------------- errors
   "error.generic": "Something went wrong. Please try again.",
@@ -436,4 +453,6 @@ export const en = {
   "error.dateOrder": "The end date must not be before the start date.",
   "error.ownTimeOffOnly": "You may only request time off for yourself.",
   "error.notLinked": "This account is not linked to a person record yet.",
+  "error.resetCode": "That code is wrong or has expired. Create a new code and try again.",
+  "error.noSuchEmail": "No account uses that email address. The code file lists the administrator emails.",
 } as const;

@@ -7,6 +7,7 @@ from collections.abc import Iterator
 from fastapi import Depends, Request
 from sqlalchemy.orm import Session as DbSession
 
+from ..auth.recovery import RecoveryCodes
 from ..auth.sessions import load_valid_session
 from ..auth.throttle import FailureThrottle
 from ..config import Settings, get_settings
@@ -53,6 +54,14 @@ def login_throttle(request: Request, settings: Settings = Depends(settings_dep))
         )
         request.app.state.login_throttle = throttle
     return throttle
+
+
+def recovery_codes(request: Request) -> RecoveryCodes:
+    codes = getattr(request.app.state, "recovery_codes", None)
+    if codes is None:
+        codes = RecoveryCodes()
+        request.app.state.recovery_codes = codes
+    return codes
 
 
 def current_user(

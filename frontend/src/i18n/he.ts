@@ -401,9 +401,24 @@ export const he: Record<keyof typeof en, string> = {
   "login.password": "סיסמה",
   "login.passwordHint": "לפחות 12 תווים.",
   "login.google": "המשך עם Google",
+  "login.forgot": "שכחת את הסיסמה?",
+  "login.hebrewKeyboard": "בסיסמה יש אותיות בעברית — אולי המקלדת בעברית? החליפו שפה עם Alt+Shift.",
+  "login.capsLock": "Caps Lock פעיל.",
   "login.googleCancelled": "הכניסה עם Google בוטלה.",
   "login.googleFailed": "לא ניתן היה להשלים את הכניסה עם Google. נסו שוב.",
   "login.googleNoAccount": "חשבון Google הזה לא רשום כאן. בקשו ממנהל המערכת להזמין אותו.",
+
+  // -------------------------------------------------------- password reset
+  "reset.title": "איפוס סיסמה",
+  "reset.intro":
+    "שבצ״נ יכתוב קוד חד־פעמי לקובץ במחשב הזה ויפתח אותו. הקלידו כאן את הקוד יחד עם סיסמה חדשה. בקובץ מופיעות גם כתובות האימייל של מנהלי המערכת.",
+  "reset.createCode": "יצירת קוד איפוס",
+  "reset.fileOpened": "אמור היה להיפתח קובץ עם הקוד. אם לא נפתח, פתחו אותו בעצמכם — הוא נמצא כאן:",
+  "reset.code": "הקוד מהקובץ",
+  "reset.newPassword": "סיסמה חדשה",
+  "reset.submit": "קביעת הסיסמה החדשה וכניסה",
+  "reset.newCode": "יצירת קוד חדש",
+  "reset.back": "חזרה למסך הכניסה",
 
   // ------------------------------------------------------------------- errors
   "error.generic": "משהו השתבש. נסו שוב.",
@@ -427,4 +442,6 @@ export const he: Record<keyof typeof en, string> = {
   "error.dateOrder": "תאריך הסיום לא יכול להיות לפני תאריך ההתחלה.",
   "error.ownTimeOffOnly": "אפשר לבקש היעדרות רק עבור עצמך.",
   "error.notLinked": "החשבון הזה עדיין לא מקושר לרשומת אדם.",
+  "error.resetCode": "הקוד שגוי או שפג תוקפו. צרו קוד חדש ונסו שוב.",
+  "error.noSuchEmail": "אין חשבון עם כתובת האימייל הזו. כתובות מנהלי המערכת מופיעות בקובץ הקוד.",
 };

@@ -16,6 +16,8 @@ interface SessionState {
     setupCode?: string,
   ) => Promise<void>;
   refresh: () => Promise<void>;
+  /** Desktop only: set a new password with a reset code, then sign in. */
+  resetPassword: (email: string, code: string, password: string) => Promise<void>;
 }
 
 const SessionContext = createContext<SessionState | null>(null);
@@ -78,6 +80,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [adopt, loadCapabilities],
   );
 
+  const resetPassword = useCallback(
+    async (email: string, code: string, password: string) => {
+      adopt(
+        await api.post<SessionResponse>("/api/auth/recovery/complete", { email, code, password }),
+      );
+      await loadCapabilities();
+    },
+    [adopt, loadCapabilities],
+  );
+
   const signOut = useCallback(async () => {
     await api.post("/api/auth/logout");
     setCsrfToken(null);
@@ -85,8 +97,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, capabilities, loading, signIn, signOut, bootstrap, refresh }),
-    [user, capabilities, loading, signIn, signOut, bootstrap, refresh],
+    () => ({ user, capabilities, loading, signIn, signOut, bootstrap, refresh, resetPassword }),
+    [user, capabilities, loading, signIn, signOut, bootstrap, refresh, resetPassword],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

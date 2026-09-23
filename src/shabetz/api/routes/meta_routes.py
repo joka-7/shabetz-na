@@ -29,6 +29,7 @@ def capabilities(
         export_formats=[f.value for f in available_formats()],
         pdf_available=pdf_engine_available(),
         setup_complete=setup_is_complete(db),
+        password_recovery=settings.password_recovery_enabled,
     )
 
 

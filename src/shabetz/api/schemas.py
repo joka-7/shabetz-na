@@ -28,6 +28,16 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class RecoveryCompleteRequest(BaseModel):
+    email: str
+    code: str
+    password: str
+
+
+class RecoveryStartOut(BaseModel):
+    file_path: str
+
+
 class BootstrapAdminRequest(BaseModel):
     email: str
     full_name: str
@@ -427,3 +437,4 @@ class CapabilitiesOut(BaseModel):
     export_formats: list[str]
     pdf_available: bool
     setup_complete: bool
+    password_recovery: bool = False

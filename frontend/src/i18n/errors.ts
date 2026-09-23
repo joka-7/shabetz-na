@@ -33,6 +33,8 @@ const BY_MESSAGE: Record<string, MessageKey> = {
   "End date must not precede start date": "error.dateOrder",
   "You may only request time off for yourself": "error.ownTimeOffOnly",
   "This account is not linked to a person record": "error.notLinked",
+  "Incorrect or expired reset code": "error.resetCode",
+  "No account uses that email address": "error.noSuchEmail",
 };
 
 export function errorText(
