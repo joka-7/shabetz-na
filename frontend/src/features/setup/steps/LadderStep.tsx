@@ -3,19 +3,22 @@ import { Plus, Wand2 } from "lucide-react";
 import { api } from "@/api/client";
 import { keys, useConfigMutation, useLevels } from "@/api/queries";
 import { EmptyState, Spinner } from "@/components/ui";
-import type { ProficiencyLevel } from "@/types/api";
-import { MutationError, Row, RowList, StepShell } from "./parts";
-
-/** Offered as a starting point only; the names and depth are entirely yours. */
-const SUGGESTED = ["Beginner", "Intermediate", "Expert", "Master"];
+import { useI18n } from "@/i18n";
+import type { BulkResult } from "@/types/api";
+import { MutationError, PasteList, Row, RowList, StepShell } from "./parts";
 
 export function LadderStep() {
+  const { t } = useI18n();
   const { data: levels, isLoading } = useLevels();
   const [name, setName] = useState("");
 
-  const create = useConfigMutation(
-    (payload: { name: string; rank: number }) =>
-      api.post<ProficiencyLevel>("/api/config/proficiency-levels", payload),
+  // Offered as a starting point only; the names and depth are entirely yours.
+  const suggested = t("ladder.suggested").split("|");
+
+  // The server places new rungs above the current top, counting ranks held by
+  // removed levels too, so a rank is never handed out twice.
+  const add = useConfigMutation(
+    (names: string[]) => api.post<BulkResult>("/api/config/proficiency-levels/bulk", { names }),
     [keys.levels],
   );
   const remove = useConfigMutation(
@@ -23,79 +26,75 @@ export function LadderStep() {
     [keys.levels],
   );
 
-  const nextRank = levels?.length ? Math.max(...levels.map((l) => l.rank)) + 1 : 0;
-
-  function add(event: React.FormEvent) {
+  function submit(event: React.FormEvent) {
     event.preventDefault();
     if (!name.trim()) return;
-    create.mutate({ name: name.trim(), rank: nextRank });
+    add.mutate([name.trim()]);
     setName("");
   }
 
-  function applySuggested() {
-    SUGGESTED.forEach((suggestion, index) =>
-      create.mutate({ name: suggestion, rank: nextRank + index }),
-    );
-  }
-
   return (
-    <StepShell
-      title="Proficiency ladder"
-      intro="Define the rungs of skill, weakest first. Requirements are compared by position, so you can name them anything and use as many as you need."
-    >
-      <form onSubmit={add} className="flex gap-2">
+    <StepShell title={t("section.ladder")} intro={t("ladder.intro")}>
+      <form onSubmit={submit} className="flex gap-2">
         <input
           className="input"
-          placeholder="Level name"
+          placeholder={t("ladder.placeholder")}
           value={name}
           onChange={(event) => setName(event.target.value)}
-          aria-label="New level name"
+          aria-label={t("ladder.newLabel")}
         />
-        <button className="btn-primary shrink-0" type="submit" disabled={create.isPending}>
+        <button className="btn-primary shrink-0" type="submit" disabled={add.isPending}>
           <Plus className="h-4 w-4" aria-hidden />
-          Add
+          {t("common.add")}
         </button>
       </form>
 
-      <MutationError error={create.error ?? remove.error} />
+      <PasteList
+        placeholder={t("ladder.pastePlaceholder")}
+        hint={t("ladder.pasteHint")}
+        busy={add.isPending}
+        onSubmit={(names) => add.mutateAsync(names)}
+      />
+
+      <MutationError error={add.error ?? remove.error} />
 
       {isLoading ? (
         <Spinner />
       ) : !levels?.length ? (
         <div className="space-y-3">
-          <EmptyState
-            title="No levels yet"
-            hint="Add your own, or start from a common four-rung ladder and edit it."
-          />
-          <button className="btn-ghost" onClick={applySuggested} disabled={create.isPending}>
+          <EmptyState title={t("ladder.emptyTitle")} hint={t("ladder.emptyHint")} />
+          <button
+            className="btn-ghost"
+            onClick={() => add.mutate(suggested)}
+            disabled={add.isPending}
+          >
             <Wand2 className="h-4 w-4" aria-hidden />
-            Use {SUGGESTED.join(" · ")}
+            {t("ladder.useSuggested", { levels: suggested.join(" · ") })}
           </button>
         </div>
       ) : (
         <RowList>
-          {levels.map((level) => (
+          {levels.map((level, index) => (
             <Row
               key={level.id}
-              deleteLabel={`Remove ${level.name}`}
+              deleteLabel={t("common.removeNamed", { name: level.name })}
               onDelete={() => remove.mutate(level.id)}
             >
               <div className="flex items-center gap-3">
-                <span className="w-6 text-xs tabular-nums text-slate-400">{level.rank}</span>
+                <span className="w-6 text-xs tabular-nums text-slate-400">{index + 1}</span>
                 <span className="font-medium">{level.name}</span>
-                <span className="text-xs text-slate-500">
-                  satisfies requirements up to {level.name.toLowerCase()}
-                </span>
+                {index > 0 && (
+                  <span className="text-xs text-slate-500">
+                    {t("ladder.alsoSatisfies", { name: levels[index - 1]!.name })}
+                  </span>
+                )}
               </div>
             </Row>
           ))}
         </RowList>
       )}
 
-      <p className="text-xs text-slate-500">
-        A level still used by a person or a job requirement cannot be removed; the server
-        names what refers to it.
-      </p>
+      <p className="text-xs text-slate-500">{t("ladder.removalNote")}</p>
     </StepShell>
   );
 }

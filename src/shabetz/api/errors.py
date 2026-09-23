@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import IntegrityError
 
 
 class ApiError(Exception):
@@ -68,4 +69,13 @@ def install_handlers(app: FastAPI) -> None:
             status_code=exc.status_code,
             content={"code": exc.code, "detail": exc.detail},
             headers=exc.headers,
+        )
+
+    @app.exception_handler(IntegrityError)
+    async def _handle_integrity(_: Request, exc: IntegrityError) -> JSONResponse:
+        # Nearly always a unique name: two divisions or skills called the same.
+        # A 409 lets the page say so instead of reporting a server fault.
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={"code": "DUPLICATE", "detail": "That name is already in use"},
         )

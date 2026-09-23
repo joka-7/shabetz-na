@@ -244,6 +244,8 @@ def test_understaffing_is_reported_not_swallowed() -> None:
     assert warning.assigned == 1
     assert warning.calendar_date == D1
     assert warning.job_id == 1
+    # Carried separately so a client can word the warning in its own language.
+    assert (warning.job_name, warning.template_name) == ("Needs four", "Day")
     assert result.summary.understaffed_shift_count == 1
 
 
@@ -261,7 +263,9 @@ def test_missing_role_is_reported() -> None:
         ],
         params(D1, D1),
     )
-    assert [w for w in result.warnings if w.kind is WarningKind.MISSING_ROLE]
+    missing = [w for w in result.warnings if w.kind is WarningKind.MISSING_ROLE]
+    assert missing
+    assert missing[0].skill_name == "Leadership"
 
 
 # ------------------------------------------------------- structural guarantees

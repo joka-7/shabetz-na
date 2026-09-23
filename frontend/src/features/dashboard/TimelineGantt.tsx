@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { EmptyState } from "@/components/ui";
+import { useI18n } from "@/i18n";
 import { buildTimeline, clockTime } from "@/lib/schedule";
 import type { Division, ScheduleRun } from "@/types/api";
 
@@ -26,6 +27,7 @@ export function TimelineGantt({
   run: ScheduleRun;
   divisions: Division[];
 }) {
+  const { t, formatDate } = useI18n();
   const rows = useMemo(() => buildTimeline(run.assignments), [run.assignments]);
 
   const jobTone = useMemo(() => {
@@ -44,13 +46,13 @@ export function TimelineGantt({
     [divisions],
   );
 
-  if (!rows.length) return <EmptyState title="Nothing to show on the timeline" />;
+  if (!rows.length) return <EmptyState title={t("timeline.empty")} />;
 
   return (
     <section className="card space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="label mb-0">Timeline</h2>
-        <div className="ml-auto flex flex-wrap gap-2">
+        <h2 className="label mb-0">{t("timeline.title")}</h2>
+        <div className="ms-auto flex flex-wrap gap-2">
           {[...jobTone.entries()].map(([id, tone]) => (
             <span key={id} className="flex items-center gap-1 text-xs text-slate-500">
               <span className={`h-2.5 w-2.5 rounded ${tone}`} aria-hidden />
@@ -60,7 +62,8 @@ export function TimelineGantt({
         </div>
       </div>
 
-      <div className="relative ml-24 h-4">
+      {/* The hour axis runs left to right in both languages, like a clock. */}
+      <div className="relative ms-24 me-10 h-4" dir="ltr">
         {[0, 6, 12, 18, 24].map((hour) => (
           <span
             key={hour}
@@ -76,7 +79,7 @@ export function TimelineGantt({
         {rows.map((row) => (
           <div key={row.date}>
             <div className="mb-1 text-xs font-medium tabular-nums text-slate-500">
-              {row.date}
+              {formatDate(row.date, { weekday: "short", day: "numeric", month: "short" })}
             </div>
             <div className="space-y-0.5">
               {[...row.templates.entries()]
@@ -93,7 +96,10 @@ export function TimelineGantt({
                       <span className="w-24 shrink-0 truncate text-xs text-slate-500">
                         {first.template_name}
                       </span>
-                      <div className="relative h-6 flex-1 rounded bg-slate-100 dark:bg-slate-800">
+                      <div
+                        className="relative h-6 flex-1 rounded bg-slate-100 dark:bg-slate-800"
+                        dir="ltr"
+                      >
                         <div
                           className="absolute inset-y-0 flex items-center gap-0.5 overflow-hidden rounded px-1"
                           style={{
@@ -114,7 +120,7 @@ export function TimelineGantt({
                                 assignment.job_name,
                                 `${clockTime(assignment.start_abs)}–${clockTime(assignment.end_abs)}`,
                                 divisionName.get(assignment.division_id) ?? "",
-                                assignment.is_division_fallback ? "(borrowed)" : "",
+                                assignment.is_division_fallback ? t("timeline.borrowed") : "",
                               ]
                                 .filter(Boolean)
                                 .join(" · ")}
@@ -122,7 +128,7 @@ export function TimelineGantt({
                           ))}
                         </div>
                       </div>
-                      <span className="w-8 shrink-0 text-right text-xs tabular-nums text-slate-400">
+                      <span className="w-8 shrink-0 text-end text-xs tabular-nums text-slate-400">
                         {assignments.length}
                       </span>
                     </div>
@@ -133,10 +139,7 @@ export function TimelineGantt({
         ))}
       </div>
 
-      <p className="text-xs text-slate-500">
-        Each block is one person. An amber outline marks someone borrowed from outside
-        the division on duty.
-      </p>
+      <p className="text-xs text-slate-500">{t("timeline.legend")}</p>
     </section>
   );
 }

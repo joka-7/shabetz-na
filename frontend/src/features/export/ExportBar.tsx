@@ -1,6 +1,7 @@
 import { Download } from "lucide-react";
 import { downloadExport } from "@/api/client";
 import { useSession } from "@/hooks/useSession";
+import { useI18n } from "@/i18n";
 
 const LABELS: Record<string, string> = { csv: "CSV", html: "HTML", pdf: "PDF" };
 
@@ -13,13 +14,14 @@ const LABELS: Record<string, string> = { csv: "CSV", html: "HTML", pdf: "PDF" };
  */
 export function ExportBar({ scheduleId }: { scheduleId: string }) {
   const { capabilities } = useSession();
+  const { t } = useI18n();
   const formats = capabilities?.export_formats ?? [];
 
   if (formats.length === 0) return null;
 
   return (
     <div className="flex items-center gap-2">
-      <span className="label mb-0">Download</span>
+      <span className="label mb-0">{t("export.download")}</span>
       {formats.map((format) => (
         <button
           key={format}

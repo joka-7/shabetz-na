@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { CalendarRange, Play } from "lucide-react";
-import { ApiError } from "@/api/client";
 import { generateSchedule, useDivisions } from "@/api/queries";
 import { can, useSession } from "@/hooks/useSession";
 import {
@@ -19,15 +18,20 @@ import { AssignmentsTable } from "./AssignmentsTable";
 import { TimelineGantt } from "./TimelineGantt";
 import { WarningsPanel } from "./WarningsPanel";
 import { ExportBar } from "@/features/export/ExportBar";
+import { useI18n } from "@/i18n";
+import { errorText } from "@/i18n/errors";
 import type { Division, ScheduleRun } from "@/types/api";
 
+/** A local calendar date; toISOString would give UTC's, a day off near midnight. */
 function isoDaysFromToday(days: number): string {
   const date = new Date();
   date.setDate(date.getDate() + days);
-  return date.toISOString().slice(0, 10);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
 export function DashboardView() {
+  const { t } = useI18n();
   const { user } = useSession();
   const { data: divisions } = useDivisions();
   const [start, setStart] = useState(isoDaysFromToday(0));
@@ -45,7 +49,7 @@ export function DashboardView() {
         <section className="card">
           <div className="flex flex-wrap items-end gap-3">
             <div>
-              <label className="label" htmlFor="start-date">From</label>
+              <label className="label" htmlFor="start-date">{t("dashboard.from")}</label>
               <input
                 id="start-date"
                 className="input w-44"
@@ -55,7 +59,7 @@ export function DashboardView() {
               />
             </div>
             <div>
-              <label className="label" htmlFor="end-date">To</label>
+              <label className="label" htmlFor="end-date">{t("dashboard.to")}</label>
               <input
                 id="end-date"
                 className="input w-44"
@@ -70,20 +74,14 @@ export function DashboardView() {
               disabled={generate.isPending}
             >
               <Play className="h-4 w-4" aria-hidden />
-              {generate.isPending ? "Generating…" : "Generate schedule"}
+              {generate.isPending ? t("dashboard.generating") : t("dashboard.generate")}
             </button>
             {run && <ExportBar scheduleId={run.schedule_id} />}
           </div>
 
           {generate.error ? (
             <div className="mt-3">
-              <ErrorNotice
-                message={
-                  generate.error instanceof ApiError
-                    ? generate.error.message
-                    : "The schedule could not be generated"
-                }
-              />
+              <ErrorNotice message={errorText(generate.error, t)} />
             </div>
           ) : null}
         </section>
@@ -99,40 +97,40 @@ export function DashboardView() {
 
       {!run && !generate.isPending && (
         <EmptyState
-          title="No schedule generated yet"
-          hint={
-            can.generate(user)
-              ? "Pick a date range and generate one."
-              : "A scheduler needs to generate one before your shifts appear."
-          }
+          title={t("dashboard.emptyTitle")}
+          hint={can.generate(user) ? t("dashboard.emptyHint") : t("dashboard.emptyHintStaff")}
         />
       )}
 
       {run && (
         <>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <StatCard label="Shifts assigned" value={run.summary.total_assignments} />
+            <StatCard label={t("stat.shifts")} value={run.summary.total_assignments} />
             <StatCard
-              label="Staff used"
+              label={t("stat.staffUsed")}
               value={`${run.summary.people_used}/${run.summary.total_people}`}
-              hint={`${utilizationPercent(run)}% utilisation`}
+              hint={t("stat.utilisation", { percent: utilizationPercent(run) })}
             />
             <StatCard
-              label="Understaffed"
+              label={t("stat.understaffed")}
               value={run.summary.understaffed_shift_count}
               tone={run.summary.understaffed_shift_count > 0 ? "danger" : "default"}
-              hint={run.summary.understaffed_shift_count > 0 ? "needs attention" : "fully covered"}
+              hint={
+                run.summary.understaffed_shift_count > 0
+                  ? t("stat.needsAttention")
+                  : t("stat.fullyCovered")
+              }
             />
             {/* Borrowing is how the rotation stays honest when a division is
                 short; it is a cost to see, not a gap to fix. */}
             <StatCard
-              label="Borrowed staff"
+              label={t("stat.borrowed")}
               value={run.summary.division_fallback_count}
               tone={run.summary.division_fallback_count > 0 ? "warn" : "default"}
-              hint="from outside the division on duty"
+              hint={t("stat.borrowedHint")}
             />
             <StatCard
-              label="Warnings"
+              label={t("stat.warnings")}
               value={blockingWarnings(run.warnings).length}
               tone={blockingWarnings(run.warnings).length > 0 ? "warn" : "default"}
             />
@@ -152,7 +150,7 @@ export function DashboardView() {
                     : "border border-slate-300 dark:border-slate-700"
                 }`}
               >
-                {option === "table" ? "Table" : "Timeline"}
+                {option === "table" ? t("dashboard.table") : t("timeline.title")}
               </button>
             ))}
           </div>
@@ -177,6 +175,7 @@ function RotationStrip({
   run: ScheduleRun;
   divisions: Division[];
 }) {
+  const { t, formatDate } = useI18n();
   const days = rotationByDay(run, divisions);
   if (!days.length) return null;
 
@@ -184,19 +183,24 @@ function RotationStrip({
     <section className="card">
       <div className="mb-2 flex items-center gap-2">
         <CalendarRange className="h-4 w-4 text-slate-400" aria-hidden />
-        <h2 className="label mb-0">Division on duty</h2>
+        <h2 className="label mb-0">{t("dashboard.onDuty")}</h2>
       </div>
       <div className="flex flex-wrap gap-1">
-        {days.map((day) => (
+        {days.map((day) => {
+          const name = day.divisionId === null ? t("dashboard.rotationOff") : day.divisionName;
+          return (
           <div
             key={day.date}
             className="rounded border border-slate-200 px-2 py-1 text-xs dark:border-slate-800"
-            title={`${day.date}: ${day.divisionName}`}
+            title={`${day.date}: ${name}`}
           >
-            <div className="tabular-nums text-slate-400">{day.date.slice(5)}</div>
-            <div className="font-medium">{day.divisionName}</div>
+            <div className="tabular-nums text-slate-400">
+              {formatDate(day.date, { weekday: "short", day: "numeric", month: "numeric" })}
+            </div>
+            <div className="font-medium">{name}</div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

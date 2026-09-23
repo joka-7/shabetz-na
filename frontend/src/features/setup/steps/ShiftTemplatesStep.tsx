@@ -3,11 +3,14 @@ import { Plus, Scissors } from "lucide-react";
 import { api } from "@/api/client";
 import { keys, useConfigMutation, useTemplates } from "@/api/queries";
 import { EmptyState, Spinner } from "@/components/ui";
+import { useI18n } from "@/i18n";
+import { parseWindowLine, splitLines } from "@/lib/importing";
 import { clockTime } from "@/lib/schedule";
-import type { ShiftTemplate } from "@/types/api";
-import { MutationError, Row, RowList, StepShell } from "./parts";
+import type { BulkResult, ShiftTemplate } from "@/types/api";
+import { MutationError, PasteList, Row, RowList, StepShell } from "./parts";
 
 export function ShiftTemplatesStep() {
+  const { t } = useI18n();
   const { data: templates, isLoading } = useTemplates();
   const [name, setName] = useState("");
   const [start, setStart] = useState("08:00");
@@ -20,13 +23,20 @@ export function ShiftTemplatesStep() {
     [keys.templates],
   );
   const split = useConfigMutation(
-    (payload: { shifts: number }) =>
+    (payload: { shifts: number; name_prefix: string }) =>
       api.post<ShiftTemplate[]>("/api/config/shift-templates/split-day", payload),
     [keys.templates],
   );
   const remove = useConfigMutation(
     (id: number) => api.del(`/api/config/shift-templates/${id}`),
     [keys.templates, keys.jobs],
+  );
+  const bulk = useConfigMutation(
+    (lines: string[]) =>
+      api.post<BulkResult>("/api/config/shift-templates/bulk", {
+        templates: lines.map(parseWindowLine).filter(Boolean),
+      }),
+    [keys.templates],
   );
 
   function add(event: React.FormEvent) {
@@ -42,16 +52,13 @@ export function ShiftTemplatesStep() {
   }
 
   return (
-    <StepShell
-      title="Shift windows"
-      intro="Define the working windows your jobs run. Any start time, any length, any number — they may also overlap or leave gaps."
-    >
+    <StepShell title={t("section.templates")} intro={t("templates.intro")}>
       <div className="rounded-md border border-slate-200 p-3 dark:border-slate-800">
-        <div className="label">Quick start</div>
+        <div className="label">{t("templates.quickStart")}</div>
         <div className="flex flex-wrap items-end gap-2">
           <div>
             <label className="label" htmlFor="split-count">
-              Split a day into equal windows
+              {t("templates.splitLabel")}
             </label>
             <input
               id="split-count"
@@ -65,28 +72,28 @@ export function ShiftTemplatesStep() {
           </div>
           <button
             className="btn-ghost"
-            onClick={() => split.mutate({ shifts: splitCount })}
+            onClick={() => split.mutate({ shifts: splitCount, name_prefix: t("templates.splitPrefix") })}
             disabled={split.isPending}
           >
             <Scissors className="h-4 w-4" aria-hidden />
-            Generate {splitCount} × {(24 / splitCount).toFixed(1)}h
+            {t("templates.generate", { count: splitCount, hours: (24 / splitCount).toFixed(1) })}
           </button>
         </div>
       </div>
 
       <form onSubmit={add} className="flex flex-wrap items-end gap-2">
         <div className="min-w-40 flex-1">
-          <label className="label" htmlFor="template-name">Name</label>
+          <label className="label" htmlFor="template-name">{t("common.name")}</label>
           <input
             id="template-name"
             className="input"
-            placeholder="e.g. Night watch"
+            placeholder={t("templates.namePlaceholder")}
             value={name}
             onChange={(event) => setName(event.target.value)}
           />
         </div>
         <div>
-          <label className="label" htmlFor="template-start">Starts</label>
+          <label className="label" htmlFor="template-start">{t("templates.starts")}</label>
           <input
             id="template-start"
             className="input w-32"
@@ -97,7 +104,7 @@ export function ShiftTemplatesStep() {
           />
         </div>
         <div>
-          <label className="label" htmlFor="template-duration">Hours</label>
+          <label className="label" htmlFor="template-duration">{t("templates.hours")}</label>
           <input
             id="template-duration"
             className="input w-24"
@@ -111,19 +118,24 @@ export function ShiftTemplatesStep() {
         </div>
         <button className="btn-primary" type="submit" disabled={create.isPending}>
           <Plus className="h-4 w-4" aria-hidden />
-          Add
+          {t("common.add")}
         </button>
       </form>
 
-      <MutationError error={create.error ?? split.error ?? remove.error} />
+      <PasteList
+        placeholder={t("templates.pastePlaceholder")}
+        hint={t("templates.pasteHint")}
+        busy={bulk.isPending}
+        toItems={(text) => splitLines(text).filter((line) => parseWindowLine(line) !== null)}
+        onSubmit={(lines) => bulk.mutateAsync(lines)}
+      />
+
+      <MutationError error={create.error ?? split.error ?? remove.error ?? bulk.error} />
 
       {isLoading ? (
         <Spinner />
       ) : !templates?.length ? (
-        <EmptyState
-          title="No shift windows yet"
-          hint="Generate equal windows above, or add one with its own start time and length."
-        />
+        <EmptyState title={t("templates.emptyTitle")} hint={t("templates.emptyHint")} />
       ) : (
         <>
           <DayStrip templates={templates} />
@@ -133,17 +145,17 @@ export function ShiftTemplatesStep() {
               return (
                 <Row
                   key={template.id}
-                  deleteLabel={`Remove ${template.name}`}
+                  deleteLabel={t("common.removeNamed", { name: template.name })}
                   onDelete={() => remove.mutate(template.id)}
                 >
                   <div className="flex items-center gap-3 text-sm">
                     <span className="font-medium">{template.name}</span>
-                    <span className="tabular-nums text-slate-500">
+                    <span className="tabular-nums text-slate-500" dir="ltr">
                       {clockTime(template.start_hour)}–{clockTime(end)}
                     </span>
                     <span className="text-xs text-slate-400">
-                      {template.duration_hours}h
-                      {end > 24 && " · crosses midnight"}
+                      {t("templates.duration", { hours: template.duration_hours })}
+                      {end > 24 && ` · ${t("templates.crossesMidnight")}`}
                     </span>
                   </div>
                 </Row>
@@ -164,9 +176,11 @@ export function ShiftTemplatesStep() {
  * the clock is the only quick way to tell whether coverage is what was meant.
  */
 function DayStrip({ templates }: { templates: ShiftTemplate[] }) {
+  const { t } = useI18n();
+  // Time runs left to right in both languages, like a clock face's numbers.
   return (
-    <div className="rounded-md border border-slate-200 p-3 dark:border-slate-800">
-      <div className="label">A day at a glance</div>
+    <div className="rounded-md border border-slate-200 p-3 dark:border-slate-800" dir="ltr">
+      <div className="label" dir="auto">{t("templates.dayAtAGlance")}</div>
 
       <div className="relative mb-1 h-4">
         {[0, 6, 12, 18, 24].map((hour) => (

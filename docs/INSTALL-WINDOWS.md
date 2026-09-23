@@ -27,7 +27,18 @@ characters and keep it somewhere safe; this screen only ever appears once.
 
 A setup guide then walks you through your organisation: your divisions, shift
 times, skills, jobs and people. You can change any of it later under
-**Configuration**.
+**Configuration**, and you can close the guide at any step — everything is saved
+as you go, and the **Setup** button brings it back.
+
+- **עברית / English:** the language button at the top switches the whole
+  program.
+- **Already have a list in Excel?** On the People step choose *Import from Excel
+  or paste a table*. Upload the file, or copy the cells and paste them. A title
+  row such as *שם / מחלקה / ימי עבודה* (or *Name / Division / Days*) is
+  recognised, and each extra column can be a skill. You see every row before
+  anything is saved.
+- Divisions, skills, levels and shift times each have a **Paste a list** button:
+  one per line, or one line separated by commas.
 
 ## Everyday use
 

@@ -237,6 +237,8 @@ class SimpleGreedyScheduler(SchedulingStrategy):
                     template_id=slot.template_id,
                     required=job.required_people_per_shift,
                     assigned=len(picked),
+                    job_name=job.name,
+                    template_name=slot.template_name,
                 )
             )
 
@@ -258,6 +260,9 @@ class SimpleGreedyScheduler(SchedulingStrategy):
                         template_id=slot.template_id,
                         required=requirement.required_count,
                         assigned=filled,
+                        job_name=job.name,
+                        template_name=slot.template_name,
+                        skill_name=requirement.skill_name,
                     )
                 )
 
@@ -275,6 +280,9 @@ class SimpleGreedyScheduler(SchedulingStrategy):
                         calendar_date=slot.calendar_date,
                         job_id=job.id,
                         template_id=slot.template_id,
+                        job_name=job.name,
+                        template_name=slot.template_name,
+                        person_name=assignment.person_name,
                     )
                 )
 

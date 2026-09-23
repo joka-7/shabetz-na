@@ -3,57 +3,59 @@ import { Plus } from "lucide-react";
 import { api } from "@/api/client";
 import { keys, useConfigMutation, useSkills } from "@/api/queries";
 import { EmptyState, Spinner } from "@/components/ui";
-import type { Skill } from "@/types/api";
-import { MutationError, Row, RowList, StepShell } from "./parts";
+import { useI18n } from "@/i18n";
+import type { BulkResult } from "@/types/api";
+import { MutationError, PasteList, Row, RowList, StepShell } from "./parts";
 
 export function SkillsStep() {
+  const { t } = useI18n();
   const { data: skills, isLoading } = useSkills();
   const [name, setName] = useState("");
 
-  const create = useConfigMutation(
-    (payload: { name: string }) => api.post<Skill>("/api/config/skills", payload),
+  const add = useConfigMutation(
+    (names: string[]) => api.post<BulkResult>("/api/config/skills/bulk", { names }),
     [keys.skills],
   );
 
-  function add(event: React.FormEvent) {
+  function submit(event: React.FormEvent) {
     event.preventDefault();
     if (!name.trim()) return;
-    create.mutate({ name: name.trim() });
+    add.mutate([name.trim()]);
     setName("");
   }
 
   return (
-    <StepShell
-      title="Skills"
-      intro="List the competencies your jobs require. Leadership roles are just skills too — you decide which ones a job demands, and how many people need them."
-    >
-      <form onSubmit={add} className="flex gap-2">
+    <StepShell title={t("section.skills")} intro={t("skills.intro")}>
+      <form onSubmit={submit} className="flex gap-2">
         <input
           className="input"
-          placeholder="e.g. Cleaning, Coding, Team Leader"
+          placeholder={t("skills.placeholder")}
           value={name}
           onChange={(event) => setName(event.target.value)}
-          aria-label="New skill name"
+          aria-label={t("skills.newLabel")}
         />
-        <button className="btn-primary shrink-0" type="submit" disabled={create.isPending}>
+        <button className="btn-primary shrink-0" type="submit" disabled={add.isPending}>
           <Plus className="h-4 w-4" aria-hidden />
-          Add
+          {t("common.add")}
         </button>
       </form>
 
-      <MutationError error={create.error} />
+      <PasteList
+        placeholder={t("skills.pastePlaceholder")}
+        busy={add.isPending}
+        onSubmit={(names) => add.mutateAsync(names)}
+      />
+
+      <MutationError error={add.error} />
 
       {isLoading ? (
         <Spinner />
       ) : !skills?.length ? (
-        <EmptyState
-          title="No skills yet"
-          hint="Add the competencies you will reference when defining jobs."
-        />
+        <EmptyState title={t("skills.emptyTitle")} hint={t("skills.emptyHint")} />
       ) : (
         <RowList>
           {skills.map((skill) => (
-            <Row key={skill.id} deleteLabel={`Remove ${skill.name}`}>
+            <Row key={skill.id} deleteLabel={t("common.removeNamed", { name: skill.name })}>
               <span className="text-sm font-medium">{skill.name}</span>
             </Row>
           ))}

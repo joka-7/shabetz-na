@@ -1,13 +1,32 @@
 import type { ReactNode } from "react";
-import { AlertTriangle, CheckCircle2, Info, Loader2, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Info, Languages, Loader2, XCircle } from "lucide-react";
+import { useI18n } from "@/i18n";
 import type { FeasibilityVerdict, WarningSeverity } from "@/types/api";
 
 export function Spinner({ label }: { label?: string }) {
+  const { t } = useI18n();
   return (
     <div className="flex items-center gap-2 text-sm text-slate-500">
       <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-      {label ?? "Loading…"}
+      {label ?? t("common.loading")}
     </div>
+  );
+}
+
+/** Switches to the other language; labelled in the language it switches to. */
+export function LanguageSwitch({ className = "" }: { className?: string }) {
+  const { lang, setLang } = useI18n();
+  const next = lang === "he" ? "en" : "he";
+  return (
+    <button
+      className={`btn-ghost text-xs ${className}`}
+      onClick={() => setLang(next)}
+      lang={next}
+      title={next === "he" ? "החלפה לעברית" : "Switch to English"}
+    >
+      <Languages className="h-3.5 w-3.5" aria-hidden />
+      {next === "he" ? "עברית" : "English"}
+    </button>
   );
 }
 
@@ -46,10 +65,11 @@ export function StatCard({
  * viewers who cannot distinguish the hues.
  */
 export function VerdictBadge({ verdict }: { verdict: FeasibilityVerdict }) {
+  const { t } = useI18n();
   const config = {
-    OK: { icon: CheckCircle2, cls: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300", text: "Workable" },
-    TIGHT: { icon: AlertTriangle, cls: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300", text: "Tight" },
-    INFEASIBLE: { icon: XCircle, cls: "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300", text: "Not achievable" },
+    OK: { icon: CheckCircle2, cls: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300", text: t("verdict.ok") },
+    TIGHT: { icon: AlertTriangle, cls: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300", text: t("verdict.tight") },
+    INFEASIBLE: { icon: XCircle, cls: "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300", text: t("verdict.infeasible") },
   }[verdict];
   const Icon = config.icon;
   return (
@@ -61,6 +81,7 @@ export function VerdictBadge({ verdict }: { verdict: FeasibilityVerdict }) {
 }
 
 export function SeverityBadge({ severity }: { severity: WarningSeverity }) {
+  const { t } = useI18n();
   const config = {
     ERROR: { icon: XCircle, cls: "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300" },
     WARNING: { icon: AlertTriangle, cls: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300" },
@@ -70,7 +91,7 @@ export function SeverityBadge({ severity }: { severity: WarningSeverity }) {
   return (
     <span className={`badge gap-1 ${config.cls}`}>
       <Icon className="h-3.5 w-3.5" aria-hidden />
-      {severity.toLowerCase()}
+      {t(`severity.${severity}`)}
     </span>
   );
 }

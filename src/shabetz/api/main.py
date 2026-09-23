@@ -10,6 +10,7 @@ from .errors import install_handlers
 from .routes import (
     auth_routes,
     config_routes,
+    import_routes,
     meta_routes,
     schedule_routes,
     timeoff_routes,
@@ -45,6 +46,7 @@ def create_app() -> FastAPI:
         meta_routes,
         auth_routes,
         config_routes,
+        import_routes,
         schedule_routes,
         timeoff_routes,
         user_routes,

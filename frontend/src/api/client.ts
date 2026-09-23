@@ -53,7 +53,8 @@ export async function request<T>(
   const method = (options.method ?? "GET").toUpperCase();
   const headers = new Headers(options.headers);
 
-  if (options.body !== undefined && !headers.has("content-type")) {
+  // A FormData body sets its own multipart boundary, so it is left alone.
+  if (options.body !== undefined && !(options.body instanceof FormData) && !headers.has("content-type")) {
     headers.set("content-type", "application/json");
   }
   if (MUTATING.has(method) && csrfToken) {
@@ -91,6 +92,11 @@ export const api = {
   put: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: "PUT", body: body === undefined ? undefined : JSON.stringify(body) }),
   del: (path: string) => request<void>(path, { method: "DELETE" }),
+  upload: <T>(path: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return request<T>(path, { method: "POST", body: form });
+  },
 };
 
 /** Trigger a download through a normal navigation so the cookie is sent. */

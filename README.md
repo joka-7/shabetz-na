@@ -19,6 +19,12 @@ range that respects:
 Schedules export to CSV, HTML and PDF, and staff can see their own shifts and
 request time off.
 
+The interface is in **English and Hebrew** (right to left), switchable from any
+screen. A roster does not have to be typed in: people can be imported from an
+Excel or CSV file, or pasted straight out of a spreadsheet, with a preview of
+every row before anything is saved. Divisions, skills, levels and shift windows
+accept a pasted list the same way.
+
 ## Two ways to run it
 
 | | For | Data |

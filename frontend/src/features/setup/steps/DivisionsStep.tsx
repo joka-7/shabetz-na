@@ -3,16 +3,19 @@ import { ChevronDown, ChevronUp, Plus } from "lucide-react";
 import { api } from "@/api/client";
 import { keys, useConfigMutation, useDivisions } from "@/api/queries";
 import { DivisionBadge, EmptyState, Spinner } from "@/components/ui";
-import type { Division } from "@/types/api";
-import { MutationError, Row, RowList, StepShell } from "./parts";
+import { useI18n } from "@/i18n";
+import type { BulkResult, Division } from "@/types/api";
+import { MutationError, PasteList, Row, RowList, StepShell } from "./parts";
 
 export function DivisionsStep() {
+  const { t, dir } = useI18n();
   const { data: divisions, isLoading } = useDivisions();
   const [name, setName] = useState("");
 
-  const create = useConfigMutation(
-    (payload: { name: string; display_order: number }) =>
-      api.post<Division>("/api/config/divisions", payload),
+  // Adding goes through the bulk route even for one name: it appends to the
+  // end of the rotation and brings back a removed division of the same name.
+  const add = useConfigMutation(
+    (names: string[]) => api.post<BulkResult>("/api/config/divisions/bulk", { names }),
     [keys.divisions],
   );
   const update = useConfigMutation(
@@ -24,77 +27,83 @@ export function DivisionsStep() {
     [keys.divisions, keys.people],
   );
 
-  function add(event: React.FormEvent) {
+  function submit(event: React.FormEvent) {
     event.preventDefault();
     if (!name.trim()) return;
-    create.mutate({ name: name.trim(), display_order: divisions?.length ?? 0 });
+    add.mutate([name.trim()]);
     setName("");
   }
 
-  /** Swapping display_order also changes the rotation, which is the point. */
+  /**
+   * Reordering also changes the rotation, which is the point. Every division
+   * is renumbered by position, since stored orders need not be consecutive.
+   */
   function move(index: number, delta: number) {
-    if (!divisions) return;
-    const current = divisions[index];
-    const neighbour = divisions[index + delta];
-    if (!current || !neighbour) return;
-    update.mutate({ ...current, display_order: neighbour.display_order });
-    update.mutate({ ...neighbour, display_order: current.display_order });
+    if (!divisions || !divisions[index + delta]) return;
+    const reordered = [...divisions];
+    const [moved] = reordered.splice(index, 1);
+    reordered.splice(index + delta, 0, moved!);
+    reordered.forEach((division, position) => {
+      if (division.display_order !== position) {
+        update.mutate({ ...division, display_order: position });
+      }
+    });
   }
 
   return (
-    <StepShell
-      title="Divisions"
-      intro="Name your divisions and put them in the order duty passes between them. There is no fixed number and no preset names."
-    >
-      <form onSubmit={add} className="flex gap-2">
+    <StepShell title={t("section.divisions")} intro={t("divisions.intro")}>
+      <form onSubmit={submit} className="flex gap-2">
         <input
           className="input"
-          placeholder="Division name"
+          placeholder={t("divisions.placeholder")}
           value={name}
           onChange={(event) => setName(event.target.value)}
-          aria-label="New division name"
+          aria-label={t("divisions.newLabel")}
         />
-        <button className="btn-primary shrink-0" type="submit" disabled={create.isPending}>
+        <button className="btn-primary shrink-0" type="submit" disabled={add.isPending}>
           <Plus className="h-4 w-4" aria-hidden />
-          Add
+          {t("common.add")}
         </button>
       </form>
 
-      <MutationError error={create.error ?? remove.error} />
+      <PasteList
+        placeholder={t("divisions.pastePlaceholder")}
+        busy={add.isPending}
+        onSubmit={(names) => add.mutateAsync(names)}
+      />
+
+      <MutationError error={add.error ?? update.error ?? remove.error} />
 
       {isLoading ? (
         <Spinner />
       ) : !divisions?.length ? (
-        <EmptyState
-          title="No divisions yet"
-          hint="Add at least one. Duty rotates between them in the order shown here."
-        />
+        <EmptyState title={t("divisions.emptyTitle")} hint={t("divisions.emptyHint")} />
       ) : (
         <>
           <RowList>
             {divisions.map((division, index) => (
               <Row
                 key={division.id}
-                deleteLabel={`Remove ${division.name}`}
+                deleteLabel={t("common.removeNamed", { name: division.name })}
                 onDelete={() => remove.mutate(division.id)}
               >
                 <div className="flex items-center gap-2">
                   <span className="w-6 text-xs tabular-nums text-slate-400">{index + 1}</span>
                   <DivisionBadge id={division.id} name={division.name} />
-                  <div className="ml-auto flex gap-1">
+                  <div className="ms-auto flex gap-1">
                     <button
                       className="btn-ghost px-1.5 py-1"
                       onClick={() => move(index, -1)}
-                      disabled={index === 0}
-                      aria-label={`Move ${division.name} earlier in the rotation`}
+                      disabled={index === 0 || update.isPending}
+                      aria-label={t("divisions.moveEarlier", { name: division.name })}
                     >
                       <ChevronUp className="h-3.5 w-3.5" aria-hidden />
                     </button>
                     <button
                       className="btn-ghost px-1.5 py-1"
                       onClick={() => move(index, 1)}
-                      disabled={index === divisions.length - 1}
-                      aria-label={`Move ${division.name} later in the rotation`}
+                      disabled={index === divisions.length - 1 || update.isPending}
+                      aria-label={t("divisions.moveLater", { name: division.name })}
                     >
                       <ChevronDown className="h-3.5 w-3.5" aria-hidden />
                     </button>
@@ -104,7 +113,9 @@ export function DivisionsStep() {
             ))}
           </RowList>
           <p className="text-xs text-slate-500">
-            Duty passes in this order: {divisions.map((d) => d.name).join(" → ")} → {divisions[0]?.name}
+            {t("divisions.order", {
+              order: [...divisions.map((d) => d.name), divisions[0]!.name].join(dir === "rtl" ? " ← " : " → "),
+            })}
           </p>
         </>
       )}

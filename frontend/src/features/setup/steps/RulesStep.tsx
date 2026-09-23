@@ -3,10 +3,12 @@ import { Save } from "lucide-react";
 import { api } from "@/api/client";
 import { keys, useConfigMutation, useDivisions, useSettings } from "@/api/queries";
 import { Spinner } from "@/components/ui";
+import { useI18n } from "@/i18n";
 import type { Settings } from "@/types/api";
 import { MutationError, StepShell } from "./parts";
 
 export function RulesStep() {
+  const { t, tn } = useI18n();
   const { data: settings, isLoading } = useSettings();
   const { data: divisions } = useDivisions();
   const [draft, setDraft] = useState<Settings | null>(null);
@@ -25,14 +27,11 @@ export function RulesStep() {
   const cycleDays = (divisions?.length ?? 0) * draft.rotation_block_days;
 
   return (
-    <StepShell
-      title="Scheduling rules"
-      intro="How much rest people need between shifts, and how duty moves between divisions."
-    >
+    <StepShell title={t("rules.title")} intro={t("rules.intro")}>
       <div className="space-y-4">
         <div>
           <label className="label" htmlFor="rest">
-            Minimum rest between shifts — {draft.rest_period_hours} hours
+            {t("rules.rest", { hours: draft.rest_period_hours })}
           </label>
           <input
             id="rest"
@@ -48,10 +47,7 @@ export function RulesStep() {
           />
           {/* Rest is the only limit on how often someone works, so it is worth
               being explicit that shortening it permits more shifts per day. */}
-          <p className="mt-1 text-xs text-slate-500">
-            This is the only limit on how often a person can be scheduled — there is no
-            separate cap on shifts per day. A shorter window allows more shifts in a day.
-          </p>
+          <p className="mt-1 text-xs text-slate-500">{t("rules.restHint")}</p>
         </div>
 
         <div>
@@ -63,18 +59,16 @@ export function RulesStep() {
                 setDraft({ ...draft, rotation_enabled: event.target.checked })
               }
             />
-            Rotate duty between divisions
+            {t("rules.rotate")}
           </label>
-          <p className="mt-1 text-xs text-slate-500">
-            When off, anyone qualified and rested may be assigned to any job.
-          </p>
+          <p className="mt-1 text-xs text-slate-500">{t("rules.rotateHint")}</p>
         </div>
 
         {draft.rotation_enabled && (
           <>
             <div>
               <label className="label" htmlFor="block-days">
-                Days each division holds duty
+                {t("rules.blockDays")}
               </label>
               <input
                 id="block-days"
@@ -88,14 +82,14 @@ export function RulesStep() {
               />
               {cycleDays > 0 && (
                 <p className="mt-1 text-xs text-slate-500">
-                  With {divisions?.length} divisions that is a {cycleDays}-day cycle.
+                  {tn("rules.cycle", divisions?.length ?? 0, { days: cycleDays })}
                 </p>
               )}
             </div>
 
             <div>
               <label className="label" htmlFor="anchor">
-                Rotation start date (optional)
+                {t("rules.anchor")}
               </label>
               <input
                 id="anchor"
@@ -108,16 +102,13 @@ export function RulesStep() {
               />
               {/* Without a fixed anchor the cycle is measured from whatever
                   window is generated, so who is on duty can shift unexpectedly. */}
-              <p className="mt-1 text-xs text-slate-500">
-                Pin this to keep the cycle stable. Left empty, it is measured from the
-                first day of whichever period you generate.
-              </p>
+              <p className="mt-1 text-xs text-slate-500">{t("rules.anchorHint")}</p>
             </div>
           </>
         )}
 
         <div>
-          <label className="label" htmlFor="org-name">Organization name</label>
+          <label className="label" htmlFor="org-name">{t("rules.orgName")}</label>
           <input
             id="org-name"
             className="input"
@@ -134,7 +125,7 @@ export function RulesStep() {
           disabled={save.isPending}
         >
           <Save className="h-4 w-4" aria-hidden />
-          {save.isPending ? "Saving…" : save.isSuccess ? "Saved" : "Save rules"}
+          {save.isPending ? t("common.saving") : save.isSuccess ? t("common.saved") : t("rules.save")}
         </button>
       </div>
     </StepShell>

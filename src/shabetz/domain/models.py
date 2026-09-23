@@ -271,6 +271,12 @@ class ScheduleWarning:
     template_id: int | None = None
     required: int | None = None
     assigned: int | None = None
+    # What the message names, kept separately so it can be reworded (or
+    # translated) without parsing the English sentence back apart.
+    job_name: str | None = None
+    template_name: str | None = None
+    skill_name: str | None = None
+    person_name: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

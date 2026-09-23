@@ -168,6 +168,11 @@ export interface ScheduleWarning {
   template_id: number | null;
   required: number | null;
   assigned: number | null;
+  /** Absent on runs stored before the names were recorded. */
+  job_name?: string | null;
+  template_name?: string | null;
+  skill_name?: string | null;
+  person_name?: string | null;
 }
 
 export interface ScheduleSummary {
@@ -215,4 +220,39 @@ export interface AdminUser extends User {
   has_google: boolean;
   last_login_at: string | null;
   is_locked: boolean;
+}
+
+export interface BulkResult {
+  created: string[];
+  existing: string[];
+}
+
+export interface ImportProblem {
+  code:
+    | "missing_name"
+    | "name_too_long"
+    | "missing_division"
+    | "bad_days"
+    | "unknown_level"
+    | "no_levels"
+    | "duplicate_in_file";
+  value: string | null;
+}
+
+export interface ImportRow {
+  line: number;
+  full_name: string;
+  division: string | null;
+  status: "create" | "exists" | "error";
+  working_weekdays: number[];
+  skills: Record<string, string>;
+  problems: ImportProblem[];
+}
+
+export interface PeopleImport {
+  applied: boolean;
+  to_create: number;
+  rows: ImportRow[];
+  new_divisions: string[];
+  new_skills: string[];
 }

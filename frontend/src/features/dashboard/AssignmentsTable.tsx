@@ -16,6 +16,7 @@ import {
   shiftWindow,
   type AssignmentFilters,
 } from "@/lib/schedule";
+import { useI18n } from "@/i18n";
 import type { Assignment, Division, ScheduleRun } from "@/types/api";
 
 const helper = createColumnHelper<Assignment>();
@@ -27,6 +28,7 @@ export function AssignmentsTable({
   run: ScheduleRun;
   divisions: Division[];
 }) {
+  const { t, formatDate } = useI18n();
   const [filters, setFilters] = useState<AssignmentFilters>(emptyFilters);
   const [sorting, setSorting] = useState<SortingState>([
     { id: "calendar_date", desc: false },
@@ -55,56 +57,63 @@ export function AssignmentsTable({
 
   const columns = useMemo(
     () => [
-      helper.accessor("calendar_date", { header: "Date" }),
-      helper.accessor("template_name", { header: "Window" }),
+      helper.accessor("calendar_date", {
+        header: t("table.date"),
+        cell: ({ getValue }) => (
+          <span className="whitespace-nowrap">
+            {formatDate(getValue(), { weekday: "short", day: "numeric", month: "short" })}
+          </span>
+        ),
+      }),
+      helper.accessor("template_name", { header: t("table.window") }),
       helper.display({
         id: "time",
-        header: "Time",
+        header: t("table.time"),
         cell: ({ row }) => (
-          <span className="tabular-nums">
+          <span className="whitespace-nowrap tabular-nums" dir="ltr">
             {shiftWindow(row.original)}
             {crossesMidnight(row.original) && (
-              <span className="ml-1 text-xs text-slate-400" title="Ends the next day">
+              <span className="ms-1 text-xs text-slate-400" title={t("table.nextDay")}>
                 +1
               </span>
             )}
           </span>
         ),
       }),
-      helper.accessor("job_name", { header: "Job" }),
+      helper.accessor("job_name", { header: t("table.job") }),
       helper.accessor("person_name", {
-        header: "Person",
+        header: t("table.person"),
         cell: ({ row }) => (
           <span className="flex items-center gap-1.5">
             {row.original.person_name}
             {row.original.role === "ROLE" && (
               <span
                 className="badge bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300"
-                title="Fills a named role requirement"
+                title={t("table.roleHint")}
               >
-                role
+                {t("table.role")}
               </span>
             )}
             {row.original.is_division_fallback && (
               <span
                 className="badge bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300"
-                title="Borrowed from outside the division on duty"
+                title={t("stat.borrowedHint")}
               >
-                borrowed
+                {t("table.borrowed")}
               </span>
             )}
           </span>
         ),
       }),
       helper.accessor("division_id", {
-        header: "Division",
+        header: t("table.division"),
         cell: ({ getValue }) => {
           const id = getValue();
-          return <DivisionBadge id={id} name={divisionName.get(id) ?? `Division ${id}`} />;
+          return <DivisionBadge id={id} name={divisionName.get(id) ?? `#${id}`} />;
         },
       }),
     ],
-    [divisionName],
+    [divisionName, t, formatDate],
   );
 
   const table = useReactTable({
@@ -120,16 +129,16 @@ export function AssignmentsTable({
     <section className="card">
       <div className="mb-3 flex flex-wrap items-end gap-2">
         <div className="min-w-48 flex-1">
-          <label className="label" htmlFor="assignment-search">Search</label>
+          <label className="label" htmlFor="assignment-search">{t("table.search")}</label>
           <div className="relative">
             <Search
-              className="pointer-events-none absolute left-2 top-2.5 h-4 w-4 text-slate-400"
+              className="pointer-events-none absolute start-2 top-2.5 h-4 w-4 text-slate-400"
               aria-hidden
             />
             <input
               id="assignment-search"
-              className="input pl-8"
-              placeholder="Person, job or window"
+              className="input ps-8"
+              placeholder={t("table.searchPlaceholder")}
               value={filters.search}
               onChange={(event) => setFilters({ ...filters, search: event.target.value })}
             />
@@ -137,7 +146,7 @@ export function AssignmentsTable({
         </div>
 
         <div>
-          <label className="label" htmlFor="filter-division">Division</label>
+          <label className="label" htmlFor="filter-division">{t("table.division")}</label>
           <select
             id="filter-division"
             className="input w-40"
@@ -149,7 +158,7 @@ export function AssignmentsTable({
               })
             }
           >
-            <option value="">All</option>
+            <option value="">{t("table.all")}</option>
             {divisions.map((division) => (
               <option key={division.id} value={division.id}>{division.name}</option>
             ))}
@@ -157,7 +166,7 @@ export function AssignmentsTable({
         </div>
 
         <div>
-          <label className="label" htmlFor="filter-job">Job</label>
+          <label className="label" htmlFor="filter-job">{t("table.job")}</label>
           <select
             id="filter-job"
             className="input w-44"
@@ -169,7 +178,7 @@ export function AssignmentsTable({
               })
             }
           >
-            <option value="">All</option>
+            <option value="">{t("table.all")}</option>
             {jobs.map(([id, name]) => (
               <option key={id} value={id}>{name}</option>
             ))}
@@ -177,7 +186,7 @@ export function AssignmentsTable({
         </div>
 
         <div>
-          <label className="label" htmlFor="filter-date">Date</label>
+          <label className="label" htmlFor="filter-date">{t("table.date")}</label>
           <select
             id="filter-date"
             className="input w-40"
@@ -186,26 +195,28 @@ export function AssignmentsTable({
               setFilters({ ...filters, date: event.target.value || null })
             }
           >
-            <option value="">All</option>
+            <option value="">{t("table.all")}</option>
             {dates.map((date) => (
-              <option key={date} value={date}>{date}</option>
+              <option key={date} value={date}>
+                {formatDate(date, { weekday: "short", day: "numeric", month: "short" })}
+              </option>
             ))}
           </select>
         </div>
 
         {(filters.search || filters.divisionId || filters.jobId || filters.date) && (
           <button className="btn-ghost" onClick={() => setFilters(emptyFilters)}>
-            Clear
+            {t("table.clear")}
           </button>
         )}
       </div>
 
       <p className="mb-2 text-xs text-slate-500">
-        {rows.length} of {run.assignments.length} shifts
+        {t("table.count", { shown: rows.length, total: run.assignments.length })}
       </p>
 
       {rows.length === 0 ? (
-        <EmptyState title="Nothing matches these filters" />
+        <EmptyState title={t("table.noMatch")} />
       ) : (
         <div className="max-h-[32rem] overflow-auto">
           <table className="w-full">

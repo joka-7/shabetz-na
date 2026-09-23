@@ -236,3 +236,4 @@ src/shabetz/web/
 # files are source, so they are kept explicitly.
 !packaging/*.spec
 !packaging/*.manifest
+*.tsbuildinfo

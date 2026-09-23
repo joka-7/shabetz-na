@@ -4,6 +4,8 @@ import { api } from "@/api/client";
 import { keys, useConfigMutation, usePeople, useTimeOff } from "@/api/queries";
 import { can, useSession } from "@/hooks/useSession";
 import { EmptyState, Spinner } from "@/components/ui";
+import { useI18n } from "@/i18n";
+import { MutationError } from "@/features/setup/steps/parts";
 import type { TimeOff, TimeOffStatus } from "@/types/api";
 
 const STATUS_TONES: Record<TimeOffStatus, string> = {
@@ -14,6 +16,7 @@ const STATUS_TONES: Record<TimeOffStatus, string> = {
 };
 
 export function TimeOffView() {
+  const { t, formatDate, dir } = useI18n();
   const { user } = useSession();
   const { data: requests, isLoading } = useTimeOff();
   const { data: people } = usePeople();
@@ -35,7 +38,9 @@ export function TimeOffView() {
   );
 
   const personName = (id: number) =>
-    people?.find((person) => person.id === id)?.full_name ?? `Person ${id}`;
+    people?.find((person) => person.id === id)?.full_name ?? `#${id}`;
+  const range = (request: TimeOff) =>
+    `${formatDate(request.start_date)} ${dir === "rtl" ? "←" : "→"} ${formatDate(request.end_date)}`;
 
   function send(event: React.FormEvent) {
     event.preventDefault();
@@ -57,11 +62,11 @@ export function TimeOffView() {
   return (
     <div className="space-y-4">
       <section className="card">
-        <h2 className="label">{reviewer ? "Record an absence" : "Request time off"}</h2>
+        <h2 className="label">{reviewer ? t("timeoff.record") : t("timeoff.request")}</h2>
         <form onSubmit={send} className="flex flex-wrap items-end gap-2">
           {reviewer && (
             <div>
-              <label className="label" htmlFor="timeoff-person">Person</label>
+              <label className="label" htmlFor="timeoff-person">{t("table.person")}</label>
               <select
                 id="timeoff-person"
                 className="input w-48"
@@ -70,7 +75,7 @@ export function TimeOffView() {
                   setPersonId(event.target.value ? Number(event.target.value) : null)
                 }
               >
-                <option value="">Myself</option>
+                <option value="">{t("timeoff.myself")}</option>
                 {people?.map((person) => (
                   <option key={person.id} value={person.id}>{person.full_name}</option>
                 ))}
@@ -78,7 +83,7 @@ export function TimeOffView() {
             </div>
           )}
           <div>
-            <label className="label" htmlFor="timeoff-start">From</label>
+            <label className="label" htmlFor="timeoff-start">{t("dashboard.from")}</label>
             <input
               id="timeoff-start"
               className="input w-40"
@@ -89,7 +94,7 @@ export function TimeOffView() {
             />
           </div>
           <div>
-            <label className="label" htmlFor="timeoff-end">To</label>
+            <label className="label" htmlFor="timeoff-end">{t("dashboard.to")}</label>
             <input
               id="timeoff-end"
               className="input w-40"
@@ -100,7 +105,7 @@ export function TimeOffView() {
             />
           </div>
           <div className="min-w-40 flex-1">
-            <label className="label" htmlFor="timeoff-reason">Reason (optional)</label>
+            <label className="label" htmlFor="timeoff-reason">{t("timeoff.reason")}</label>
             <input
               id="timeoff-reason"
               className="input"
@@ -110,14 +115,13 @@ export function TimeOffView() {
           </div>
           <button className="btn-primary" type="submit" disabled={submit.isPending}>
             <Plus className="h-4 w-4" aria-hidden />
-            {reviewer ? "Record" : "Request"}
+            {reviewer ? t("timeoff.recordButton") : t("timeoff.requestButton")}
           </button>
         </form>
-        {!reviewer && (
-          <p className="mt-2 text-xs text-slate-500">
-            A request only affects scheduling once it is approved.
-          </p>
-        )}
+        <div className="mt-2">
+          <MutationError error={submit.error ?? review.error} />
+        </div>
+        {!reviewer && <p className="mt-2 text-xs text-slate-500">{t("timeoff.onlyApproved")}</p>}
       </section>
 
       {isLoading ? (
@@ -126,9 +130,9 @@ export function TimeOffView() {
         <>
           {reviewer && (
             <section className="card">
-              <h2 className="label">Awaiting review ({pending.length})</h2>
+              <h2 className="label">{t("timeoff.awaiting", { count: pending.length })}</h2>
               {pending.length === 0 ? (
-                <p className="text-sm text-slate-500">Nothing waiting.</p>
+                <p className="text-sm text-slate-500">{t("timeoff.nothingWaiting")}</p>
               ) : (
                 <ul className="divide-y divide-slate-100 dark:divide-slate-800">
                   {pending.map((request) => (
@@ -136,13 +140,11 @@ export function TimeOffView() {
                       <span className="text-sm font-medium">
                         {personName(request.person_id)}
                       </span>
-                      <span className="text-sm tabular-nums text-slate-500">
-                        {request.start_date} → {request.end_date}
-                      </span>
+                      <span className="text-sm tabular-nums text-slate-500">{range(request)}</span>
                       {request.reason && (
                         <span className="text-xs text-slate-500">{request.reason}</span>
                       )}
-                      <div className="ml-auto flex gap-1">
+                      <div className="ms-auto flex gap-1">
                         <button
                           className="btn-ghost text-xs"
                           onClick={() =>
@@ -150,36 +152,31 @@ export function TimeOffView() {
                           }
                         >
                           <Check className="h-3.5 w-3.5" aria-hidden />
-                          Approve
+                          {t("timeoff.approve")}
                         </button>
                         <button
                           className="btn-ghost text-xs"
                           onClick={() => review.mutate({ id: request.id, action: "deny" })}
                         >
                           <X className="h-3.5 w-3.5" aria-hidden />
-                          Deny
+                          {t("timeoff.deny")}
                         </button>
                       </div>
                     </li>
                   ))}
                 </ul>
               )}
-              <p className="mt-2 text-xs text-slate-500">
-                Approving removes that person from consideration on those dates; regenerate
-                any affected schedule afterwards.
-              </p>
+              <p className="mt-2 text-xs text-slate-500">{t("timeoff.approveHint")}</p>
             </section>
           )}
 
           <section className="card">
-            <h2 className="label">{reviewer ? "All records" : "My requests"}</h2>
+            <h2 className="label">{reviewer ? t("timeoff.all") : t("timeoff.mine")}</h2>
             {!requests?.length ? (
               <EmptyState
-                title="No time off recorded"
+                title={t("timeoff.emptyTitle")}
                 hint={
-                  user?.person_id === null && !reviewer
-                    ? "This account is not linked to a person record yet."
-                    : undefined
+                  user?.person_id === null && !reviewer ? t("error.notLinked") : undefined
                 }
               />
             ) : (
@@ -187,23 +184,21 @@ export function TimeOffView() {
                 {[...pending, ...settled].map((request) => (
                   <li key={request.id} className="flex flex-wrap items-center gap-3 py-2">
                     <span className={`badge ${STATUS_TONES[request.status]}`}>
-                      {request.status.toLowerCase()}
+                      {t(`timeoffStatus.${request.status}`)}
                     </span>
                     {reviewer && (
                       <span className="text-sm">{personName(request.person_id)}</span>
                     )}
-                    <span className="text-sm tabular-nums text-slate-500">
-                      {request.start_date} → {request.end_date}
-                    </span>
+                    <span className="text-sm tabular-nums text-slate-500">{range(request)}</span>
                     {request.reason && (
                       <span className="text-xs text-slate-500">{request.reason}</span>
                     )}
                     {(request.status === "PENDING" || request.status === "APPROVED") && (
                       <button
-                        className="btn-ghost ml-auto text-xs"
+                        className="btn-ghost ms-auto text-xs"
                         onClick={() => review.mutate({ id: request.id, action: "cancel" })}
                       >
-                        Cancel
+                        {t("common.cancel")}
                       </button>
                     )}
                   </li>

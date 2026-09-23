@@ -18,6 +18,6 @@
            focus:border-slate-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900; }
   .label { @apply mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500; }
   .badge { @apply inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium; }
-  .th { @apply px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500; }
+  .th { @apply px-3 py-2 text-start text-xs font-semibold uppercase tracking-wide text-slate-500; }
   .td { @apply px-3 py-2 text-sm; }
 }

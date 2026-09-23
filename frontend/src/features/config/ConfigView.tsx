@@ -7,6 +7,8 @@ import { PeopleStep } from "@/features/setup/steps/PeopleStep";
 import { RulesStep } from "@/features/setup/steps/RulesStep";
 import { ShiftTemplatesStep } from "@/features/setup/steps/ShiftTemplatesStep";
 import { SkillsStep } from "@/features/setup/steps/SkillsStep";
+import { useI18n } from "@/i18n";
+import type { MessageKey } from "@/i18n";
 import { UsersAdmin } from "./UsersAdmin";
 
 /**
@@ -16,24 +18,25 @@ import { UsersAdmin } from "./UsersAdmin";
  * reimplemented: the wizard is only a guided order through them, so there is
  * one place where each kind of configuration is edited.
  */
-const SECTIONS = [
-  { id: "divisions", label: "Divisions", Component: DivisionsStep },
-  { id: "ladder", label: "Proficiency", Component: LadderStep },
-  { id: "skills", label: "Skills", Component: SkillsStep },
-  { id: "templates", label: "Shift windows", Component: ShiftTemplatesStep },
-  { id: "jobs", label: "Jobs", Component: JobsStep },
-  { id: "people", label: "People", Component: PeopleStep },
-  { id: "rules", label: "Rules", Component: RulesStep },
-  { id: "users", label: "Accounts", Component: UsersAdmin },
-] as const;
+const SECTIONS: readonly { id: string; label: MessageKey; Component: () => JSX.Element }[] = [
+  { id: "divisions", label: "section.divisions", Component: DivisionsStep },
+  { id: "ladder", label: "section.ladder", Component: LadderStep },
+  { id: "skills", label: "section.skills", Component: SkillsStep },
+  { id: "templates", label: "section.templates", Component: ShiftTemplatesStep },
+  { id: "jobs", label: "section.jobs", Component: JobsStep },
+  { id: "people", label: "section.people", Component: PeopleStep },
+  { id: "rules", label: "section.rules", Component: RulesStep },
+  { id: "users", label: "section.users", Component: UsersAdmin },
+];
 
 export function ConfigView() {
-  const [active, setActive] = useState<(typeof SECTIONS)[number]["id"]>("divisions");
+  const { t } = useI18n();
+  const [active, setActive] = useState("divisions");
   const section = SECTIONS.find((entry) => entry.id === active)!;
 
   return (
     <div className="grid gap-4 lg:grid-cols-[12rem_1fr]">
-      <nav className="flex flex-wrap gap-1 lg:flex-col" aria-label="Configuration sections">
+      <nav className="flex flex-wrap gap-1 lg:flex-col" aria-label={t("nav.configuration")}>
         {SECTIONS.map((entry) => (
           <button
             key={entry.id}
@@ -45,7 +48,7 @@ export function ConfigView() {
                 : "hover:bg-slate-100 dark:hover:bg-slate-800"
             }`}
           >
-            {entry.label}
+            {t(entry.label)}
           </button>
         ))}
       </nav>
@@ -59,7 +62,7 @@ export function ConfigView() {
             are the exception: they change who may sign in, not staffing. */}
         {active !== "users" && (
           <div className="card">
-            <h2 className="label">Can this be staffed?</h2>
+            <h2 className="label">{t("feasibility.heading")}</h2>
             <FeasibilityPanel />
           </div>
         )}

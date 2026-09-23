@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -14,6 +15,9 @@ from ..domain.enums import (
 )
 
 ORM = ConfigDict(from_attributes=True)
+
+# Python's numbering, as stored: Monday is 0.
+Weekday = Annotated[int, Field(ge=0, le=6)]
 
 
 # ---------------------------------------------------------------------- auth
@@ -187,7 +191,7 @@ class PersonIn(BaseModel):
     full_name: str = Field(min_length=1, max_length=160)
     division_id: int
     external_ref: str | None = None
-    working_weekdays: list[int] = Field(default_factory=list)
+    working_weekdays: list[Weekday] = Field(default_factory=list)
     skills: list[PersonSkillIn] = Field(default_factory=list)
 
 
@@ -214,6 +218,64 @@ class SettingsIn(BaseModel):
 
 class SettingsOut(SettingsIn):
     setup_completed: bool = False
+
+
+# ------------------------------------------------------------ bulk + import
+
+ShortName = Annotated[str, Field(max_length=120)]
+
+
+class BulkNamesIn(BaseModel):
+    names: list[ShortName] = Field(max_length=500)
+
+
+class BulkResultOut(BaseModel):
+    created: list[str]
+    existing: list[str]
+
+
+class BulkTemplatesIn(BaseModel):
+    templates: list[ShiftTemplateIn] = Field(max_length=200)
+
+
+class TableOut(BaseModel):
+    rows: list[list[str]]
+
+
+class ImportColumnIn(BaseModel):
+    role: Literal["name", "division", "days", "skill", "ignore"]
+    skill_name: ShortName | None = None
+
+
+class PeopleImportIn(BaseModel):
+    columns: list[ImportColumnIn] = Field(max_length=100)
+    rows: list[list[str]] = Field(max_length=5000)
+    default_division_id: int | None = None
+    default_weekdays: list[Weekday] = Field(default_factory=list)
+    apply: bool = False
+
+
+class ImportProblemOut(BaseModel):
+    code: str
+    value: str | None = None
+
+
+class ImportRowOut(BaseModel):
+    line: int
+    full_name: str
+    division: str | None
+    status: Literal["create", "exists", "error"]
+    working_weekdays: list[int]
+    skills: dict[str, str]
+    problems: list[ImportProblemOut]
+
+
+class PeopleImportOut(BaseModel):
+    applied: bool
+    to_create: int
+    rows: list[ImportRowOut]
+    new_divisions: list[str]
+    new_skills: list[str]
 
 
 # --------------------------------------------------------------- feasibility
@@ -294,6 +356,12 @@ class WarningOut(BaseModel):
     template_id: int | None = None
     required: int | None = None
     assigned: int | None = None
+    # The names the message was built from, so a client can word it in its own
+    # language. Absent on runs stored before they were recorded.
+    job_name: str | None = None
+    template_name: str | None = None
+    skill_name: str | None = None
+    person_name: str | None = None
 
 
 class SummaryOut(BaseModel):
