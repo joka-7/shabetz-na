@@ -15,6 +15,7 @@ from .routes import (
     timeoff_routes,
     user_routes,
 )
+from .static import find_static_dir, mount_frontend
 
 
 def create_app() -> FastAPI:
@@ -49,6 +50,11 @@ def create_app() -> FastAPI:
         user_routes,
     ):
         app.include_router(module.router)
+
+    # Registered last so API routes always win over the frontend's catch-all.
+    static_dir = find_static_dir(settings.static_dir)
+    if static_dir is not None:
+        mount_frontend(app, static_dir)
 
     return app
 

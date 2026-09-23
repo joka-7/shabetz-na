@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import os
 import random
+import secrets
 from datetime import date, timedelta
 
 import typer
@@ -17,6 +19,88 @@ from .services.settings_service import SchedulingSettings, save_settings
 app = typer.Typer(help="Shabetz scheduling administration.", no_args_is_help=True)
 
 SEED = 20261001
+
+# No 0/O or 1/I/L: the code is read from a log and typed by a person.
+SETUP_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+
+
+def generate_setup_code() -> str:
+    """Twelve characters in three groups, about 59 bits: far beyond guessing
+    at the throttled rate of a few attempts per quarter hour."""
+    chars = "".join(secrets.choice(SETUP_CODE_ALPHABET) for _ in range(12))
+    return "-".join(chars[i : i + 4] for i in range(0, 12, 4))
+
+
+@app.command("serve")
+def serve(
+    host: str = typer.Option("0.0.0.0", help="Address to listen on."),
+    port: int = typer.Option(8000, help="Port to listen on."),
+    workers: int = typer.Option(2, help="Worker processes."),
+    migrate: bool = typer.Option(True, help="Apply database migrations before starting."),
+    forwarded_allow_ips: str = typer.Option(
+        "127.0.0.1",
+        help=(
+            "Proxies trusted to report the real client address. Set this to your "
+            "reverse proxy's address, or per-address sign-in throttling will see "
+            "every visitor as the proxy."
+        ),
+    ),
+) -> None:
+    """Run the hosted server that people sign in to over the internet."""
+    import uvicorn
+
+    from .config import get_settings
+    from .db.migrate import upgrade_to_head
+
+    settings = get_settings()
+    if migrate:
+        upgrade_to_head(settings.database_url)
+
+    with session_scope() as db:
+        needs_first_admin = not setup_is_complete(db)
+
+    if needs_first_admin and not settings.setup_token:
+        # Workers are separate processes that read settings from the
+        # environment, so the code is passed on through it.
+        code = generate_setup_code()
+        os.environ["SHABETZ_SETUP_TOKEN"] = code
+        get_settings.cache_clear()
+        banner = "=" * 60
+        typer.secho(
+            f"\n{banner}\n  No administrator exists yet.\n"
+            f"  Open this site and enter setup code:  {code}\n"
+            f"  The code changes each time the server restarts until\n"
+            f"  the first administrator has been created.\n{banner}\n",
+            fg="yellow",
+            bold=True,
+        )
+
+    if settings.environment == "prod" and not settings.cookie_secure:
+        typer.secho(
+            "Warning: SHABETZ_COOKIE_SECURE is off. Behind HTTPS it should be on, "
+            "or session cookies can be sent over plain http.",
+            fg="red",
+        )
+
+    uvicorn.run(
+        "shabetz.api.main:app",
+        host=host,
+        port=port,
+        workers=workers,
+        proxy_headers=True,
+        forwarded_allow_ips=forwarded_allow_ips,
+    )
+
+
+@app.command("desktop")
+def desktop(
+    port: int = typer.Option(8765),
+    no_window: bool = typer.Option(False, help="Serve without opening a window."),
+) -> None:
+    """Run the desktop app, as the packaged Windows executable does."""
+    from .desktop import main
+
+    raise typer.Exit(main(["--port", str(port), *(["--no-window"] if no_window else [])]))
 
 
 @app.command("create-admin")

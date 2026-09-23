@@ -202,6 +202,8 @@ export interface TimeOff {
 }
 
 export interface Capabilities {
+  deployment: "server" | "desktop";
+  setup_code_required: boolean;
   google_enabled: boolean;
   export_formats: string[];
   pdf_available: boolean;

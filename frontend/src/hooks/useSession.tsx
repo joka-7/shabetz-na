@@ -9,7 +9,12 @@ interface SessionState {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
-  bootstrap: (email: string, fullName: string, password: string) => Promise<void>;
+  bootstrap: (
+    email: string,
+    fullName: string,
+    password: string,
+    setupCode?: string,
+  ) => Promise<void>;
   refresh: () => Promise<void>;
 }
 
@@ -59,12 +64,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   );
 
   const bootstrap = useCallback(
-    async (email: string, full_name: string, password: string) => {
+    async (email: string, full_name: string, password: string, setup_code?: string) => {
       adopt(
         await api.post<SessionResponse>("/api/setup/bootstrap-admin", {
           email,
           full_name,
           password,
+          setup_code,
         }),
       );
       await loadCapabilities();

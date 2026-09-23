@@ -18,16 +18,28 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-config.set_main_option("sqlalchemy.url", get_settings().database_url.replace("%", "%%"))
+# A URL set programmatically (the desktop launcher knows where its database
+# file lives) wins; otherwise fall back to application settings.
+if not config.get_main_option("sqlalchemy.url"):
+    config.set_main_option("sqlalchemy.url", get_settings().database_url.replace("%", "%%"))
 target_metadata = Base.metadata
 
 
+def _batch_for(url: str) -> bool:
+    """SQLite cannot ALTER most things in place, so migrations must rebuild
+    tables there. Without this the first schema change after release would fail
+    on every installed desktop copy."""
+    return url.startswith("sqlite")
+
+
 def run_migrations_offline() -> None:
+    url = config.get_main_option("sqlalchemy.url") or ""
     context.configure(
-        url=config.get_main_option("sqlalchemy.url"),
+        url=url,
         target_metadata=target_metadata,
         literal_binds=True,
         compare_type=True,
+        render_as_batch=_batch_for(url),
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -41,7 +53,10 @@ def run_migrations_online() -> None:
     )
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata, compare_type=True
+            connection=connection,
+            target_metadata=target_metadata,
+            compare_type=True,
+            render_as_batch=connection.dialect.name == "sqlite",
         )
         with context.begin_transaction():
             context.run_migrations()

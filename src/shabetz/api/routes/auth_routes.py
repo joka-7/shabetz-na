@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import secrets
+
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session as DbSession
@@ -10,10 +12,27 @@ from ...auth import google
 from ...auth import service as auth_service
 from ...auth.passwords import WeakPassword
 from ...auth.sessions import create_session, revoke
+from ...auth.throttle import FailureThrottle
 from ...config import Settings
 from ...db.models import User
-from ..deps import current_user, get_db, settings_dep
-from ..errors import Conflict, Forbidden, NotFound, Unauthorized, UnprocessableConfig
+from ...services.settings_service import load_settings, save_settings
+from ..deps import (
+    client_address,
+    current_user,
+    get_db,
+    login_throttle,
+    require_admin,
+    settings_dep,
+)
+from ..errors import (
+    Conflict,
+    FeatureUnavailable,
+    Forbidden,
+    NotFound,
+    TooManyRequests,
+    Unauthorized,
+    UnprocessableConfig,
+)
 from ..schemas import BootstrapAdminRequest, LoginRequest, SessionOut, UserOut
 
 router = APIRouter(prefix="/api", tags=["auth"])
@@ -39,7 +58,25 @@ def _issue_session(
 
 @router.get("/setup/status")
 def setup_status(db: DbSession = Depends(get_db)) -> dict:
-    return {"setup_complete": auth_service.setup_is_complete(db)}
+    return {
+        # An account exists, so the unauthenticated bootstrap route is closed.
+        "setup_complete": auth_service.setup_is_complete(db),
+        # The administrator has been through the configuration wizard.
+        "wizard_completed": load_settings(db).setup_completed,
+    }
+
+
+@router.post("/setup/complete")
+def complete_wizard(db: DbSession = Depends(get_db), _: User = Depends(require_admin)) -> dict:
+    """Remember that the wizard is done.
+
+    Without this the wizard reopened every time an administrator reloaded the
+    app, which on a desktop app opened daily is every single day.
+    """
+    settings = load_settings(db)
+    if not settings.setup_completed:
+        save_settings(db, settings.model_copy(update={"setup_completed": True}))
+    return {"wizard_completed": True}
 
 
 @router.post("/setup/bootstrap-admin", status_code=status.HTTP_201_CREATED)
@@ -49,12 +86,32 @@ def bootstrap_admin(
     response: Response,
     db: DbSession = Depends(get_db),
     settings: Settings = Depends(settings_dep),
+    throttle: FailureThrottle = Depends(login_throttle),
 ) -> SessionOut:
     """Create the first administrator.
 
     Reachable without authentication only while no account exists; the window
-    closes permanently once one does.
+    closes permanently once one does. On a server it also needs the setup code
+    printed when the server started: otherwise a freshly deployed site belongs
+    to whoever happens to load it first.
     """
+    address = client_address(request)
+    if throttle.is_blocked(address):
+        raise TooManyRequests(throttle.retry_after_seconds(address))
+
+    if settings.setup_token_required:
+        if not settings.setup_token:
+            # Fail closed: a production server with no code configured must not
+            # fall back to letting anyone claim it.
+            raise FeatureUnavailable(
+                "No setup code is configured. Start the server with 'shabetz serve', "
+                "which prints one, or set SHABETZ_SETUP_TOKEN."
+            )
+        supplied = (payload.setup_code or "").strip().upper()
+        if not secrets.compare_digest(supplied, settings.setup_token.strip().upper()):
+            throttle.record_failure(address)
+            raise Forbidden("Incorrect setup code")
+
     try:
         user = auth_service.bootstrap_first_admin(
             db,
@@ -77,7 +134,14 @@ def login(
     response: Response,
     db: DbSession = Depends(get_db),
     settings: Settings = Depends(settings_dep),
+    throttle: FailureThrottle = Depends(login_throttle),
 ) -> SessionOut:
+    # Checked before the password is verified, so a blocked address's guesses
+    # never reach the account's own lockout counter.
+    address = client_address(request)
+    if throttle.is_blocked(address):
+        raise TooManyRequests(throttle.retry_after_seconds(address))
+
     try:
         user = auth_service.authenticate_password(
             db,
@@ -87,8 +151,12 @@ def login(
             lockout_minutes=settings.login_lockout_minutes,
         )
     except auth_service.AccountLocked as exc:
+        throttle.record_failure(address)
         raise Forbidden(str(exc)) from exc
     except auth_service.AuthError as exc:
+        # Not reset on success: otherwise signing in to one's own account
+        # between guesses would clear the record.
+        throttle.record_failure(address)
         raise Unauthorized("Invalid email or password") from exc
 
     return _issue_session(response, db, user, settings, request)
@@ -137,9 +205,9 @@ def google_authorize(settings: Settings = Depends(settings_dep)) -> RedirectResp
         state_cookie,
         httponly=True,
         secure=settings.cookie_secure,
-        # The callback is a top-level navigation back from Google, which a
-        # Lax cookie would not accompany.
-        samesite="none" if settings.cookie_secure else "lax",
+        # Lax suffices: Google returns with a top-level GET navigation, which
+        # Lax cookies accompany. None would only widen where it is sent.
+        samesite="lax",
         max_age=google.STATE_MAX_AGE_SECONDS,
         path="/",
     )

@@ -8,6 +8,7 @@ from fastapi import Depends, Request
 from sqlalchemy.orm import Session as DbSession
 
 from ..auth.sessions import load_valid_session
+from ..auth.throttle import FailureThrottle
 from ..config import Settings, get_settings
 from ..db.models import User
 from ..db.session import get_session_factory
@@ -31,6 +32,27 @@ def get_db() -> Iterator[DbSession]:
 
 def settings_dep() -> Settings:
     return get_settings()
+
+
+def client_address(request: Request) -> str:
+    """The caller's address.
+
+    Behind a reverse proxy this is only the real client when the server trusts
+    the proxy's forwarding headers; ``shabetz serve`` configures that.
+    """
+    return request.client.host if request.client else "unknown"
+
+
+def login_throttle(request: Request, settings: Settings = Depends(settings_dep)) -> FailureThrottle:
+    # Held on the application rather than at module level, so each app -- and
+    # each test -- starts with its own clean record.
+    throttle = getattr(request.app.state, "login_throttle", None)
+    if throttle is None:
+        throttle = FailureThrottle(
+            settings.login_ip_max_failures, settings.login_ip_window_minutes * 60
+        )
+        request.app.state.login_throttle = throttle
+    return throttle
 
 
 def current_user(

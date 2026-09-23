@@ -23,6 +23,9 @@ dependencies = [
 
 [project.optional-dependencies]
 pdf = ["weasyprint>=62"]
+# The Windows desktop app: a native window, and the tool that bundles it.
+desktop = ["pywebview>=5.3"]
+build = ["pyinstaller>=6.10"]
 dev = [
     "pytest>=8.3",
     "pytest-cov>=6.0",
@@ -69,5 +72,5 @@ disallow_untyped_defs = true
 [[tool.mypy.overrides]]
 # Optional extra: absence is detected and handled at runtime, so a missing
 # stub must not fail the typecheck of a default install.
-module = ["weasyprint.*"]
+module = ["weasyprint.*", "webview.*"]
 ignore_missing_imports = true

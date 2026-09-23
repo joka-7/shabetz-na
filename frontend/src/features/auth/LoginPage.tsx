@@ -16,6 +16,8 @@ export function LoginPage({ needsSetup }: { needsSetup: boolean }) {
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
   const [password, setPassword] = useState("");
+  const [setupCode, setSetupCode] = useState("");
+  const needsCode = needsSetup && Boolean(capabilities?.setup_code_required);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -28,7 +30,7 @@ export function LoginPage({ needsSetup }: { needsSetup: boolean }) {
     setError(null);
     setBusy(true);
     try {
-      if (needsSetup) await bootstrap(email, fullName, password);
+      if (needsSetup) await bootstrap(email, fullName, password, needsCode ? setupCode : undefined);
       else await signIn(email, password);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong");
@@ -55,6 +57,25 @@ export function LoginPage({ needsSetup }: { needsSetup: boolean }) {
         )}
 
         <form onSubmit={submit} className="space-y-3">
+          {/* On a hosted server the first administrator must prove they
+              deployed it; otherwise the site belongs to whoever loads it first. */}
+          {needsCode && (
+            <div>
+              <label className="label" htmlFor="setup-code">Setup code</label>
+              <input
+                id="setup-code"
+                className="input font-mono uppercase tracking-wider"
+                placeholder="XXXX-XXXX-XXXX"
+                autoComplete="off"
+                value={setupCode}
+                required
+                onChange={(e) => setSetupCode(e.target.value)}
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                Printed in the server log when it started.
+              </p>
+            </div>
+          )}
           {needsSetup && (
             <div>
               <label className="label" htmlFor="full-name">Full name</label>

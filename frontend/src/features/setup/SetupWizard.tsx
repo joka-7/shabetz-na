@@ -29,7 +29,7 @@ const STEPS = [
   { id: "review", label: "Review", Component: null },
 ] as const;
 
-export function SetupWizard({ onFinished }: { onFinished: () => void }) {
+export function SetupWizard({ onFinished }: { onFinished: () => void | Promise<void> }) {
   const [index, setIndex] = useState(0);
   const { isLoading } = useSettings();
 
@@ -109,7 +109,7 @@ export function SetupWizard({ onFinished }: { onFinished: () => void }) {
         </button>
 
         {isReview ? (
-          <button className="btn-primary" onClick={onFinished}>
+          <button className="btn-primary" onClick={() => void onFinished()}>
             Finish setup
             <Check className="h-4 w-4" aria-hidden />
           </button>

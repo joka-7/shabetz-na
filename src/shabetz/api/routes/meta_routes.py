@@ -23,6 +23,8 @@ def capabilities(
     db: DbSession = Depends(get_db), settings: Settings = Depends(settings_dep)
 ) -> CapabilitiesOut:
     return CapabilitiesOut(
+        deployment=settings.deployment,
+        setup_code_required=settings.setup_token_required,
         google_enabled=settings.google_enabled,
         export_formats=[f.value for f in available_formats()],
         pdf_available=pdf_engine_available(),
@@ -32,4 +34,6 @@ def capabilities(
 
 @router.get("/health")
 def health() -> dict:
-    return {"status": "ok"}
+    # "app" lets a second desktop launch recognise a running copy of itself
+    # rather than something else that happens to hold the port.
+    return {"status": "ok", "app": "shabetz"}

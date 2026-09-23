@@ -7,10 +7,17 @@ from fastapi.responses import JSONResponse
 
 
 class ApiError(Exception):
-    def __init__(self, code: str, detail: str, status_code: int) -> None:
+    def __init__(
+        self,
+        code: str,
+        detail: str,
+        status_code: int,
+        headers: dict[str, str] | None = None,
+    ) -> None:
         self.code = code
         self.detail = detail
         self.status_code = status_code
+        self.headers = headers
         super().__init__(detail)
 
 
@@ -36,7 +43,7 @@ class Conflict(ApiError):
 
 class UnprocessableConfig(ApiError):
     def __init__(self, detail: str) -> None:
-        super().__init__("INVALID_CONFIGURATION", detail, status.HTTP_422_UNPROCESSABLE_ENTITY)
+        super().__init__("INVALID_CONFIGURATION", detail, status.HTTP_422_UNPROCESSABLE_CONTENT)
 
 
 class FeatureUnavailable(ApiError):
@@ -44,9 +51,21 @@ class FeatureUnavailable(ApiError):
         super().__init__("FEATURE_UNAVAILABLE", detail, status.HTTP_503_SERVICE_UNAVAILABLE)
 
 
+class TooManyRequests(ApiError):
+    def __init__(self, retry_after_seconds: int) -> None:
+        super().__init__(
+            "TOO_MANY_REQUESTS",
+            "Too many failed attempts from this address; try again later",
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            headers={"Retry-After": str(retry_after_seconds)},
+        )
+
+
 def install_handlers(app: FastAPI) -> None:
     @app.exception_handler(ApiError)
     async def _handle(_: Request, exc: ApiError) -> JSONResponse:
         return JSONResponse(
-            status_code=exc.status_code, content={"code": exc.code, "detail": exc.detail}
+            status_code=exc.status_code,
+            content={"code": exc.code, "detail": exc.detail},
+            headers=exc.headers,
         )

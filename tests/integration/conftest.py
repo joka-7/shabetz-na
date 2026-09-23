@@ -31,6 +31,11 @@ def settings() -> Settings:
         secret_key="test-secret-key",
         database_url="sqlite://",
         cookie_secure=False,
+        # Pinned rather than inherited: the lockout tests exercise account
+        # lockout in isolation, so the address throttle is set well out of the
+        # way. Throttle behaviour has its own tests with realistic values.
+        login_max_attempts=8,
+        login_ip_max_failures=1000,
     )
 
 

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarClock,
   CalendarDays,
@@ -14,15 +15,28 @@ import { ConfigView } from "@/features/config/ConfigView";
 import { DashboardView } from "@/features/dashboard/DashboardView";
 import { TimeOffView } from "@/features/timeoff/TimeOffView";
 import { Skeleton } from "@/components/ui";
+import { api } from "@/api/client";
+import { keys } from "@/api/queries";
+import type { Settings } from "@/types/api";
 
 type Tab = "dashboard" | "config" | "timeoff";
 
 export function App() {
   const { user, capabilities, loading, signOut, refresh } = useSession();
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>("dashboard");
-  const [wizardDone, setWizardDone] = useState(false);
+  // Reopened on request from the header; whether it shows by default comes
+  // from the server, so finishing it once is remembered across reloads.
+  const [wizardReopened, setWizardReopened] = useState(false);
 
-  if (loading || !capabilities) {
+  const isAdmin = can.editConfig(user);
+  const settings = useQuery({
+    queryKey: keys.settings,
+    queryFn: () => api.get<Settings>("/api/config/settings"),
+    enabled: isAdmin,
+  });
+
+  if (loading || !capabilities || (isAdmin && settings.isLoading)) {
     return (
       <div className="mx-auto max-w-5xl space-y-3 p-8">
         <Skeleton className="h-8 w-52" />
@@ -40,11 +54,13 @@ export function App() {
   if (!user) return <LoginPage needsSetup={false} />;
 
   // A fresh administrator lands in the wizard rather than an empty dashboard.
-  if (can.editConfig(user) && !wizardDone) {
+  if (isAdmin && (wizardReopened || settings.data?.setup_completed === false)) {
     return (
       <SetupWizard
-        onFinished={() => {
-          setWizardDone(true);
+        onFinished={async () => {
+          await api.post("/api/setup/complete");
+          await queryClient.invalidateQueries({ queryKey: keys.settings });
+          setWizardReopened(false);
           void refresh();
         }}
       />
@@ -86,7 +102,7 @@ export function App() {
 
           <div className="ml-auto flex items-center gap-3 text-sm">
             {can.editConfig(user) && (
-              <button className="btn-ghost text-xs" onClick={() => setWizardDone(false)}>
+              <button className="btn-ghost text-xs" onClick={() => setWizardReopened(true)}>
                 <Wand2 className="h-3.5 w-3.5" aria-hidden />
                 Setup
               </button>

@@ -28,6 +28,8 @@ class BootstrapAdminRequest(BaseModel):
     email: str
     full_name: str
     password: str
+    # Required on a server; the desktop app only listens locally and skips it.
+    setup_code: str | None = None
 
 
 class UserOut(BaseModel):
@@ -351,6 +353,8 @@ class TimeOffOut(BaseModel):
 
 
 class CapabilitiesOut(BaseModel):
+    deployment: str = "server"
+    setup_code_required: bool = False
     google_enabled: bool
     export_formats: list[str]
     pdf_available: bool

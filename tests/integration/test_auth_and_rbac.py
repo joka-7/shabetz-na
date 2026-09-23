@@ -293,3 +293,29 @@ def test_google_callback_reports_cancellation(app, settings) -> None:
             "/api/auth/google/callback?error=access_denied", follow_redirects=False
         )
         assert response.headers["location"] == "/?auth_error=cancelled"
+
+
+# ------------------------------------------------------------ wizard progress
+
+
+def test_finishing_the_wizard_is_remembered(client: TestClient, admin: Actor) -> None:
+    """Otherwise every reload sends the administrator back through setup."""
+    assert client.get("/api/setup/status").json()["wizard_completed"] is False
+    assert admin.post("/api/setup/complete").status_code == 200
+    assert client.get("/api/setup/status").json()["wizard_completed"] is True
+    assert admin.get("/api/config/settings").json()["setup_completed"] is True
+
+
+def test_only_admins_may_mark_the_wizard_finished(
+    client: TestClient, admin: Actor, session_factory
+) -> None:
+    _make_user(session_factory, "sched@example.com", UserRole.SCHEDULER)
+    client.cookies.clear()
+    scheduler = _sign_in(client, "sched@example.com", ADMIN_PASSWORD)
+    assert scheduler.post("/api/setup/complete").status_code == 403
+
+
+def test_saving_settings_does_not_reset_wizard_completion(client: TestClient, admin: Actor) -> None:
+    admin.post("/api/setup/complete")
+    admin.put("/api/config/settings", json={"rest_period_hours": 10})
+    assert admin.get("/api/config/settings").json()["setup_completed"] is True

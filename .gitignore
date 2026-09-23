@@ -228,3 +228,11 @@ frontend/dist/
 .ruff_cache/
 frontend/package-lock.json.bak
 openapi.json
+
+# Built frontend copied into the package for the executable and server
+src/shabetz/web/
+
+# The template above ignores *.spec and *.manifest everywhere; the packaging
+# files are source, so they are kept explicitly.
+!packaging/*.spec
+!packaging/*.manifest
