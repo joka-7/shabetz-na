@@ -1,29 +1,41 @@
 # Putting Shabetz on the internet with Render
 
-About 15 minutes, no programming. At the end you have a web address anyone
+About 20 minutes, no programming. At the end you have a web address anyone
 you invite can sign in to, from a computer or a phone.
 
-Render runs two things for you: the **website** (pages and server together)
-and its **database**. Both are described in `render.yaml` in this project,
-so Render sets them up in one go.
+Two free services are involved:
 
-## 1. Create a Render account
+- **Neon** keeps the **database**: every division, person, schedule and account.
+- **Render** runs the **website**: the pages and the server together, from
+  `render.yaml` in this project.
 
-1. Go to **https://render.com** and click **Get Started**.
-2. Choose **Sign up with GitHub** and allow access. This is how Render reads
-   the project.
+The database is kept at Neon rather than Render on purpose: Render's free
+database is deleted after a fixed period, with no way to renew it. Neon's
+free database has no expiry.
 
-## 2. Create the website from this project
+## 1. Create the database at Neon
 
-1. In Render, click **New +** (top right) → **Blueprint**.
-2. Find **shabetz-na** in the list and click **Connect**.
-   - Not in the list? Click **Configure account** / **Configure GitHub App**,
-     give Render access to *shabetz-na*, and come back.
-3. **Blueprint Name**: type `shabetz`.
-4. Render shows what it will create: a web service **shabetz** and a database
-   **shabetz-db**. Click **Apply** (or **Deploy Blueprint**).
-5. Wait. The first build takes about 5–10 minutes. When the web service shows
-   **Live** in green, it is ready.
+1. Go to **https://neon.tech** → **Sign up** (with GitHub or Google is easiest).
+2. Create a project: name it `shabetz`, pick the region closest to you
+   (for Israel: **Europe (Frankfurt)**), and create it.
+3. On the project dashboard, click **Connect**. Copy the **connection string**.
+   It looks like
+   `postgresql://user:password@ep-something.eu-central-1.aws.neon.tech/neondb?sslmode=require`.
+   Keep it for step 2; treat it like a password.
+
+## 2. Create the website at Render
+
+1. Go to **https://render.com** → **Get Started** → **Sign up with GitHub**.
+   When asked, install the Render GitHub App and give it access to
+   **shabetz-na** only.
+2. In Render, click **New +** (top right) → **Blueprint**.
+3. Pick **shabetz-na** and click **Connect**.
+4. **Blueprint Name**: type `shabetz`.
+5. Render asks for **SHABETZ_DATABASE_URL**: paste the Neon connection
+   string from step 1, exactly as copied.
+6. Click **Apply** (or **Deploy Blueprint**). The first build takes about
+   5–10 minutes. When the **shabetz** service shows **Live** in green, it is
+   ready.
 
 ## 3. Find your address and setup code
 
@@ -52,19 +64,17 @@ Create a **second administrator** too: on the website, a forgotten password is
 reset by another administrator (the Windows app's reset-code file does not
 exist here).
 
-## Costs and the free plan — read before entering real data
+## Costs and the free plans
 
-The project starts on Render's **free** plans. That is fine for trying it,
-with two catches:
+Both start free. What that means in practice:
 
-- **The free website sleeps** after 15 minutes without visitors. The next
-  visit takes about a minute to wake it. The paid **Starter** plan stays on.
-- **Render deletes free databases after a trial period** (Render shows the
-  date on the database page). Everything in it is lost.
-
-Before you rely on it: open **shabetz-db** → **Info** / **Settings** →
-change the plan to a paid one, and consider the same for the web service.
-Prices are on Render's pricing page.
+- **Neon (database)**: free with no expiry, and plenty for an organisation's
+  roster and schedules. Neon's dashboard shows usage.
+- **Render (website)**: the free plan **sleeps** after 15 minutes without
+  visitors; the next visit takes about a minute to wake it. Nothing is lost —
+  the data is at Neon. For a site that answers instantly, change the service
+  to the paid **Starter** plan in Render (service → **Settings** →
+  **Instance type**).
 
 ## Updates
 
@@ -75,6 +85,9 @@ and updates the site by itself, in a few minutes. Data stays.
 
 - **The deploy failed.** Open the web service → **Events** → the failed deploy
   → **Logs**. Copy the last lines and send them to whoever supports you.
+- **The logs mention the database or a connection.** Check
+  **SHABETZ_DATABASE_URL** under the service's **Environment** tab is the whole
+  Neon string, including the `?sslmode=require` part.
 - **"Incorrect setup code".** Copy **SHABETZ_SETUP_TOKEN** again from the
   Environment tab; it is long, so make sure all of it was pasted.
 - **The page loads slowly the first time.** That is the free plan waking up.

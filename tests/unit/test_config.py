@@ -23,6 +23,15 @@ def test_a_provider_postgres_url_uses_the_installed_driver(given: str) -> None:
     )
 
 
+def test_connection_options_survive() -> None:
+    # Neon hands out URLs that require TLS; dropping the query would fail.
+    url = "postgresql://u:p@ep-x.eu-central-1.aws.neon.tech/shabetz?sslmode=require&channel_binding=require"
+    assert Settings(database_url=url).database_url == (
+        "postgresql+psycopg://u:p@ep-x.eu-central-1.aws.neon.tech/shabetz"
+        "?sslmode=require&channel_binding=require"
+    )
+
+
 @pytest.mark.parametrize(
     "given",
     [

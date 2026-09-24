@@ -1,10 +1,17 @@
-# Render Blueprint: the Shabetz website and its database, created together.
+# Render Blueprint: the Shabetz website.
 #
 # In Render: New > Blueprint > pick this repository. See docs/RENDER.md for the
 # click-by-click version.
 #
 # One web service serves both the pages and the API from the same Docker image
-# CI already builds and tests, so there is no separate frontend to host.
+# CI already builds and tests, so there is no separate static site: sign-in
+# uses a cookie from this server, which only works reliably when the pages
+# come from the same address.
+#
+# The database is NOT created here. Render's free PostgreSQL expires after a
+# fixed period with no renewal, and everything in it is lost, so
+# SHABETZ_DATABASE_URL points at an external host instead (Neon's free tier
+# has no forced expiry). Paste its connection string when Render asks.
 
 services:
   - type: web
@@ -17,11 +24,14 @@ services:
     branch: main
     autoDeploy: true
     healthCheckPath: /api/meta/health
+    # A preview copy would not get the database URL (a sync:false secret)
+    # and would fail to start.
+    pullRequestPreviewsEnabled: false
     envVars:
+      # The PostgreSQL connection string from Neon (or any host), pasted as
+      # given; the app picks its driver itself.
       - key: SHABETZ_DATABASE_URL
-        fromDatabase:
-          name: shabetz-db
-          property: connectionString
+        sync: false
       # Generated once by Render and kept; it signs the Google sign-in
       # handshake, so it must not change between deploys.
       - key: SHABETZ_SECRET_KEY
@@ -35,11 +45,8 @@ services:
       # visitor's real address. Needed for per-address sign-in throttling.
       - key: SHABETZ_FORWARDED_ALLOW_IPS
         value: "*"
-
-databases:
-  - name: shabetz-db
-    databaseName: shabetz
-    user: shabetz
-    # Render deletes free databases after a trial period. Upgrade it in the
-    # dashboard before entering data you want to keep.
-    plan: free
+      # One server process. Sign-in throttling is kept in memory, so with
+      # several processes each would count failures separately; one is plenty
+      # for an organisation's roster, and fits the free plan's memory.
+      - key: WEB_CONCURRENCY
+        value: "1"
