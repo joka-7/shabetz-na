@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from shabetz.domain.enums import UserRole
-from tests.integration.conftest import Actor
+from shabetz.domain.enums import ProjectRole
+from tests.integration.conftest import Actor, make_member, sign_in
 
 WORKDAYS = [0, 1, 2, 3, 4, 5, 6]
 WINDOW = {"name": "All day", "start_hour": 0.0, "duration_hours": 8.0}
@@ -70,7 +70,9 @@ def test_approved_time_off_removes_a_person_from_the_schedule(
     assert after["summary"]["understaffed_shift_count"] == 1
 
 
-def test_pending_time_off_does_not_change_the_schedule(client: TestClient, admin: Actor) -> None:
+def test_pending_time_off_does_not_change_the_schedule(
+    client: TestClient, admin: Actor, session_factory
+) -> None:
     """A request still awaiting review must not quietly alter staffing."""
     ids = _minimal_config(admin)
 
@@ -91,23 +93,14 @@ def test_pending_time_off_does_not_change_the_schedule(client: TestClient, admin
         },
     ).json()
 
-    admin.post(
-        "/api/users",
-        json={
-            "email": "requester@example.com",
-            "full_name": "Requester",
-            "role": UserRole.STAFF.value,
-            "password": "a-long-enough-password",
-            "person_id": staff_person["id"],
-        },
+    make_member(
+        session_factory,
+        admin.project_id,
+        "requester@example.com",
+        ProjectRole.STAFF,
+        staff_person["id"],
     )
-
-    staff_client = TestClient(client.app)
-    body = staff_client.post(
-        "/api/auth/login",
-        json={"email": "requester@example.com", "password": "a-long-enough-password"},
-    ).json()
-    staff = Actor(staff_client, body["csrf_token"], body["user"])
+    staff = sign_in(TestClient(client.app), "requester@example.com", admin.project_id)
 
     pending = staff.post(
         "/api/time-off",
@@ -120,26 +113,14 @@ def test_pending_time_off_does_not_change_the_schedule(client: TestClient, admin
 
 
 def test_approving_a_pending_request_then_changes_the_schedule(
-    client: TestClient, admin: Actor
+    client: TestClient, admin: Actor, session_factory
 ) -> None:
     ids = _minimal_config(admin)
 
-    admin.post(
-        "/api/users",
-        json={
-            "email": "solo@example.com",
-            "full_name": "Solo",
-            "role": UserRole.STAFF.value,
-            "password": "a-long-enough-password",
-            "person_id": ids["person"],
-        },
+    make_member(
+        session_factory, admin.project_id, "solo@example.com", ProjectRole.STAFF, ids["person"]
     )
-    staff_client = TestClient(client.app)
-    body = staff_client.post(
-        "/api/auth/login",
-        json={"email": "solo@example.com", "password": "a-long-enough-password"},
-    ).json()
-    staff = Actor(staff_client, body["csrf_token"], body["user"])
+    staff = sign_in(TestClient(client.app), "solo@example.com", admin.project_id)
 
     request = staff.post(
         "/api/time-off", json={"start_date": "2026-10-05", "end_date": "2026-10-05"}

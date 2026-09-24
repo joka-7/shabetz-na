@@ -22,14 +22,17 @@ Create a `.env` file from `.env.example`. The values that matter:
 | Setting | Value |
 | :-- | :-- |
 | `SHABETZ_DATABASE_URL` | PostgreSQL: the URL exactly as your host shows it (`postgres://…` or `postgresql://…`). MySQL: `mysql+pymysql://USER:PASS@HOST:3306/DB?charset=utf8mb4` — keep `charset=utf8mb4` |
-| `SHABETZ_SECRET_KEY` | A long random string, kept the same across restarts. Generate one with `python -c "import secrets; print(secrets.token_urlsafe(48))"`. Google sign-in refuses to work in production without it. |
+| `SHABETZ_SECRET_KEY` | A long random string, kept the same across restarts. Generate one with `python -c "import secrets; print(secrets.token_urlsafe(48))"`. |
 | `SHABETZ_COOKIE_SECURE` | `true` (the image sets this). Only turn it off for plain-http testing. |
 | `SHABETZ_FORWARDED_ALLOW_IPS` | The address of your reverse proxy. **Required for correct sign-in throttling** — without it every visitor looks like the proxy, and one person's failed sign-ins throttle everyone. |
 
-Google sign-in is optional: set `SHABETZ_GOOGLE_CLIENT_ID`,
-`SHABETZ_GOOGLE_CLIENT_SECRET`, and `SHABETZ_GOOGLE_REDIRECT_URI` to
-`https://your-domain/api/auth/google/callback`. Leave them empty and the Google
-button simply does not appear.
+**Google sign-in** (recommended): set `SHABETZ_FIREBASE_API_KEY`,
+`SHABETZ_FIREBASE_AUTH_DOMAIN`, `SHABETZ_FIREBASE_PROJECT_ID` and
+`SHABETZ_FIREBASE_APP_ID` from a Firebase web app, with Google enabled as a
+sign-in provider and your domain under **Authorized domains** — the steps are
+in [RENDER.md](RENDER.md#3-turn-on-google-sign-in-firebase). Then anyone can
+sign up, create projects and invite others by link, and step 3 below does not
+apply. Leave them empty for a site with password accounts only.
 
 ## 2. Run
 
@@ -40,7 +43,7 @@ docker run -d --name shabetz -p 8000:8000 --env-file .env --restart unless-stopp
 
 The server applies database migrations itself on start.
 
-## 3. Claim it — do this straight away
+## 3. Claim it — do this straight away (without Google sign-in)
 
 Until an administrator exists, the server's log shows a **setup code**:
 
@@ -60,7 +63,7 @@ the code nobody can claim the site, so a newly deployed server is not open to
 whoever finds it first. The code changes on every restart until the first
 administrator exists, then it is no longer needed.
 
-Then add everyone else under **Configuration → Accounts**.
+Then bring everyone else in under **Configuration → Members**.
 
 ## Security notes
 

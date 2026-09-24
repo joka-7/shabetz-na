@@ -3,10 +3,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
 import type {
-  AdminUser,
   Division,
   Feasibility,
+  Invite,
   Job,
+  Member,
   Person,
   ProficiencyLevel,
   ScheduleRun,
@@ -26,7 +27,8 @@ export const keys = {
   settings: ["settings"] as const,
   feasibility: ["feasibility"] as const,
   timeOff: ["time-off"] as const,
-  users: ["users"] as const,
+  members: ["members"] as const,
+  invites: ["invites"] as const,
 };
 
 export const useDivisions = () =>
@@ -62,8 +64,11 @@ export const useFeasibility = () =>
     queryFn: () => api.get<Feasibility>("/api/config/feasibility"),
   });
 
-export const useUsers = () =>
-  useQuery({ queryKey: keys.users, queryFn: () => api.get<AdminUser[]>("/api/users") });
+export const useMembers = () =>
+  useQuery({ queryKey: keys.members, queryFn: () => api.get<Member[]>("/api/project/members") });
+
+export const useInvites = () =>
+  useQuery({ queryKey: keys.invites, queryFn: () => api.get<Invite[]>("/api/project/invites") });
 
 export const useTimeOff = () =>
   useQuery({ queryKey: keys.timeOff, queryFn: () => api.get<TimeOff[]>("/api/time-off") });

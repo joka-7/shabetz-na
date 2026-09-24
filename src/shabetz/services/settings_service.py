@@ -1,15 +1,13 @@
-"""Typed access to the singleton settings rows."""
+"""Typed access to a project's scheduling settings."""
 
 from __future__ import annotations
 
 from datetime import date
-from typing import Any
 
 from pydantic import BaseModel, Field
-from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
-from ..db.models import Setting
+from ..db.models import Project
 
 
 class SchedulingSettings(BaseModel):
@@ -29,22 +27,19 @@ class SchedulingSettings(BaseModel):
     setup_completed: bool = False
 
 
-SETTINGS_KEY = "scheduling"
-
-
-def load_settings(db: DbSession) -> SchedulingSettings:
-    row = db.scalar(select(Setting).where(Setting.key == SETTINGS_KEY))
-    if row is None or not isinstance(row.value_json, dict):
+def load_settings(db: DbSession, project_id: int) -> SchedulingSettings:
+    project = db.get(Project, project_id)
+    if project is None or not isinstance(project.settings_json, dict):
         return SchedulingSettings()
-    return SchedulingSettings.model_validate(row.value_json)
+    return SchedulingSettings.model_validate(project.settings_json)
 
 
-def save_settings(db: DbSession, settings: SchedulingSettings) -> SchedulingSettings:
-    payload: dict[str, Any] = settings.model_dump(mode="json")
-    row = db.scalar(select(Setting).where(Setting.key == SETTINGS_KEY))
-    if row is None:
-        db.add(Setting(key=SETTINGS_KEY, value_json=payload))
-    else:
-        row.value_json = payload
+def save_settings(
+    db: DbSession, project_id: int, settings: SchedulingSettings
+) -> SchedulingSettings:
+    project = db.get(Project, project_id)
+    if project is None:
+        raise LookupError(f"Project {project_id} does not exist")
+    project.settings_json = settings.model_dump(mode="json")
     db.flush()
     return settings

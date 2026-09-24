@@ -21,15 +21,21 @@ from .settings_service import SchedulingSettings, load_settings
 
 
 class JobOrchestrationService:
-    def __init__(self, session: DbSession, strategy: SchedulingStrategy | None = None) -> None:
+    def __init__(
+        self,
+        session: DbSession,
+        project_id: int,
+        strategy: SchedulingStrategy | None = None,
+    ) -> None:
         self._db = session
-        self._repo = DbSchedulingRepository(session)
+        self._project_id = project_id
+        self._repo = DbSchedulingRepository(session, project_id)
         self._strategy = strategy or SimpleGreedyScheduler()
 
     # ------------------------------------------------------------------ loads
 
     def _config(self, start: date, end: date) -> tuple[list[Person], list[Job], ScheduleParams]:
-        settings = load_settings(self._db)
+        settings = load_settings(self._db, self._project_id)
         divisions = self._repo.load_divisions()
         people = self._repo.load_people(start, end)
         jobs = self._repo.load_jobs()
@@ -50,7 +56,7 @@ class JobOrchestrationService:
     # --------------------------------------------------------------- analysis
 
     def feasibility(self, settings: SchedulingSettings | None = None) -> FeasibilityReport:
-        resolved = settings or load_settings(self._db)
+        resolved = settings or load_settings(self._db, self._project_id)
         today = date.today()
         return analyze(
             people=self._repo.load_people(today, today),
@@ -81,6 +87,7 @@ class JobOrchestrationService:
         }
         run = ScheduleRun(
             id=schedule_id,
+            project_id=self._project_id,
             created_by=created_by,
             params_json=_jsonable(asdict(params)),
             summary_json=_jsonable(asdict(result.summary)),

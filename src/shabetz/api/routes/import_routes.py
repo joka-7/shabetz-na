@@ -12,7 +12,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
 from ...db import models as orm
-from ...db.models import User
 from ...imports.catalog import ensure_divisions, ensure_levels, ensure_skills, name_key
 from ...imports.people import (
     Column,
@@ -22,7 +21,7 @@ from ...imports.people import (
     plan_people_import,
 )
 from ...imports.tables import MAX_UPLOAD_BYTES, TableError, read_table
-from ..deps import get_db, require_admin
+from ..deps import ProjectContext, get_db, require_editor
 from ..errors import ApiError, UnprocessableConfig
 from ..schemas import (
     BulkNamesIn,
@@ -41,45 +40,56 @@ router = APIRouter(prefix="/api/config", tags=["configuration"])
 
 @router.post("/divisions/bulk", response_model=BulkResultOut)
 def bulk_divisions(
-    payload: BulkNamesIn, db: DbSession = Depends(get_db), user: User = Depends(require_admin)
+    payload: BulkNamesIn,
+    db: DbSession = Depends(get_db),
+    ctx: ProjectContext = Depends(require_editor),
 ) -> BulkResultOut:
     """Add divisions to the end of the rotation, in the order given."""
-    result = ensure_divisions(db, payload.names)
+    result = ensure_divisions(db, ctx.project_id, payload.names)
     for name in result.created:
-        _audit(db, user, "division", result.rows[name_key(name)].id, "create")
+        _audit(db, ctx, "division", result.rows[name_key(name)].id, "create")
     return BulkResultOut(created=result.created, existing=result.existing)
 
 
 @router.post("/skills/bulk", response_model=BulkResultOut)
 def bulk_skills(
-    payload: BulkNamesIn, db: DbSession = Depends(get_db), user: User = Depends(require_admin)
+    payload: BulkNamesIn,
+    db: DbSession = Depends(get_db),
+    ctx: ProjectContext = Depends(require_editor),
 ) -> BulkResultOut:
-    result = ensure_skills(db, payload.names)
+    result = ensure_skills(db, ctx.project_id, payload.names)
     for name in result.created:
-        _audit(db, user, "skill", result.rows[name_key(name)].id, "create")
+        _audit(db, ctx, "skill", result.rows[name_key(name)].id, "create")
     return BulkResultOut(created=result.created, existing=result.existing)
 
 
 @router.post("/proficiency-levels/bulk", response_model=BulkResultOut)
 def bulk_levels(
-    payload: BulkNamesIn, db: DbSession = Depends(get_db), user: User = Depends(require_admin)
+    payload: BulkNamesIn,
+    db: DbSession = Depends(get_db),
+    ctx: ProjectContext = Depends(require_editor),
 ) -> BulkResultOut:
     """Add rungs above the current top of the ladder, weakest first."""
-    result = ensure_levels(db, payload.names)
+    result = ensure_levels(db, ctx.project_id, payload.names)
     for name in result.created:
-        _audit(db, user, "proficiency_level", result.rows[name_key(name)].id, "create")
+        _audit(db, ctx, "proficiency_level", result.rows[name_key(name)].id, "create")
     return BulkResultOut(created=result.created, existing=result.existing)
 
 
 @router.post("/shift-templates/bulk", response_model=BulkResultOut)
 def bulk_templates(
-    payload: BulkTemplatesIn, db: DbSession = Depends(get_db), user: User = Depends(require_admin)
+    payload: BulkTemplatesIn,
+    db: DbSession = Depends(get_db),
+    ctx: ProjectContext = Depends(require_editor),
 ) -> BulkResultOut:
     """Add shift windows, skipping any whose name is already in use."""
     taken = {
         name_key(row.name)
         for row in db.scalars(
-            select(orm.ShiftTemplate).where(orm.ShiftTemplate.is_active.is_(True))
+            select(orm.ShiftTemplate).where(
+                orm.ShiftTemplate.project_id == ctx.project_id,
+                orm.ShiftTemplate.is_active.is_(True),
+            )
         )
     }
     created: list[orm.ShiftTemplate] = []
@@ -92,18 +102,20 @@ def bulk_templates(
             existing.append(name)
             continue
         taken.add(name_key(name))
-        row = orm.ShiftTemplate(**{**template.model_dump(), "name": name})
+        row = orm.ShiftTemplate(
+            project_id=ctx.project_id, **{**template.model_dump(), "name": name}
+        )
         db.add(row)
         created.append(row)
     db.flush()
     for row in created:
-        _audit(db, user, "shift_template", row.id, "create")
+        _audit(db, ctx, "shift_template", row.id, "create")
     return BulkResultOut(created=[row.name for row in created], existing=existing)
 
 
 @router.post("/import/table", response_model=TableOut)
 async def read_uploaded_table(
-    file: UploadFile = File(...), _: User = Depends(require_admin)
+    file: UploadFile = File(...), _: ProjectContext = Depends(require_editor)
 ) -> TableOut:
     """Read an uploaded .xlsx or .csv into rows of text, without saving anything."""
     data = await file.read(MAX_UPLOAD_BYTES + 1)
@@ -139,7 +151,9 @@ def _plan_out(plan: ImportPlan) -> PeopleImportOut:
 
 @router.post("/import/people", response_model=PeopleImportOut)
 def import_people(
-    payload: PeopleImportIn, db: DbSession = Depends(get_db), user: User = Depends(require_admin)
+    payload: PeopleImportIn,
+    db: DbSession = Depends(get_db),
+    ctx: ProjectContext = Depends(require_editor),
 ) -> PeopleImportOut:
     """Preview a roster import, or with ``apply`` perform it.
 
@@ -149,6 +163,7 @@ def import_people(
     try:
         plan = plan_people_import(
             db,
+            ctx.project_id,
             [Column(role=c.role, skill_name=c.skill_name) for c in payload.columns],
             payload.rows,
             payload.default_division_id,
@@ -157,6 +172,6 @@ def import_people(
     except ImportRequestError as exc:
         raise UnprocessableConfig(str(exc)) from exc
     if payload.apply:
-        for person in apply_people_import(db, plan):
-            _audit(db, user, "person", person.id, "import")
+        for person in apply_people_import(db, ctx.project_id, plan):
+            _audit(db, ctx, "person", person.id, "import")
     return _plan_out(plan)

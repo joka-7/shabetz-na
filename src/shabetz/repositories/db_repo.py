@@ -1,4 +1,4 @@
-"""Loads configuration out of MySQL and into the engine's domain objects."""
+"""Loads a project's configuration out of the database into the engine's domain objects."""
 
 from __future__ import annotations
 
@@ -21,13 +21,16 @@ from .base import JobSchedulingRepository
 
 
 class DbSchedulingRepository(JobSchedulingRepository):
-    def __init__(self, session: Session) -> None:
+    """Reads one project's configuration; nothing from another project."""
+
+    def __init__(self, session: Session, project_id: int) -> None:
         self._session = session
+        self._project_id = project_id
 
     def load_divisions(self) -> list[Division]:
         rows = self._session.scalars(
             select(orm.Division)
-            .where(orm.Division.is_active.is_(True))
+            .where(orm.Division.project_id == self._project_id, orm.Division.is_active.is_(True))
             .order_by(orm.Division.display_order, orm.Division.id)
         ).all()
         return [Division(id=r.id, name=r.name, display_order=r.display_order) for r in rows]
@@ -35,7 +38,7 @@ class DbSchedulingRepository(JobSchedulingRepository):
     def load_people(self, window_start: date, window_end: date) -> list[Person]:
         rows = self._session.scalars(
             select(orm.Person)
-            .where(orm.Person.is_active.is_(True))
+            .where(orm.Person.project_id == self._project_id, orm.Person.is_active.is_(True))
             .options(
                 selectinload(orm.Person.skills).selectinload(orm.PersonSkill.level),
                 selectinload(orm.Person.working_days),
@@ -70,7 +73,7 @@ class DbSchedulingRepository(JobSchedulingRepository):
     def load_jobs(self) -> list[Job]:
         rows = self._session.scalars(
             select(orm.Job)
-            .where(orm.Job.is_active.is_(True))
+            .where(orm.Job.project_id == self._project_id, orm.Job.is_active.is_(True))
             .options(
                 selectinload(orm.Job.shift_links).selectinload(orm.JobShiftTemplate.shift_template),
                 selectinload(orm.Job.requirements).selectinload(orm.JobSkillRequirement.skill),

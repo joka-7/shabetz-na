@@ -7,7 +7,8 @@ import io
 from fastapi.testclient import TestClient
 from openpyxl import Workbook
 
-from tests.integration.conftest import Actor
+from shabetz.domain.enums import ProjectRole
+from tests.integration.conftest import Actor, make_member, sign_in
 
 MON, TUE, WED, THU, FRI, SAT, SUN = range(7)
 
@@ -75,22 +76,10 @@ def test_pasted_skills_and_shift_windows(admin: Actor) -> None:
     assert response.json() == {"created": ["Morning", "Night"], "existing": ["morning"]}
 
 
-def test_only_administrators_add_in_bulk(client: TestClient, admin: Actor) -> None:
-    admin.post(
-        "/api/users",
-        json={
-            "email": "s@example.com",
-            "full_name": "S",
-            "role": "SCHEDULER",
-            "password": "a-long-enough-password",
-        },
-    )
-    client.cookies.clear()
-    body = client.post(
-        "/api/auth/login", json={"email": "s@example.com", "password": "a-long-enough-password"}
-    ).json()
-    scheduler = Actor(client, body["csrf_token"], body["user"])
-    response = scheduler.post("/api/config/divisions/bulk", json={"names": ["X"]})
+def test_staff_may_not_add_in_bulk(client: TestClient, admin: Actor, session_factory) -> None:
+    make_member(session_factory, admin.project_id, "s@example.com", ProjectRole.STAFF)
+    staff = sign_in(client, "s@example.com", admin.project_id)
+    response = staff.post("/api/config/divisions/bulk", json={"names": ["X"]})
     assert response.status_code == 403
 
 

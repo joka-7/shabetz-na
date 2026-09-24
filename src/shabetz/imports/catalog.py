@@ -44,10 +44,20 @@ class EnsureResult(Generic[T]):
     existing: list[str] = field(default_factory=list)
 
 
-def ensure_divisions(db: Session, names: list[str]) -> EnsureResult[orm.Division]:
+def ensure_divisions(db: Session, project_id: int, names: list[str]) -> EnsureResult[orm.Division]:
     result: EnsureResult[orm.Division] = EnsureResult()
-    all_rows = {name_key(row.name): row for row in db.scalars(select(orm.Division))}
-    next_order = (db.scalar(select(func.max(orm.Division.display_order))) or 0) + 1
+    all_rows = {
+        name_key(row.name): row
+        for row in db.scalars(select(orm.Division).where(orm.Division.project_id == project_id))
+    }
+    next_order = (
+        db.scalar(
+            select(func.max(orm.Division.display_order)).where(
+                orm.Division.project_id == project_id
+            )
+        )
+        or 0
+    ) + 1
     for name in clean_names(names):
         key = name_key(name)
         row = all_rows.get(key)
@@ -60,7 +70,7 @@ def ensure_divisions(db: Session, names: list[str]) -> EnsureResult[orm.Division
             next_order += 1
             result.created.append(row.name)
         else:
-            row = orm.Division(name=name, display_order=next_order)
+            row = orm.Division(project_id=project_id, name=name, display_order=next_order)
             next_order += 1
             db.add(row)
             all_rows[key] = row
@@ -70,9 +80,12 @@ def ensure_divisions(db: Session, names: list[str]) -> EnsureResult[orm.Division
     return result
 
 
-def ensure_skills(db: Session, names: list[str]) -> EnsureResult[orm.Skill]:
+def ensure_skills(db: Session, project_id: int, names: list[str]) -> EnsureResult[orm.Skill]:
     result: EnsureResult[orm.Skill] = EnsureResult()
-    all_rows = {name_key(row.name): row for row in db.scalars(select(orm.Skill))}
+    all_rows = {
+        name_key(row.name): row
+        for row in db.scalars(select(orm.Skill).where(orm.Skill.project_id == project_id))
+    }
     for name in clean_names(names):
         key = name_key(name)
         row = all_rows.get(key)
@@ -82,7 +95,7 @@ def ensure_skills(db: Session, names: list[str]) -> EnsureResult[orm.Skill]:
             row.is_active = True
             result.created.append(row.name)
         else:
-            row = orm.Skill(name=name)
+            row = orm.Skill(project_id=project_id, name=name)
             db.add(row)
             all_rows[key] = row
             result.created.append(name)
@@ -91,14 +104,20 @@ def ensure_skills(db: Session, names: list[str]) -> EnsureResult[orm.Skill]:
     return result
 
 
-def ensure_levels(db: Session, names: list[str]) -> EnsureResult[orm.ProficiencyLevel]:
+def ensure_levels(
+    db: Session, project_id: int, names: list[str]
+) -> EnsureResult[orm.ProficiencyLevel]:
     """Append levels to the top of the ladder, weakest of the new ones first.
 
     Ranks are unique across removed levels too, so the next rank is counted
     from every row rather than only the visible ones.
     """
     result: EnsureResult[orm.ProficiencyLevel] = EnsureResult()
-    rows = list(db.scalars(select(orm.ProficiencyLevel)))
+    rows = list(
+        db.scalars(
+            select(orm.ProficiencyLevel).where(orm.ProficiencyLevel.project_id == project_id)
+        )
+    )
     active = {name_key(row.name): row for row in rows if row.is_active}
     removed = {name_key(row.name): row for row in rows if not row.is_active}
     next_rank = max((row.rank for row in rows), default=-1) + 1
@@ -110,7 +129,7 @@ def ensure_levels(db: Session, names: list[str]) -> EnsureResult[orm.Proficiency
             continue
         row = removed.pop(key, None)
         if row is None:
-            row = orm.ProficiencyLevel(name=name, rank=next_rank)
+            row = orm.ProficiencyLevel(project_id=project_id, name=name, rank=next_rank)
             db.add(row)
         else:
             row.is_active = True

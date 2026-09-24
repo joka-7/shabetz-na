@@ -32,13 +32,25 @@ services:
       # given; the app picks its driver itself.
       - key: SHABETZ_DATABASE_URL
         sync: false
-      # Generated once by Render and kept; it signs the Google sign-in
-      # handshake, so it must not change between deploys.
+      # Generated once by Render and kept the same between deploys.
       - key: SHABETZ_SECRET_KEY
         generateValue: true
-      # The code needed to create the first administrator. Fixed rather than
-      # printed at each start, because a free service restarts whenever it
-      # wakes. Find it under the service's Environment tab.
+      # Google sign-in: the web app config from the Firebase console, pasted
+      # value by value (docs/RENDER.md, steps 3 and 4). Public identifiers,
+      # not secrets. With them set, anyone can sign up with Google and create
+      # projects; without them, the site keeps the one-administrator setup
+      # below.
+      - key: SHABETZ_FIREBASE_API_KEY
+        sync: false
+      - key: SHABETZ_FIREBASE_AUTH_DOMAIN
+        sync: false
+      - key: SHABETZ_FIREBASE_PROJECT_ID
+        sync: false
+      - key: SHABETZ_FIREBASE_APP_ID
+        sync: false
+      # Only used while Google sign-in is off: the code needed to create the
+      # first administrator. Fixed rather than printed at each start, because
+      # a free service restarts whenever it wakes.
       - key: SHABETZ_SETUP_TOKEN
         generateValue: true
       # The app is reachable only through Render's proxy, which reports the

@@ -8,8 +8,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session as DbSession
 
 from ..db.base import utcnow
-from ..db.models import User
-from ..domain.enums import UserRole
+from ..db.models import Project, ProjectMember, User
+from ..domain.enums import ProjectRole
 from .passwords import hash_password, needs_rehash, verify_password
 
 
@@ -43,26 +43,41 @@ def create_user(
     *,
     email: str,
     full_name: str,
-    role: UserRole,
     password: str | None = None,
-    person_id: int | None = None,
+    firebase_uid: str | None = None,
 ) -> User:
     user = User(
         email=email.strip().lower(),
-        full_name=full_name.strip(),
-        role=role,
+        full_name=full_name.strip()[:120] or email.strip().lower(),
         password_hash=hash_password(password) if password else None,
-        person_id=person_id,
+        firebase_uid=firebase_uid,
     )
     db.add(user)
     db.flush()
     return user
 
 
-def bootstrap_first_admin(db: DbSession, *, email: str, full_name: str, password: str) -> User:
+DEFAULT_PROJECT_NAME = "My organization"
+
+
+def create_project(db: DbSession, owner: User, name: str) -> Project:
+    """A new project, administered by the account that created it."""
+    project = Project(name=name.strip()[:120] or DEFAULT_PROJECT_NAME, created_by=owner.id)
+    project.members = [ProjectMember(user_id=owner.id, role=ProjectRole.ADMIN)]
+    db.add(project)
+    db.flush()
+    return project
+
+
+def bootstrap_first_admin(
+    db: DbSession, *, email: str, full_name: str, password: str, project_name: str = ""
+) -> User:
+    """The first account, and the project it administers."""
     if setup_is_complete(db):
         raise AuthError("Setup has already been completed")
-    return create_user(db, email=email, full_name=full_name, role=UserRole.ADMIN, password=password)
+    user = create_user(db, email=email, full_name=full_name, password=password)
+    create_project(db, user, project_name)
+    return user
 
 
 def _find_by_email(db: DbSession, email: str) -> User | None:
@@ -70,37 +85,42 @@ def _find_by_email(db: DbSession, email: str) -> User | None:
 
 
 class LastAdminError(Exception):
-    """Refused because it would leave the system with no way in.
+    """Refused because it would leave a project with nobody to manage it.
 
-    Distinct from AuthError: this is not a failed sign-in, it is a
-    configuration change that would lock everyone out permanently.
+    Distinct from AuthError: this is not a failed sign-in, it is a change that
+    would lock everyone out of the project's membership for good.
     """
 
 
-def active_admin_count(db: DbSession, *, excluding: int | None = None) -> int:
+def project_admin_count(db: DbSession, project_id: int, *, excluding: int | None = None) -> int:
     query = (
         select(func.count())
-        .select_from(User)
-        .where(User.role == UserRole.ADMIN, User.is_active.is_(True))
+        .select_from(ProjectMember)
+        .join(User, User.id == ProjectMember.user_id)
+        .where(
+            ProjectMember.project_id == project_id,
+            ProjectMember.role == ProjectRole.ADMIN,
+            User.is_active.is_(True),
+        )
     )
     if excluding is not None:
-        query = query.where(User.id != excluding)
+        query = query.where(ProjectMember.id != excluding)
     return db.scalar(query) or 0
 
 
-def assert_not_last_admin(db: DbSession, user: User) -> None:
-    """Guard a change that would strip the final administrator.
+def assert_not_last_admin(db: DbSession, member: ProjectMember) -> None:
+    """Guard a change that would strip a project's final administrator.
 
-    Demoting or deactivating the only admin leaves nobody able to manage
-    configuration or restore access, and the bootstrap route is long closed by
-    then, so the database would have to be edited by hand.
+    Nobody else could then invite members, change roles or delete the
+    project, and there is no way back short of editing the database.
     """
     if (
-        user.role is UserRole.ADMIN
-        and user.is_active
-        and active_admin_count(db, excluding=user.id) == 0
+        member.role is ProjectRole.ADMIN
+        and project_admin_count(db, member.project_id, excluding=member.id) == 0
     ):
-        raise LastAdminError("This is the only administrator; promote another account first")
+        raise LastAdminError(
+            "This is the project's only administrator; make someone else one first"
+        )
 
 
 def find_active_user_by_email(db: DbSession, email: str) -> User | None:
@@ -151,21 +171,32 @@ def authenticate_password(
     return user
 
 
-def authenticate_google(db: DbSession, *, google_sub: str, email: str) -> User:
-    """Sign in an existing invited account via Google.
+def authenticate_firebase(
+    db: DbSession, *, uid: str, email: str, email_verified: bool, full_name: str
+) -> User:
+    """Sign in with a Google account verified by Firebase, signing up if new.
 
-    Google is a sign-in path, never a sign-up path.  If an unrecognised address
-    could create an account, anyone with a Google account could walk in.
+    Anyone may create an account this way; what they can reach is decided by
+    project membership, which starts empty. An existing account is matched by
+    its Firebase id, or else by address -- but only a verified address, since
+    an unverified one proves nothing about who owns it.
     """
-    user = db.scalar(select(User).where(User.google_sub == google_sub))
+    if not email_verified:
+        raise AuthError("This Google account has no verified email address")
+
+    user = db.scalar(select(User).where(User.firebase_uid == uid))
     if user is None:
         user = _find_by_email(db, email)
         if user is None:
-            raise AuthError("No account exists for this Google identity")
-        user.google_sub = google_sub
+            user = create_user(db, email=email, full_name=full_name or email, firebase_uid=uid)
+        elif user.firebase_uid is None:
+            user.firebase_uid = uid
+        else:
+            # The address belongs to a different Google identity already.
+            raise AuthError("This email address is linked to another sign-in")
 
     if not user.is_active:
-        raise AuthError("No account exists for this Google identity")
+        raise AuthError("This account has been disabled")
 
     user.last_login_at = utcnow()
     return user

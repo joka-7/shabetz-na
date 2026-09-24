@@ -10,6 +10,20 @@ from pydantic import Field, PrivateAttr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+def normalize_database_url(url: str) -> str:
+    """Accept a PostgreSQL URL as hosting providers hand it out.
+
+    Render, Neon, Heroku and others give ``postgres://`` or ``postgresql://``
+    with no driver named; SQLAlchemy would then look for psycopg2, which is not
+    installed. The URL is pointed at psycopg 3 instead, so the value can be
+    pasted exactly as the provider shows it.
+    """
+    for prefix in ("postgres://", "postgresql://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg://" + url[len(prefix) :]
+    return url
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="SHABETZ_", env_file=".env", extra="ignore")
 
@@ -26,17 +40,7 @@ class Settings(BaseSettings):
     @field_validator("database_url")
     @classmethod
     def _choose_postgres_driver(cls, url: str) -> str:
-        """Accept a PostgreSQL URL as hosting providers hand it out.
-
-        Render, Heroku and others give ``postgres://`` or ``postgresql://``
-        with no driver named; SQLAlchemy would then look for psycopg2, which
-        is not installed. The URL is pointed at psycopg 3 instead, so the
-        value can be pasted exactly as the provider shows it.
-        """
-        for prefix in ("postgres://", "postgresql://"):
-            if url.startswith(prefix):
-                return "postgresql+psycopg://" + url[len(prefix) :]
-        return url
+        return normalize_database_url(url)
 
     secret_key: str = Field(default="")
     session_ttl_hours: int = 12
@@ -55,9 +59,13 @@ class Settings(BaseSettings):
     # reset that works by writing a code into it.
     data_dir: str = ""
 
-    google_client_id: str = ""
-    google_client_secret: str = ""
-    google_redirect_uri: str = "http://localhost:5173/auth/google/callback"
+    # Google sign-in through Firebase Authentication. All four come from the
+    # Firebase console's web app config; they are public identifiers, not
+    # secrets, and are handed to the browser as they are.
+    firebase_api_key: str = ""
+    firebase_auth_domain: str = ""
+    firebase_project_id: str = ""
+    firebase_app_id: str = ""
 
     cors_origins: list[str] = Field(default_factory=list)
     max_upload_bytes: int = 5 * 1024 * 1024
@@ -74,8 +82,23 @@ class Settings(BaseSettings):
     _ephemeral_secret: str | None = PrivateAttr(default=None)
 
     @property
-    def google_enabled(self) -> bool:
-        return bool(self.google_client_id and self.google_client_secret)
+    def firebase_enabled(self) -> bool:
+        # The desktop app runs on localhost with its own passwords.
+        return self.deployment == "server" and bool(
+            self.firebase_api_key and self.firebase_project_id
+        )
+
+    @property
+    def firebase_web_config(self) -> dict[str, str] | None:
+        if not self.firebase_enabled:
+            return None
+        return {
+            "apiKey": self.firebase_api_key,
+            "authDomain": self.firebase_auth_domain
+            or f"{self.firebase_project_id}.firebaseapp.com",
+            "projectId": self.firebase_project_id,
+            "appId": self.firebase_app_id,
+        }
 
     @property
     def password_recovery_enabled(self) -> bool:

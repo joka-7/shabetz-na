@@ -44,6 +44,21 @@ export function adoptCsrfTokenFromCookie(cookieName = "shabetz_csrf"): string | 
   return value || null;
 }
 
+/**
+ * The project every request acts on. Each organisation's data lives in its
+ * own project, and the server checks membership on every call; the id travels
+ * as a header so no route has to spell it out.
+ */
+let projectId: number | null = null;
+
+export function setProjectId(id: number | null): void {
+  projectId = id;
+}
+
+export function getProjectId(): number | null {
+  return projectId;
+}
+
 const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 export async function request<T>(
@@ -59,6 +74,9 @@ export async function request<T>(
   }
   if (MUTATING.has(method) && csrfToken) {
     headers.set("x-csrf-token", csrfToken);
+  }
+  if (projectId !== null && !headers.has("x-project-id")) {
+    headers.set("x-project-id", String(projectId));
   }
 
   const response = await fetch(path, {
@@ -87,8 +105,12 @@ export async function request<T>(
 
 export const api = {
   get: <T>(path: string) => request<T>(path),
-  post: <T>(path: string, body?: unknown) =>
-    request<T>(path, { method: "POST", body: body === undefined ? undefined : JSON.stringify(body) }),
+  post: <T>(path: string, body?: unknown, headers?: Record<string, string>) =>
+    request<T>(path, {
+      method: "POST",
+      body: body === undefined ? undefined : JSON.stringify(body),
+      headers,
+    }),
   put: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: "PUT", body: body === undefined ? undefined : JSON.stringify(body) }),
   del: (path: string) => request<void>(path, { method: "DELETE" }),
@@ -99,7 +121,11 @@ export const api = {
   },
 };
 
-/** Trigger a download through a normal navigation so the cookie is sent. */
+/**
+ * Trigger a download through a normal navigation so the cookie is sent. A
+ * navigation cannot carry headers, so the project rides in the query string.
+ */
 export function downloadExport(scheduleId: string, format: string): void {
-  window.location.href = `/api/schedule/runs/${encodeURIComponent(scheduleId)}/export?format=${format}`;
+  const project = projectId === null ? "" : `&project=${projectId}`;
+  window.location.href = `/api/schedule/runs/${encodeURIComponent(scheduleId)}/export?format=${format}${project}`;
 }

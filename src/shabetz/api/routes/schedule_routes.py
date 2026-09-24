@@ -10,12 +10,11 @@ from sqlalchemy.orm import Session as DbSession
 
 from ...auth.rbac import can_view_all_assignments
 from ...db import models as orm
-from ...db.models import User
 from ...exporters.base import ExporterUnavailable, ExportFormat
 from ...exporters.renderers import render
 from ...repositories.db_repo import DbSchedulingRepository
 from ...services.orchestration import JobOrchestrationService
-from ..deps import current_user, get_db, require_scheduler
+from ..deps import ProjectContext, get_db, project_member, require_editor
 from ..errors import FeatureUnavailable, NotFound, UnprocessableConfig
 from ..schemas import (
     AssignmentOut,
@@ -41,9 +40,9 @@ def _run_out(run: orm.ScheduleRun) -> ScheduleRunOut:
     )
 
 
-def _load_run(db: DbSession, schedule_id: str) -> orm.ScheduleRun:
+def _load_run(db: DbSession, schedule_id: str, ctx: ProjectContext) -> orm.ScheduleRun:
     run = db.get(orm.ScheduleRun, schedule_id)
-    if run is None:
+    if run is None or run.project_id != ctx.project_id:
         raise NotFound("Schedule run not found")
     return run
 
@@ -52,14 +51,14 @@ def _load_run(db: DbSession, schedule_id: str) -> orm.ScheduleRun:
 def generate(
     payload: GenerateRequest,
     db: DbSession = Depends(get_db),
-    user: User = Depends(require_scheduler),
+    ctx: ProjectContext = Depends(require_editor),
 ) -> ScheduleRunOut:
     if payload.end_date < payload.start_date:
         raise UnprocessableConfig("End date must not precede start date")
 
-    service = JobOrchestrationService(db)
+    service = JobOrchestrationService(db, ctx.project_id)
     schedule_id, result, params = service.generate(payload.start_date, payload.end_date)
-    run = service.persist(schedule_id, result, params, created_by=user.id)
+    run = service.persist(schedule_id, result, params, created_by=ctx.user.id)
     db.flush()
     return _run_out(run)
 
@@ -67,11 +66,14 @@ def generate(
 @router.get("/runs", response_model=list[ScheduleRunSummaryOut])
 def list_runs(
     db: DbSession = Depends(get_db),
-    _: User = Depends(require_scheduler),
+    ctx: ProjectContext = Depends(require_editor),
     limit: int = Query(default=25, ge=1, le=100),
 ) -> list[ScheduleRunSummaryOut]:
     rows = db.scalars(
-        select(orm.ScheduleRun).order_by(orm.ScheduleRun.created_at.desc()).limit(limit)
+        select(orm.ScheduleRun)
+        .where(orm.ScheduleRun.project_id == ctx.project_id)
+        .order_by(orm.ScheduleRun.created_at.desc())
+        .limit(limit)
     ).all()
     return [
         ScheduleRunSummaryOut(
@@ -88,9 +90,9 @@ def list_runs(
 def get_run(
     schedule_id: str,
     db: DbSession = Depends(get_db),
-    _: User = Depends(require_scheduler),
+    ctx: ProjectContext = Depends(require_editor),
 ) -> ScheduleRunOut:
-    return _run_out(_load_run(db, schedule_id))
+    return _run_out(_load_run(db, schedule_id, ctx))
 
 
 @router.get("/runs/{schedule_id}/export")
@@ -98,20 +100,19 @@ def export_run(
     schedule_id: str,
     format: ExportFormat = Query(default=ExportFormat.CSV),
     db: DbSession = Depends(get_db),
-    user: User = Depends(current_user),
+    ctx: ProjectContext = Depends(project_member),
 ) -> Response:
-    run = _load_run(db, schedule_id)
+    run = _load_run(db, schedule_id, ctx)
     payload = JobOrchestrationService.load_payload(run)
 
     # Staff may export, but only their own shifts.
-    if not can_view_all_assignments(user.role):
-        if user.person_id is None:
+    if not can_view_all_assignments(ctx.role):
+        person_id = ctx.member.person_id
+        if person_id is None:
             payload = {"assignments": [], "warnings": []}
         else:
             payload = {
-                "assignments": [
-                    a for a in payload["assignments"] if a["person_id"] == user.person_id
-                ],
+                "assignments": [a for a in payload["assignments"] if a["person_id"] == person_id],
                 "warnings": [],
             }
 
@@ -131,27 +132,30 @@ def export_run(
 def my_assignments(
     schedule_id: str = Query(...),
     db: DbSession = Depends(get_db),
-    user: User = Depends(current_user),
+    ctx: ProjectContext = Depends(project_member),
 ) -> list[AssignmentOut]:
     """A staff user's own shifts.
 
-    Scoped by the account's linked person rather than by a supplied id, so
+    Scoped by the member's linked person rather than by a supplied id, so
     changing an id in the URL cannot reveal someone else's schedule.
     """
-    run = _load_run(db, schedule_id)
+    run = _load_run(db, schedule_id, ctx)
     payload = JobOrchestrationService.load_payload(run)
-    if user.person_id is None:
+    person_id = ctx.member.person_id
+    if person_id is None:
         return []
     return [
         AssignmentOut.model_validate(a)
         for a in payload["assignments"]
-        if a["person_id"] == user.person_id
+        if a["person_id"] == person_id
     ]
 
 
 @router.get("/divisions")
-def division_status(db: DbSession = Depends(get_db), _: User = Depends(current_user)) -> dict:
-    repo = DbSchedulingRepository(db)
+def division_status(
+    db: DbSession = Depends(get_db), ctx: ProjectContext = Depends(project_member)
+) -> dict:
+    repo = DbSchedulingRepository(db, ctx.project_id)
     divisions = repo.load_divisions()
     today = date.today()
     people = repo.load_people(today, today)

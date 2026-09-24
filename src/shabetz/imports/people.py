@@ -78,6 +78,7 @@ def _cell(row: list[str], index: int) -> str:
 
 def plan_people_import(
     db: Session,
+    project_id: int,
     columns: list[Column],
     rows: list[list[str]],
     default_division_id: int | None,
@@ -97,23 +98,34 @@ def plan_people_import(
 
     divisions = {
         name_key(d.name): d.name
-        for d in db.scalars(select(orm.Division).where(orm.Division.is_active.is_(True)))
+        for d in db.scalars(
+            select(orm.Division).where(
+                orm.Division.project_id == project_id, orm.Division.is_active.is_(True)
+            )
+        )
     }
     default_division = None
     if default_division_id is not None:
         found = db.get(orm.Division, default_division_id)
-        if found is None or not found.is_active:
+        if found is None or not found.is_active or found.project_id != project_id:
             raise ImportRequestError(f"Division {default_division_id} does not exist")
         default_division = found.name
 
     skills = {
         name_key(s.name): s.name
-        for s in db.scalars(select(orm.Skill).where(orm.Skill.is_active.is_(True)))
+        for s in db.scalars(
+            select(orm.Skill).where(
+                orm.Skill.project_id == project_id, orm.Skill.is_active.is_(True)
+            )
+        )
     }
     levels = list(
         db.scalars(
             select(orm.ProficiencyLevel)
-            .where(orm.ProficiencyLevel.is_active.is_(True))
+            .where(
+                orm.ProficiencyLevel.project_id == project_id,
+                orm.ProficiencyLevel.is_active.is_(True),
+            )
             .order_by(orm.ProficiencyLevel.rank)
         )
     )
@@ -121,7 +133,11 @@ def plan_people_import(
 
     existing_people = {
         name_key(p.full_name)
-        for p in db.scalars(select(orm.Person).where(orm.Person.is_active.is_(True)))
+        for p in db.scalars(
+            select(orm.Person).where(
+                orm.Person.project_id == project_id, orm.Person.is_active.is_(True)
+            )
+        )
     }
     seen_in_file: set[str] = set()
     new_divisions: dict[str, str] = {}
@@ -213,14 +229,19 @@ def plan_people_import(
     )
 
 
-def apply_people_import(db: Session, plan: ImportPlan) -> list[orm.Person]:
+def apply_people_import(db: Session, project_id: int, plan: ImportPlan) -> list[orm.Person]:
     importing = [row for row in plan.rows if row.status == "create"]
-    divisions = ensure_divisions(db, [row.division for row in importing if row.division])
-    skills = ensure_skills(db, [skill for row in importing for skill in row.skills])
+    divisions = ensure_divisions(
+        db, project_id, [row.division for row in importing if row.division]
+    )
+    skills = ensure_skills(db, project_id, [skill for row in importing for skill in row.skills])
     levels = {
         name_key(level.name): level
         for level in db.scalars(
-            select(orm.ProficiencyLevel).where(orm.ProficiencyLevel.is_active.is_(True))
+            select(orm.ProficiencyLevel).where(
+                orm.ProficiencyLevel.project_id == project_id,
+                orm.ProficiencyLevel.is_active.is_(True),
+            )
         )
     }
 
@@ -228,6 +249,7 @@ def apply_people_import(db: Session, plan: ImportPlan) -> list[orm.Person]:
     for row in importing:
         assert row.division is not None  # rows without one are errors
         person = orm.Person(
+            project_id=project_id,
             full_name=row.full_name,
             division_id=divisions.rows[name_key(row.division)].id,
         )

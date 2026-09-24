@@ -72,7 +72,7 @@ def test_schedule_payload_uses_longblob(mysql_ddl: str) -> None:
 
 def test_json_columns_are_native(mysql_ddl: str) -> None:
     assert "params_json JSON" in mysql_ddl
-    assert "value_json JSON" in mysql_ddl
+    assert "settings_json JSON" in mysql_ddl
 
 
 def test_non_ascii_names_round_trip() -> None:
@@ -82,10 +82,13 @@ def test_non_ascii_names_round_trip() -> None:
 
     engine = create_engine("sqlite://")
     Base.metadata.create_all(engine)
-    from shabetz.db.models import Division
+    from shabetz.db.models import Division, Project
 
     hebrew = "מחלקת אלפא"
     with Session(engine) as db:
-        db.add(Division(name=hebrew, display_order=0))
+        project = Project(name="פרויקט")
+        db.add(project)
+        db.flush()
+        db.add(Division(project_id=project.id, name=hebrew, display_order=0))
         db.commit()
         assert db.scalar(select(Division.name)) == hebrew

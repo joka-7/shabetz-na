@@ -1,20 +1,23 @@
-"""Request dependencies: database session, current user, and role gates."""
+"""Request dependencies: database session, current user, project membership and role gates."""
 
 from __future__ import annotations
 
 from collections.abc import Iterator
+from dataclasses import dataclass
 
 from fastapi import Depends, Request
+from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
+from sqlalchemy.orm import joinedload
 
 from ..auth.recovery import RecoveryCodes
 from ..auth.sessions import load_valid_session
 from ..auth.throttle import FailureThrottle
 from ..config import Settings, get_settings
-from ..db.models import User
+from ..db.models import Project, ProjectMember, User
 from ..db.session import get_session_factory
-from ..domain.enums import UserRole
-from .errors import Forbidden, Unauthorized
+from ..domain.enums import ProjectRole
+from .errors import ApiError, Forbidden, NotFound, Unauthorized
 
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 
@@ -89,22 +92,69 @@ def current_user(
     return session_row.user
 
 
-def require_role(minimum: UserRole):  # type: ignore[no-untyped-def]
-    """Gate an endpoint on a minimum role.
+@dataclass(frozen=True)
+class ProjectContext:
+    """Who is asking, in which project, with which role.
 
-    Authorization lives here rather than in the frontend router: the SPA hides
-    what a role cannot use, but this is what refuses it.
+    Every route that touches a project's data takes this, and every query it
+    runs filters on ``project_id`` -- the membership check here is what keeps
+    one organisation's data out of another's reach.
+    """
+
+    user: User
+    project: Project
+    member: ProjectMember
+
+    @property
+    def project_id(self) -> int:
+        return self.project.id
+
+    @property
+    def role(self) -> ProjectRole:
+        return self.member.role
+
+
+def _requested_project_id(request: Request) -> int:
+    # A header for API calls; a query parameter for downloads, which are
+    # plain navigations that cannot carry custom headers.
+    raw = request.headers.get("x-project-id") or request.query_params.get("project") or ""
+    if not raw.isdigit():
+        raise ApiError("NO_PROJECT", "Choose a project first", 400)
+    return int(raw)
+
+
+def project_member(
+    request: Request,
+    user: User = Depends(current_user),
+    db: DbSession = Depends(get_db),
+) -> ProjectContext:
+    project_id = _requested_project_id(request)
+    member = db.scalar(
+        select(ProjectMember)
+        .where(ProjectMember.project_id == project_id, ProjectMember.user_id == user.id)
+        .options(joinedload(ProjectMember.project))
+    )
+    if member is None:
+        # The same answer whether the project exists or not, so ids cannot be
+        # probed for other organisations' projects.
+        raise NotFound("Project not found")
+    return ProjectContext(user=user, project=member.project, member=member)
+
+
+def require_project_role(minimum: ProjectRole):  # type: ignore[no-untyped-def]
+    """Gate an endpoint on a minimum role in the requested project.
+
+    The SPA hides what a role cannot use; this is what refuses it.
     """
     from ..auth.rbac import at_least
 
-    def _dependency(user: User = Depends(current_user)) -> User:
-        if not at_least(user.role, minimum):
-            raise Forbidden(f"Requires {minimum.value} role")
-        return user
+    def _dependency(ctx: ProjectContext = Depends(project_member)) -> ProjectContext:
+        if not at_least(ctx.role, minimum):
+            raise Forbidden(f"Requires the {minimum.value} role in this project")
+        return ctx
 
     return _dependency
 
 
-require_admin = require_role(UserRole.ADMIN)
-require_scheduler = require_role(UserRole.SCHEDULER)
-require_staff = require_role(UserRole.STAFF)
+require_project_admin = require_project_role(ProjectRole.ADMIN)
+require_editor = require_project_role(ProjectRole.COLLABORATOR)

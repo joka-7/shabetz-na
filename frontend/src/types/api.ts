@@ -5,7 +5,7 @@
  * from the live OpenAPI schema; CI fails on a diff.
  */
 
-export type UserRole = "ADMIN" | "SCHEDULER" | "STAFF";
+export type ProjectRole = "ADMIN" | "COLLABORATOR" | "STAFF";
 export type DivisionPolicy =
   | "ACTIVE_DIVISION_ONLY"
   | "ACTIVE_DIVISION_PREFERRED"
@@ -18,9 +18,56 @@ export interface User {
   id: number;
   email: string;
   full_name: string;
-  role: UserRole;
   is_active: boolean;
+}
+
+/** A project as the signed-in account sees it: with its own role there. */
+export interface Project {
+  id: number;
+  name: string;
+  role: ProjectRole;
+  /** The roster entry this account is in the project, for staff views. */
   person_id: number | null;
+}
+
+export interface Member {
+  id: number;
+  user_id: number;
+  email: string;
+  full_name: string;
+  role: ProjectRole;
+  person_id: number | null;
+  has_password: boolean;
+  has_google: boolean;
+  last_login_at: string | null;
+  is_locked: boolean;
+}
+
+export interface Invite {
+  id: number;
+  role: ProjectRole;
+  person_id: number | null;
+  single_use: boolean;
+  uses: number;
+  created_at: string;
+  expires_at: string;
+}
+
+export interface InviteCreated extends Invite {
+  /** Shown once: the server keeps only a hash of it. */
+  token: string;
+}
+
+export interface InvitePreview {
+  project_name: string;
+  role: ProjectRole;
+}
+
+export interface FirebaseWebConfig {
+  apiKey: string;
+  authDomain: string;
+  projectId: string;
+  appId: string;
 }
 
 export interface SessionResponse {
@@ -209,19 +256,13 @@ export interface TimeOff {
 export interface Capabilities {
   deployment: "server" | "desktop";
   setup_code_required: boolean;
-  google_enabled: boolean;
+  /** Google sign-in through Firebase; null where it is not offered. */
+  firebase: FirebaseWebConfig | null;
   export_formats: string[];
   pdf_available: boolean;
   setup_complete: boolean;
   /** Desktop only: a reset code can be written to the app's own folder. */
   password_recovery?: boolean;
-}
-
-export interface AdminUser extends User {
-  has_password: boolean;
-  has_google: boolean;
-  last_login_at: string | null;
-  is_locked: boolean;
 }
 
 export interface BulkResult {

@@ -11,7 +11,7 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-from shabetz.config import get_settings
+from shabetz.config import get_settings, normalize_database_url
 from shabetz.db.models import Base
 
 config = context.config
@@ -22,6 +22,12 @@ if config.config_file_name is not None:
 # file lives) wins; otherwise fall back to application settings.
 if not config.get_main_option("sqlalchemy.url"):
     config.set_main_option("sqlalchemy.url", get_settings().database_url.replace("%", "%%"))
+else:
+    # A URL passed in directly gets the same driver choice as settings do.
+    config.set_main_option(
+        "sqlalchemy.url",
+        normalize_database_url(config.get_main_option("sqlalchemy.url") or "").replace("%", "%%"),
+    )
 target_metadata = Base.metadata
 
 

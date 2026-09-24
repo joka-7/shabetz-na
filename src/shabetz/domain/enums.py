@@ -38,10 +38,13 @@ class WarningKind(StrEnum):
     DIVISION_FALLBACK = "DIVISION_FALLBACK"
 
 
-class UserRole(StrEnum):
-    ADMIN = "ADMIN"
-    SCHEDULER = "SCHEDULER"
-    STAFF = "STAFF"
+class ProjectRole(StrEnum):
+    """What a member may do inside one project; the same account can hold a
+    different role in each project it belongs to."""
+
+    ADMIN = "ADMIN"  # everything, including members, invites and the project itself
+    COLLABORATOR = "COLLABORATOR"  # configuration, schedules and time-off review
+    STAFF = "STAFF"  # own shifts and own time off
 
 
 class TimeOffStatus(StrEnum):
