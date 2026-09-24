@@ -8,11 +8,12 @@ import secrets
 from datetime import date, timedelta
 
 import typer
+from sqlalchemy import select
 
 from .auth.service import bootstrap_first_admin, setup_is_complete
 from .db import models as orm
 from .db.session import session_scope
-from .domain.enums import DivisionPolicy
+from .domain.enums import DivisionPolicy, ProjectRole
 from .services.orchestration import JobOrchestrationService
 from .services.settings_service import SchedulingSettings, save_settings
 
@@ -22,6 +23,25 @@ SEED = 20261001
 
 # No 0/O or 1/I/L: the code is read from a log and typed by a person.
 SETUP_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+
+
+def _choose_project(db, project: int | None) -> int:  # type: ignore[no-untyped-def]
+    """The project a command acts on: the one named, or the only one there is."""
+    if project is not None:
+        if db.get(orm.Project, project) is None:
+            typer.secho(f"No project {project}.", fg="red")
+            raise typer.Exit(1)
+        return project
+    rows = db.execute(select(orm.Project.id, orm.Project.name).order_by(orm.Project.id)).all()
+    if len(rows) == 1:
+        return int(rows[0][0])
+    if not rows:
+        typer.secho("No project exists yet.", fg="red")
+    else:
+        typer.secho("Several projects exist; choose one with --project:", fg="red")
+        for project_id, name in rows:
+            typer.echo(f"  {project_id}  {name}")
+    raise typer.Exit(1)
 
 
 def generate_setup_code() -> str:
@@ -59,7 +79,8 @@ def serve(
         upgrade_to_head(settings.database_url)
 
     with session_scope() as db:
-        needs_first_admin = not setup_is_complete(db)
+        # With Google sign-in everyone signs up for themselves.
+        needs_first_admin = not settings.firebase_enabled and not setup_is_complete(db)
 
     if needs_first_admin and not settings.setup_token:
         # Workers are separate processes that read settings from the
@@ -110,13 +131,16 @@ def create_admin(
     email: str = typer.Option(..., prompt=True),
     full_name: str = typer.Option(..., prompt=True),
     password: str = typer.Option(..., prompt=True, hide_input=True, confirmation_prompt=True),
+    organization: str = typer.Option("", help="Name of the project the account administers."),
 ) -> None:
-    """Create the first administrator account."""
+    """Create the first administrator account, and its project."""
     with session_scope() as db:
         if setup_is_complete(db):
             typer.secho("An account already exists; use the web interface.", fg="red")
             raise typer.Exit(1)
-        user = bootstrap_first_admin(db, email=email, full_name=full_name, password=password)
+        user = bootstrap_first_admin(
+            db, email=email, full_name=full_name, password=password, project_name=organization
+        )
         typer.secho(f"Created administrator {user.email}", fg="green")
 
 
@@ -125,8 +149,9 @@ def seed_demo(
     divisions: int = typer.Option(4, help="How many divisions to create."),
     per_division: int = typer.Option(15, help="People in each division."),
     shifts: int = typer.Option(3, help="Equal shift windows per day."),
+    owner: str = typer.Option("", help="Email of an account to make the project's admin."),
 ) -> None:
-    """Populate an example configuration.
+    """Create an example project.
 
     This is demonstration data, not built-in domain: every name here is a value
     an administrator would otherwise type into the setup wizard.
@@ -134,22 +159,31 @@ def seed_demo(
     rng = random.Random(SEED)
 
     with session_scope() as db:
-        if db.query(orm.Division).count():
-            typer.secho("Configuration already exists; refusing to seed.", fg="red")
-            raise typer.Exit(1)
+        owner_user = None
+        if owner:
+            owner_user = db.scalar(select(orm.User).where(orm.User.email == owner.strip().lower()))
+            if owner_user is None:
+                typer.secho(f"No account for {owner}.", fg="red")
+                raise typer.Exit(1)
+        project = orm.Project(name="Demo organisation")
+        if owner_user is not None:
+            project.members = [orm.ProjectMember(user_id=owner_user.id, role=ProjectRole.ADMIN)]
+        db.add(project)
+        db.flush()
+        pid = project.id
 
         ladder = [
-            orm.ProficiencyLevel(name=name, rank=rank)
+            orm.ProficiencyLevel(project_id=pid, name=name, rank=rank)
             for rank, name in enumerate(["Beginner", "Intermediate", "Expert", "Master"])
         ]
         db.add_all(ladder)
 
         skill_names = ["Cleaning", "Coding", "Team Leader", "Division Manager"]
-        skills = [orm.Skill(name=name) for name in skill_names]
+        skills = [orm.Skill(project_id=pid, name=name) for name in skill_names]
         db.add_all(skills)
 
         division_rows = [
-            orm.Division(name=f"Division {chr(ord('A') + i)}", display_order=i)
+            orm.Division(project_id=pid, name=f"Division {chr(ord('A') + i)}", display_order=i)
             for i in range(divisions)
         ]
         db.add_all(division_rows)
@@ -157,7 +191,10 @@ def seed_demo(
         duration = 24 / shifts
         templates = [
             orm.ShiftTemplate(
-                name=f"Window {i + 1}", start_hour=i * duration, duration_hours=duration
+                project_id=pid,
+                name=f"Window {i + 1}",
+                start_hour=i * duration,
+                duration_hours=duration,
             )
             for i in range(shifts)
         ]
@@ -167,7 +204,9 @@ def seed_demo(
         by_skill = {s.name: s for s in skills}
         rank_of = {level.name: level for level in ladder}
 
-        day_window = orm.ShiftTemplate(name="Day desk", start_hour=8.0, duration_hours=8.0)
+        day_window = orm.ShiftTemplate(
+            project_id=pid, name="Day desk", start_hour=8.0, duration_hours=8.0
+        )
         db.add(day_window)
         db.flush()
 
@@ -179,6 +218,7 @@ def seed_demo(
         jobs: list[JobSpec] = [
             (
                 orm.Job(
+                    project_id=pid,
                     name="Facility care",
                     required_people_per_shift=4,
                     division_policy=DivisionPolicy.ACTIVE_DIVISION_PREFERRED,
@@ -191,6 +231,7 @@ def seed_demo(
             ),
             (
                 orm.Job(
+                    project_id=pid,
                     name="Feature development",
                     required_people_per_shift=2,
                     division_policy=DivisionPolicy.ANY_DIVISION,
@@ -203,6 +244,7 @@ def seed_demo(
             ),
             (
                 orm.Job(
+                    project_id=pid,
                     name="Data entry",
                     required_people_per_shift=1,
                     division_policy=DivisionPolicy.ACTIVE_DIVISION_PREFERRED,
@@ -233,6 +275,7 @@ def seed_demo(
         for division in division_rows:
             for index in range(per_division):
                 person = orm.Person(
+                    project_id=pid,
                     full_name=f"{division.name} member {index + 1}",
                     division_id=division.id,
                     external_ref=f"{division.display_order}-{index + 1:03d}",
@@ -259,6 +302,7 @@ def seed_demo(
 
         save_settings(
             db,
+            pid,
             SchedulingSettings(
                 rest_period_hours=8.0,
                 rotation_enabled=True,
@@ -269,17 +313,20 @@ def seed_demo(
         )
 
     typer.secho(
-        f"Seeded {divisions} divisions x {per_division} people, "
+        f"Created project {pid} with {divisions} divisions x {per_division} people, "
         f"{shifts} windows and {len(jobs)} jobs.",
         fg="green",
     )
 
 
+PROJECT_OPTION = typer.Option(None, help="Project id; may be left out when only one exists.")
+
+
 @app.command("feasibility")
-def feasibility() -> None:
-    """Report whether the current configuration can be staffed."""
+def feasibility(project: int | None = PROJECT_OPTION) -> None:
+    """Report whether a project's configuration can be staffed."""
     with session_scope() as db:
-        report = JobOrchestrationService(db).feasibility()
+        report = JobOrchestrationService(db, _choose_project(db, project)).feasibility()
 
     typer.secho(f"Verdict: {report.verdict.value}", bold=True)
     typer.echo(f"  person-shifts per day : {report.person_shifts_per_day}")
@@ -301,13 +348,14 @@ def schedule(
     start: str = typer.Option(..., help="First day, YYYY-MM-DD."),
     end: str = typer.Option("", help="Last day, YYYY-MM-DD. Defaults to start + 13 days."),
     persist: bool = typer.Option(False, help="Store the run so it can be exported."),
+    project: int | None = PROJECT_OPTION,
 ) -> None:
     """Generate a schedule and print a summary."""
     start_date = date.fromisoformat(start)
     end_date = date.fromisoformat(end) if end else start_date + timedelta(days=13)
 
     with session_scope() as db:
-        service = JobOrchestrationService(db)
+        service = JobOrchestrationService(db, _choose_project(db, project))
         schedule_id, result, params = service.generate(start_date, end_date)
         if persist:
             service.persist(schedule_id, result, params, created_by=None)

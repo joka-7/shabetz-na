@@ -10,8 +10,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from ..domain.enums import (
     DivisionPolicy,
     FeasibilityVerdict,
+    ProjectRole,
     TimeOffStatus,
-    UserRole,
 )
 
 ORM = ConfigDict(from_attributes=True)
@@ -44,6 +44,11 @@ class BootstrapAdminRequest(BaseModel):
     password: str
     # Required on a server; the desktop app only listens locally and skips it.
     setup_code: str | None = None
+    organization_name: str = Field(default="", max_length=120)
+
+
+class FirebaseSignIn(BaseModel):
+    id_token: str = Field(min_length=1, max_length=8192)
 
 
 class UserOut(BaseModel):
@@ -51,38 +56,57 @@ class UserOut(BaseModel):
     id: int
     email: str
     full_name: str
-    role: UserRole
     is_active: bool
+
+
+class SessionOut(BaseModel):
+    user: UserOut
+    csrf_token: str
+
+
+# ------------------------------------------------------------------ projects
+
+
+class ProjectIn(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+
+
+class ProjectOut(BaseModel):
+    """A project as one member sees it: with their own role in it."""
+
+    id: int
+    name: str
+    role: ProjectRole
     person_id: int | None = None
 
 
-class UserAdminOut(UserOut):
-    """What an administrator sees when managing accounts.
-
-    Carries whether each sign-in method is usable, so an invited account that
-    cannot yet sign in is visible as such rather than looking ready.
-    """
-
+class MemberOut(BaseModel):
+    id: int
+    user_id: int
+    email: str
+    full_name: str
+    role: ProjectRole
+    person_id: int | None = None
     has_password: bool = False
     has_google: bool = False
     last_login_at: datetime | None = None
     is_locked: bool = False
 
 
-class UserCreate(BaseModel):
+class MemberUpdate(BaseModel):
+    role: ProjectRole | None = None
+    person_id: int | None = None
+    # Setting person_id to null is otherwise indistinguishable from leaving it.
+    unlink_person: bool = False
+
+
+class LocalMemberCreate(BaseModel):
+    """Desktop only: an account with a password on this computer."""
+
     email: str = Field(min_length=3, max_length=255)
     full_name: str = Field(min_length=1, max_length=120)
-    role: UserRole = UserRole.STAFF
-    # Optional: an account may instead be reached through Google, or have its
-    # password set later.
-    password: str | None = None
-    person_id: int | None = None
-
-
-class UserUpdate(BaseModel):
-    full_name: str | None = Field(default=None, min_length=1, max_length=120)
-    role: UserRole | None = None
-    is_active: bool | None = None
+    password: str
+    role: ProjectRole = ProjectRole.STAFF
     person_id: int | None = None
 
 
@@ -90,9 +114,30 @@ class PasswordSet(BaseModel):
     password: str
 
 
-class SessionOut(BaseModel):
-    user: UserOut
-    csrf_token: str
+class InviteIn(BaseModel):
+    role: ProjectRole = ProjectRole.STAFF
+    person_id: int | None = None
+    expires_in_days: int = Field(default=7, ge=1, le=30)
+
+
+class InviteOut(BaseModel):
+    id: int
+    role: ProjectRole
+    person_id: int | None = None
+    single_use: bool
+    uses: int
+    created_at: datetime
+    expires_at: datetime
+
+
+class InviteCreatedOut(InviteOut):
+    # Only ever shown once: the server keeps a hash, not the token.
+    token: str
+
+
+class InvitePreviewOut(BaseModel):
+    project_name: str
+    role: ProjectRole
 
 
 # -------------------------------------------------------------------- config
@@ -433,7 +478,8 @@ class TimeOffOut(BaseModel):
 class CapabilitiesOut(BaseModel):
     deployment: str = "server"
     setup_code_required: bool = False
-    google_enabled: bool
+    # The Firebase web config for Google sign-in, or null when not offered.
+    firebase: dict[str, str] | None = None
     export_formats: list[str]
     pdf_available: bool
     setup_complete: bool

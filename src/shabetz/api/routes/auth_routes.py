@@ -5,28 +5,29 @@ from __future__ import annotations
 import secrets
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, Query, Request, Response, status
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, Depends, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
-from ...auth import google, recovery
+from ...auth import recovery
 from ...auth import service as auth_service
+from ...auth.firebase import FirebaseAuthError, FirebaseVerifier
 from ...auth.passwords import WeakPassword, validate_password
 from ...auth.recovery import RecoveryCodes
 from ...auth.sessions import create_session, revoke
 from ...auth.throttle import FailureThrottle
 from ...config import Settings
-from ...db.models import User
-from ...domain.enums import UserRole
+from ...db.models import ProjectMember, User
+from ...domain.enums import ProjectRole
 from ...services.settings_service import load_settings, save_settings
 from ..deps import (
+    ProjectContext,
     client_address,
     current_user,
     get_db,
     login_throttle,
     recovery_codes,
-    require_admin,
+    require_editor,
     settings_dep,
 )
 from ..errors import (
@@ -40,6 +41,7 @@ from ..errors import (
 )
 from ..schemas import (
     BootstrapAdminRequest,
+    FirebaseSignIn,
     LoginRequest,
     RecoveryCompleteRequest,
     RecoveryStartOut,
@@ -68,26 +70,27 @@ def _issue_session(
     return SessionOut(user=UserOut.model_validate(user), csrf_token=session_row.csrf_token)
 
 
-@router.get("/setup/status")
-def setup_status(db: DbSession = Depends(get_db)) -> dict:
-    return {
-        # An account exists, so the unauthenticated bootstrap route is closed.
-        "setup_complete": auth_service.setup_is_complete(db),
-        # The administrator has been through the configuration wizard.
-        "wizard_completed": load_settings(db).setup_completed,
-    }
+def bootstrap_is_open(db: DbSession, settings: Settings) -> bool:
+    """Whether the first administrator can still be created with a password.
+
+    A site with Google sign-in has no first administrator: everyone signs up
+    and creates their own projects, so the route stays shut there.
+    """
+    return not settings.firebase_enabled and not auth_service.setup_is_complete(db)
 
 
 @router.post("/setup/complete")
-def complete_wizard(db: DbSession = Depends(get_db), _: User = Depends(require_admin)) -> dict:
-    """Remember that the wizard is done.
+def complete_wizard(
+    db: DbSession = Depends(get_db), ctx: ProjectContext = Depends(require_editor)
+) -> dict:
+    """Remember that the project's wizard is done.
 
-    Without this the wizard reopened every time an administrator reloaded the
-    app, which on a desktop app opened daily is every single day.
+    Without this the wizard reopened every time the app was reloaded, which on
+    a desktop app opened daily is every single day.
     """
-    settings = load_settings(db)
+    settings = load_settings(db, ctx.project_id)
     if not settings.setup_completed:
-        save_settings(db, settings.model_copy(update={"setup_completed": True}))
+        save_settings(db, ctx.project_id, settings.model_copy(update={"setup_completed": True}))
     return {"wizard_completed": True}
 
 
@@ -107,6 +110,9 @@ def bootstrap_admin(
     printed when the server started: otherwise a freshly deployed site belongs
     to whoever happens to load it first.
     """
+    if not bootstrap_is_open(db, settings):
+        raise Conflict("Setup has already been completed")
+
     address = client_address(request)
     if throttle.is_blocked(address):
         raise TooManyRequests(throttle.retry_after_seconds(address))
@@ -130,6 +136,7 @@ def bootstrap_admin(
             email=payload.email,
             full_name=payload.full_name,
             password=payload.password,
+            project_name=payload.organization_name,
         )
     except WeakPassword as exc:
         raise UnprocessableConfig(str(exc)) from exc
@@ -194,7 +201,9 @@ def start_recovery(
     directory = Path(settings.data_dir)
     admins = db.scalars(
         select(User.email)
-        .where(User.role == UserRole.ADMIN, User.is_active.is_(True))
+        .join(ProjectMember, ProjectMember.user_id == User.id)
+        .where(ProjectMember.role == ProjectRole.ADMIN, User.is_active.is_(True))
+        .distinct()
         .order_by(User.email)
     ).all()
     path = recovery.write_code_file(directory, codes.issue(), list(admins))
@@ -262,100 +271,47 @@ def me(user: User = Depends(current_user)) -> UserOut:
 # --------------------------------------------------------------- Google sign-in
 
 
-def _require_google(settings: Settings) -> None:
-    """Absent credentials mean the feature does not exist, not that it failed."""
-    if not settings.google_enabled:
+def firebase_verifier(
+    request: Request, settings: Settings = Depends(settings_dep)
+) -> FirebaseVerifier:
+    """One per application, so Google's keys are fetched once, not per sign-in."""
+    if not settings.firebase_enabled:
+        # Absent configuration means the feature does not exist, not that it failed.
         raise NotFound("Google sign-in is not configured")
+    verifier = getattr(request.app.state, "firebase_verifier", None)
+    if verifier is None or verifier.project_id != settings.firebase_project_id:
+        verifier = FirebaseVerifier(settings.firebase_project_id)
+        request.app.state.firebase_verifier = verifier
+    return verifier
 
 
-@router.get("/auth/google/authorize")
-def google_authorize(settings: Settings = Depends(settings_dep)) -> RedirectResponse:
-    _require_google(settings)
-    url, state_cookie = google.begin(
-        client_id=settings.google_client_id,
-        redirect_uri=settings.google_redirect_uri,
-        secret_key=settings.resolved_secret_key(),
-    )
-    redirect = RedirectResponse(url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
-    redirect.set_cookie(
-        google.STATE_COOKIE,
-        state_cookie,
-        httponly=True,
-        secure=settings.cookie_secure,
-        # Lax suffices: Google returns with a top-level GET navigation, which
-        # Lax cookies accompany. None would only widen where it is sent.
-        samesite="lax",
-        max_age=google.STATE_MAX_AGE_SECONDS,
-        path="/",
-    )
-    return redirect
-
-
-@router.get("/auth/google/callback")
-async def google_callback(
+@router.post("/auth/firebase")
+def firebase_sign_in(
+    payload: FirebaseSignIn,
     request: Request,
-    code: str = Query(default=""),
-    state: str = Query(default=""),
-    error: str = Query(default=""),
+    response: Response,
     db: DbSession = Depends(get_db),
     settings: Settings = Depends(settings_dep),
-) -> RedirectResponse:
-    _require_google(settings)
-
-    if error or not code:
-        return _google_failure("cancelled")
-
+    verifier: FirebaseVerifier = Depends(firebase_verifier),
+    throttle: FailureThrottle = Depends(login_throttle),
+) -> SessionOut:
+    """Exchange a Firebase ID token for a session, creating the account if new."""
+    address = client_address(request)
+    if throttle.is_blocked(address):
+        raise TooManyRequests(throttle.retry_after_seconds(address))
     try:
-        identity = await google.complete(
-            code=code,
-            state=state,
-            cookie_value=request.cookies.get(google.STATE_COOKIE),
-            client_id=settings.google_client_id,
-            client_secret=settings.google_client_secret,
-            redirect_uri=settings.google_redirect_uri,
-            secret_key=settings.resolved_secret_key(),
-        )
-    except google.GoogleAuthError:
-        return _google_failure("failed")
-
+        identity = verifier.verify(payload.id_token)
+    except FirebaseAuthError as exc:
+        throttle.record_failure(address)
+        raise Unauthorized(str(exc)) from exc
     try:
-        # Sign-in only: an identity with no invited account is refused rather
-        # than being allowed to create one.
-        user = auth_service.authenticate_google(
-            db, google_sub=identity.subject, email=identity.email
+        user = auth_service.authenticate_firebase(
+            db,
+            uid=identity.uid,
+            email=identity.email,
+            email_verified=identity.email_verified,
+            full_name=identity.full_name,
         )
-    except auth_service.AuthError:
-        return _google_failure("no-account")
-
-    redirect = RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
-    session_row = create_session(
-        db, user, settings.session_ttl_hours, request.headers.get("user-agent")
-    )
-    redirect.set_cookie(
-        settings.cookie_name,
-        session_row.id,
-        httponly=True,
-        secure=settings.cookie_secure,
-        samesite="lax",
-        max_age=settings.session_ttl_hours * 3600,
-        path="/",
-    )
-    # The CSRF token has to reach JavaScript, so unlike the session it is set
-    # readable; it is useless without the HttpOnly session cookie.
-    redirect.set_cookie(
-        settings.csrf_cookie_name,
-        session_row.csrf_token,
-        httponly=False,
-        secure=settings.cookie_secure,
-        samesite="lax",
-        max_age=settings.session_ttl_hours * 3600,
-        path="/",
-    )
-    redirect.delete_cookie(google.STATE_COOKIE, path="/")
-    return redirect
-
-
-def _google_failure(reason: str) -> RedirectResponse:
-    redirect = RedirectResponse(f"/?auth_error={reason}", status_code=status.HTTP_303_SEE_OTHER)
-    redirect.delete_cookie(google.STATE_COOKIE, path="/")
-    return redirect
+    except auth_service.AuthError as exc:
+        raise Forbidden(str(exc)) from exc
+    return _issue_session(response, db, user, settings, request)

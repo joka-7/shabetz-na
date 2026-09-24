@@ -12,9 +12,9 @@ from .routes import (
     config_routes,
     import_routes,
     meta_routes,
+    project_routes,
     schedule_routes,
     timeoff_routes,
-    user_routes,
 )
 from .static import find_static_dir, mount_frontend
 
@@ -49,7 +49,7 @@ def create_app() -> FastAPI:
         import_routes,
         schedule_routes,
         timeoff_routes,
-        user_routes,
+        project_routes,
     ):
         app.include_router(module.router)
 

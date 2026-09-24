@@ -53,8 +53,14 @@ jobs:
       - name: Typecheck
         run: uv run --extra dev mypy
 
+      - name: Existing data moves into projects on MySQL
+        env:
+          SHABETZ_TEST_MIGRATION_URL: mysql+pymysql://shabetz:shabetz@127.0.0.1:3306/shabetz?charset=utf8mb4
+        run: uv run --extra dev pytest tests/integration/test_projects_migration.py
+
       - name: Migrations apply and roll back
         run: |
+          uv run --extra dev alembic downgrade base
           uv run --extra dev alembic upgrade head
           uv run --extra dev alembic downgrade base
           uv run --extra dev alembic upgrade head
@@ -102,8 +108,14 @@ jobs:
 
       - run: uv sync --extra dev
 
+      - name: Existing data moves into projects on PostgreSQL
+        env:
+          SHABETZ_TEST_MIGRATION_URL: postgresql://shabetz:shabetz@127.0.0.1:5432/shabetz
+        run: uv run --extra dev pytest tests/integration/test_projects_migration.py
+
       - name: Migrations apply and roll back
         run: |
+          uv run --extra dev alembic downgrade base
           uv run --extra dev alembic upgrade head
           uv run --extra dev alembic downgrade base
           uv run --extra dev alembic upgrade head

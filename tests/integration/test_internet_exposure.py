@@ -145,10 +145,10 @@ def test_server_requires_the_setup_code(app: FastAPI, settings: Settings) -> Non
             },
         )
         assert wrong.status_code == 403
-        assert client.get("/api/setup/status").json()["setup_complete"] is False
+        assert client.get("/api/meta/capabilities").json()["setup_complete"] is False
 
         _bootstrap(client, setup_code=SETUP_CODE)
-        assert client.get("/api/setup/status").json()["setup_complete"] is True
+        assert client.get("/api/meta/capabilities").json()["setup_complete"] is True
 
 
 def test_setup_code_is_forgiving_about_case_and_spacing(app: FastAPI, settings: Settings) -> None:

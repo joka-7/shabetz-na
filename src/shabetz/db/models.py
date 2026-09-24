@@ -25,7 +25,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.mysql import LONGBLOB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from ..domain.enums import DivisionPolicy, TimeOffStatus, UserRole
+from ..domain.enums import DivisionPolicy, ProjectRole, TimeOffStatus
 from .base import TABLE_ARGS, Base, StrEnumType, UtcDateTime, utcnow
 
 # MySQL gets LONGBLOB so a long horizon across a large roster is not capped at
@@ -41,27 +41,105 @@ TOKEN_LEN = 255
 
 
 class User(Base):
+    """A person who can sign in. What they may do depends on the project:
+    roles live on ``ProjectMember``, not here."""
+
     __tablename__ = "users"
     __table_args__ = TABLE_ARGS
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     email: Mapped[str] = mapped_column(String(EMAIL_LEN), unique=True)
-    # Either credential may be absent: an account can be password-only,
-    # Google-only, or both once a Google identity is linked.
+    # Either credential may be absent: the website signs people in with Google
+    # (through Firebase), the desktop app with a password.
     password_hash: Mapped[str | None] = mapped_column(String(TOKEN_LEN), default=None)
-    google_sub: Mapped[str | None] = mapped_column(String(TOKEN_LEN), unique=True, default=None)
+    firebase_uid: Mapped[str | None] = mapped_column(String(TOKEN_LEN), unique=True, default=None)
     full_name: Mapped[str] = mapped_column(String(NAME_LEN))
-    role: Mapped[UserRole] = mapped_column(StrEnumType(UserRole), default=UserRole.STAFF)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    person_id: Mapped[int | None] = mapped_column(
-        ForeignKey("people.id", ondelete="SET NULL"), default=None
-    )
     failed_login_count: Mapped[int] = mapped_column(Integer, default=0)
     locked_until: Mapped[datetime | None] = mapped_column(UtcDateTime, default=None)
     created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
     last_login_at: Mapped[datetime | None] = mapped_column(UtcDateTime, default=None)
 
-    person: Mapped[Person | None] = relationship(foreign_keys=[person_id])
+    memberships: Mapped[list[ProjectMember]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+
+
+class Project(Base):
+    """One organisation's separate world: its divisions, people, jobs,
+    schedules and members. Nothing is shared between projects."""
+
+    __tablename__ = "projects"
+    __table_args__ = TABLE_ARGS
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(NAME_LEN))
+    # The scheduling rules (rest window, rotation, ...); see settings_service.
+    settings_json: Mapped[dict | None] = mapped_column(JSON, default=None)
+    created_by: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), default=None
+    )
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+
+    members: Mapped[list[ProjectMember]] = relationship(
+        back_populates="project", cascade="all, delete-orphan"
+    )
+
+
+class ProjectMember(Base):
+    __tablename__ = "project_members"
+    __table_args__ = (
+        UniqueConstraint("project_id", "user_id", name="uq_project_members_project_id"),
+        TABLE_ARGS,
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True
+    )
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    role: Mapped[ProjectRole] = mapped_column(
+        StrEnumType(ProjectRole, length=20), default=ProjectRole.STAFF
+    )
+    # Which roster entry is this member, so staff see their own shifts.
+    person_id: Mapped[int | None] = mapped_column(
+        ForeignKey("people.id", ondelete="SET NULL"), default=None
+    )
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+
+    project: Mapped[Project] = relationship(back_populates="members")
+    user: Mapped[User] = relationship(back_populates="memberships")
+
+
+class ProjectInvite(Base):
+    """A link that makes whoever opens it (and signs in) a member.
+
+    Only a hash of the token is stored, so the database alone cannot be used
+    to join a project.
+    """
+
+    __tablename__ = "project_invites"
+    __table_args__ = TABLE_ARGS
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    role: Mapped[ProjectRole] = mapped_column(StrEnumType(ProjectRole, length=20))
+    person_id: Mapped[int | None] = mapped_column(
+        ForeignKey("people.id", ondelete="SET NULL"), default=None
+    )
+    # Links granting admin or collaborator rights work once; staff links can
+    # be shared with a whole team until they expire.
+    single_use: Mapped[bool] = mapped_column(Boolean, default=True)
+    uses: Mapped[int] = mapped_column(Integer, default=0)
+    created_by: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), default=None
+    )
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(UtcDateTime)
+    revoked_at: Mapped[datetime | None] = mapped_column(UtcDateTime, default=None)
 
 
 class Session(Base):
@@ -87,10 +165,16 @@ class Session(Base):
 
 class Division(Base):
     __tablename__ = "divisions"
-    __table_args__ = TABLE_ARGS
+    __table_args__ = (
+        UniqueConstraint("project_id", "name", name="uq_divisions_project_id"),
+        TABLE_ARGS,
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    name: Mapped[str] = mapped_column(String(NAME_LEN), unique=True)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(NAME_LEN))
     # This ordering *is* the rotation order, so there is one source of truth.
     display_order: Mapped[int] = mapped_column(Integer, default=0)
     color: Mapped[str | None] = mapped_column(String(32), default=None)
@@ -105,9 +189,15 @@ class ProficiencyLevel(Base):
     """
 
     __tablename__ = "proficiency_levels"
-    __table_args__ = (UniqueConstraint("rank", name="uq_proficiency_levels_rank"), TABLE_ARGS)
+    __table_args__ = (
+        UniqueConstraint("project_id", "rank", name="uq_proficiency_levels_project_id"),
+        TABLE_ARGS,
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True
+    )
     name: Mapped[str] = mapped_column(String(80))
     rank: Mapped[int] = mapped_column(Integer)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -115,10 +205,16 @@ class ProficiencyLevel(Base):
 
 class Skill(Base):
     __tablename__ = "skills"
-    __table_args__ = TABLE_ARGS
+    __table_args__ = (
+        UniqueConstraint("project_id", "name", name="uq_skills_project_id"),
+        TABLE_ARGS,
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    name: Mapped[str] = mapped_column(String(NAME_LEN), unique=True)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(NAME_LEN))
     description: Mapped[str | None] = mapped_column(Text, default=None)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
@@ -130,6 +226,9 @@ class ShiftTemplate(Base):
     __table_args__ = TABLE_ARGS
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True
+    )
     name: Mapped[str] = mapped_column(String(NAME_LEN))
     start_hour: Mapped[float] = mapped_column(Float)
     duration_hours: Mapped[float] = mapped_column(Float)
@@ -142,6 +241,9 @@ class Job(Base):
     __table_args__ = TABLE_ARGS
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True
+    )
     name: Mapped[str] = mapped_column(String(LONG_NAME_LEN))
     required_people_per_shift: Mapped[int] = mapped_column(Integer, default=1)
     division_policy: Mapped[DivisionPolicy] = mapped_column(
@@ -207,6 +309,9 @@ class Person(Base):
     __table_args__ = TABLE_ARGS
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True
+    )
     external_ref: Mapped[str | None] = mapped_column(String(NAME_LEN), default=None)
     full_name: Mapped[str] = mapped_column(String(LONG_NAME_LEN))
     division_id: Mapped[int] = mapped_column(ForeignKey("divisions.id", ondelete="RESTRICT"))
@@ -272,6 +377,9 @@ class TimeOff(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True
+    )
     person_id: Mapped[int] = mapped_column(ForeignKey("people.id", ondelete="CASCADE"))
     start_date: Mapped[date] = mapped_column(Date)
     end_date: Mapped[date] = mapped_column(Date)
@@ -292,16 +400,6 @@ class TimeOff(Base):
     person: Mapped[Person] = relationship(back_populates="time_off", foreign_keys=[person_id])
 
 
-class Setting(Base):
-    """Singleton configuration, one row per key."""
-
-    __tablename__ = "settings"
-    __table_args__ = TABLE_ARGS
-
-    key: Mapped[str] = mapped_column(String(NAME_LEN), primary_key=True)
-    value_json: Mapped[dict | list | str | int | float | bool | None] = mapped_column(JSON)
-
-
 class ScheduleRun(Base):
     """A generated schedule, persisted so exports can be keyed by id.
 
@@ -314,6 +412,9 @@ class ScheduleRun(Base):
     __table_args__ = TABLE_ARGS
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True
+    )
     created_by: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), default=None
     )
@@ -331,6 +432,9 @@ class AuditLog(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int | None] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), default=None, index=True
+    )
     user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), default=None
     )

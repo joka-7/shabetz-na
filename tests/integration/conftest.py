@@ -15,14 +15,16 @@ from collections.abc import Iterator
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from shabetz.api.deps import get_db, settings_dep
 from shabetz.api.main import create_app
+from shabetz.auth.service import create_user
 from shabetz.config import Settings
-from shabetz.db.models import Base
+from shabetz.db.models import Base, ProjectMember
+from shabetz.domain.enums import ProjectRole
 
 
 @pytest.fixture
@@ -53,6 +55,8 @@ def session_factory() -> Iterator[sessionmaker[Session]]:
         engine = create_engine(
             "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
         )
+        # As the app configures it: otherwise ON DELETE CASCADE does nothing.
+        event.listen(engine, "connect", lambda conn, _: conn.execute("PRAGMA foreign_keys=ON"))
     Base.metadata.create_all(engine)
     yield sessionmaker(bind=engine, expire_on_commit=False, future=True)
     Base.metadata.drop_all(engine)
@@ -86,18 +90,31 @@ def client(app: FastAPI) -> Iterator[TestClient]:
 
 
 class Actor:
-    """A signed-in client that carries its CSRF token automatically."""
+    """A signed-in client that carries its CSRF token and project automatically."""
 
-    def __init__(self, client: TestClient, csrf: str, user: dict) -> None:
+    def __init__(
+        self, client: TestClient, csrf: str, user: dict, project_id: int | None = None
+    ) -> None:
         self.client = client
         self.csrf = csrf
         self.user = user
+        self.project_id = project_id
 
-    def _headers(self, extra: dict | None = None) -> dict:
-        return {"x-csrf-token": self.csrf, **(extra or {})}
+    def _headers(self, extra: dict | None = None, *, write: bool = True) -> dict:
+        headers: dict = {}
+        if write:
+            headers["x-csrf-token"] = self.csrf
+        if self.project_id is not None:
+            headers["x-project-id"] = str(self.project_id)
+        return {**headers, **(extra or {})}
+
+    def in_project(self, project_id: int | None) -> Actor:
+        return Actor(self.client, self.csrf, self.user, project_id)
 
     def get(self, url: str, **kw):  # type: ignore[no-untyped-def]
-        return self.client.get(url, **kw)
+        return self.client.get(
+            url, headers=self._headers(kw.pop("headers", None), write=False), **kw
+        )
 
     def post(self, url: str, **kw):  # type: ignore[no-untyped-def]
         return self.client.post(url, headers=self._headers(kw.pop("headers", None)), **kw)
@@ -112,6 +129,11 @@ class Actor:
 ADMIN_PASSWORD = "an-adequately-long-password"
 
 
+def only_project(client: TestClient) -> int | None:
+    projects = client.get("/api/projects").json()
+    return projects[0]["id"] if len(projects) == 1 else None
+
+
 @pytest.fixture
 def admin(client: TestClient) -> Actor:
     response = client.post(
@@ -124,4 +146,37 @@ def admin(client: TestClient) -> Actor:
     )
     assert response.status_code == 201, response.text
     body = response.json()
-    return Actor(client, body["csrf_token"], body["user"])
+    return Actor(client, body["csrf_token"], body["user"], only_project(client))
+
+
+def make_account(factory: sessionmaker[Session], email: str) -> int:
+    """An account with a password and no projects."""
+    with factory() as db:
+        user = create_user(db, email=email, full_name=email, password=ADMIN_PASSWORD)
+        db.commit()
+        return user.id
+
+
+def make_member(
+    factory: sessionmaker[Session],
+    project_id: int,
+    email: str,
+    role: ProjectRole,
+    person_id: int | None = None,
+) -> None:
+    """An account with a password, already a member of the project."""
+    user_id = make_account(factory, email)
+    with factory() as db:
+        db.add(
+            ProjectMember(project_id=project_id, user_id=user_id, role=role, person_id=person_id)
+        )
+        db.commit()
+
+
+def sign_in(client: TestClient, email: str, project_id: int | None = None) -> Actor:
+    """Sign in on this client, replacing whoever was signed in on it."""
+    client.cookies.clear()
+    response = client.post("/api/auth/login", json={"email": email, "password": ADMIN_PASSWORD})
+    assert response.status_code == 200, response.text
+    body = response.json()
+    return Actor(client, body["csrf_token"], body["user"], project_id)
