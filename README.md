@@ -30,7 +30,7 @@ accept a pasted list the same way.
 | | For | Data |
 | :-- | :-- | :-- |
 | **Windows desktop app** | One computer, no technical setup. Download an installer, double-click, done. See [docs/INSTALL-WINDOWS.md](docs/INSTALL-WINDOWS.md). | SQLite, in the user's own folder |
-| **Hosted website** | People signing in from anywhere with their own accounts. See [docs/HOSTING.md](docs/HOSTING.md). | MySQL |
+| **Hosted website** | People signing in from anywhere with their own accounts. On Render in about 15 minutes: [docs/RENDER.md](docs/RENDER.md). Any other host: [docs/HOSTING.md](docs/HOSTING.md). | PostgreSQL or MySQL |
 
 Both are the same application. The installer is built by GitHub Actions on
 Windows (`.github/workflows/desktop.yml`); pushing a `v*` tag publishes it as a
@@ -149,6 +149,7 @@ reachable, and understaffing being reported rather than swallowed.
 
 The unit and API tests run on SQLite. CI separately applies and rolls back the
 migrations, seeds a configuration and generates a schedule against a real
-MySQL 8 service container, because the dialect differences above would
-otherwise pass locally and fail in production. It also builds and smoke-tests
+MySQL 8 and a real PostgreSQL 16, and runs the API tests on PostgreSQL too
+(`SHABETZ_TEST_DATABASE_URL`), because dialect differences would otherwise
+pass locally and fail in production. It also builds and smoke-tests
 the server image and the Windows executable.

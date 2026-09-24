@@ -6,7 +6,7 @@ import secrets
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, PrivateAttr
+from pydantic import Field, PrivateAttr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -22,6 +22,21 @@ class Settings(BaseSettings):
     database_url: str = Field(
         default="mysql+pymysql://shabetz:shabetz@127.0.0.1:3306/shabetz?charset=utf8mb4"
     )
+
+    @field_validator("database_url")
+    @classmethod
+    def _choose_postgres_driver(cls, url: str) -> str:
+        """Accept a PostgreSQL URL as hosting providers hand it out.
+
+        Render, Heroku and others give ``postgres://`` or ``postgresql://``
+        with no driver named; SQLAlchemy would then look for psycopg2, which
+        is not installed. The URL is pointed at psycopg 3 instead, so the
+        value can be pasted exactly as the provider shows it.
+        """
+        for prefix in ("postgres://", "postgresql://"):
+            if url.startswith(prefix):
+                return "postgresql+psycopg://" + url[len(prefix) :]
+        return url
 
     secret_key: str = Field(default="")
     session_ttl_hours: int = 12

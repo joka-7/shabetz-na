@@ -68,6 +68,60 @@ jobs:
           uv run --extra dev shabetz feasibility
           uv run --extra dev shabetz schedule --start 2026-10-01 --persist
 
+  backend-postgres:
+    # The hosted website on Render runs on PostgreSQL, so the migrations, the
+    # API tests and a full generate run against a real one as well.
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: shabetz
+          POSTGRES_PASSWORD: shabetz
+          POSTGRES_DB: shabetz
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd="pg_isready -U shabetz"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=30
+
+    env:
+      SHABETZ_ENVIRONMENT: test
+      SHABETZ_SECRET_KEY: ci-secret-key
+      # Written the way Render hands it out; the app picks the driver itself.
+      SHABETZ_DATABASE_URL: postgresql://shabetz:shabetz@127.0.0.1:5432/shabetz
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - run: uv sync --extra dev
+
+      - name: Migrations apply and roll back
+        run: |
+          uv run --extra dev alembic upgrade head
+          uv run --extra dev alembic downgrade base
+          uv run --extra dev alembic upgrade head
+
+      - name: API tests on PostgreSQL
+        env:
+          PGPASSWORD: shabetz
+        run: |
+          psql -h 127.0.0.1 -U shabetz -d shabetz -c "CREATE DATABASE shabetz_test"
+          SHABETZ_TEST_DATABASE_URL=postgresql://shabetz:shabetz@127.0.0.1:5432/shabetz_test \
+            uv run --extra dev pytest tests/integration
+
+      - name: Seed and generate end to end
+        run: |
+          uv run --extra dev shabetz seed-demo
+          uv run --extra dev shabetz feasibility
+          uv run --extra dev shabetz schedule --start 2026-10-01 --persist
+
   frontend:
     runs-on: ubuntu-latest
     steps:

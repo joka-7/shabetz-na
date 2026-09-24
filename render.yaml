@@ -1,0 +1,45 @@
+# Render Blueprint: the Shabetz website and its database, created together.
+#
+# In Render: New > Blueprint > pick this repository. See docs/RENDER.md for the
+# click-by-click version.
+#
+# One web service serves both the pages and the API from the same Docker image
+# CI already builds and tests, so there is no separate frontend to host.
+
+services:
+  - type: web
+    name: shabetz
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    # "free" sleeps after 15 idle minutes and takes about a minute to wake.
+    # Change to "starter" in the Render dashboard for an always-on site.
+    plan: free
+    branch: main
+    autoDeploy: true
+    healthCheckPath: /api/meta/health
+    envVars:
+      - key: SHABETZ_DATABASE_URL
+        fromDatabase:
+          name: shabetz-db
+          property: connectionString
+      # Generated once by Render and kept; it signs the Google sign-in
+      # handshake, so it must not change between deploys.
+      - key: SHABETZ_SECRET_KEY
+        generateValue: true
+      # The code needed to create the first administrator. Fixed rather than
+      # printed at each start, because a free service restarts whenever it
+      # wakes. Find it under the service's Environment tab.
+      - key: SHABETZ_SETUP_TOKEN
+        generateValue: true
+      # The app is reachable only through Render's proxy, which reports the
+      # visitor's real address. Needed for per-address sign-in throttling.
+      - key: SHABETZ_FORWARDED_ALLOW_IPS
+        value: "*"
+
+databases:
+  - name: shabetz-db
+    databaseName: shabetz
+    user: shabetz
+    # Render deletes free databases after a trial period. Upgrade it in the
+    # dashboard before entering data you want to keep.
+    plan: free
