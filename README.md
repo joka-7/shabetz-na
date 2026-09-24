@@ -98,17 +98,25 @@ frontend/src/
 `domain/` and `scheduling/` import nothing from SQLAlchemy or FastAPI, which is
 what keeps the engine testable without a database.
 
-### Roles
+### Projects and roles
+
+Every organisation's data lives in its own **project**. On the website anyone
+can sign up with Google (through Firebase), create projects, and invite others
+by link; the desktop app keeps a single project with local passwords.
+
+Roles belong to project membership, so one account can administer one project
+and be staff in another:
 
 | Role | May |
 | :-- | :-- |
-| `ADMIN` | change any configuration, manage users, everything below |
-| `SCHEDULER` | generate schedules, review time off, read configuration |
+| `ADMIN` | manage members and invite links, rename or delete the project, everything below |
+| `COLLABORATOR` | change any configuration, generate schedules, review time off |
 | `STAFF` | see own shifts, export own schedule, request own time off |
 
-Authorization is enforced by API dependencies and by query scoping, not by
-frontend routing: a staff user who edits an id in a URL gets their own records,
-not someone else's.
+Every API request names its project (`X-Project-Id`, or `?project=` for
+downloads) and every query filters on it; a project the caller is not a member
+of answers 404, exactly like one that does not exist. Authorization is enforced
+by API dependencies and query scoping, not by frontend routing.
 
 ### Notes on MySQL
 

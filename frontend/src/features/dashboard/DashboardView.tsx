@@ -32,7 +32,7 @@ function isoDaysFromToday(days: number): string {
 
 export function DashboardView() {
   const { t } = useI18n();
-  const { user } = useSession();
+  const { project } = useSession();
   const { data: divisions } = useDivisions();
   const [start, setStart] = useState(isoDaysFromToday(0));
   const [end, setEnd] = useState(isoDaysFromToday(13));
@@ -45,7 +45,7 @@ export function DashboardView() {
 
   return (
     <div className="space-y-4">
-      {can.generate(user) && (
+      {can.generate(project) && (
         <section className="card">
           <div className="flex flex-wrap items-end gap-3">
             <div>
@@ -98,7 +98,7 @@ export function DashboardView() {
       {!run && !generate.isPending && (
         <EmptyState
           title={t("dashboard.emptyTitle")}
-          hint={can.generate(user) ? t("dashboard.emptyHint") : t("dashboard.emptyHintStaff")}
+          hint={can.generate(project) ? t("dashboard.emptyHint") : t("dashboard.emptyHintStaff")}
         />
       )}
 

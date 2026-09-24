@@ -17,10 +17,10 @@ const STATUS_TONES: Record<TimeOffStatus, string> = {
 
 export function TimeOffView() {
   const { t, formatDate, dir } = useI18n();
-  const { user } = useSession();
+  const { project } = useSession();
   const { data: requests, isLoading } = useTimeOff();
   const { data: people } = usePeople();
-  const reviewer = can.reviewTimeOff(user);
+  const reviewer = can.reviewTimeOff(project);
 
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
@@ -176,7 +176,7 @@ export function TimeOffView() {
               <EmptyState
                 title={t("timeoff.emptyTitle")}
                 hint={
-                  user?.person_id === null && !reviewer ? t("error.notLinked") : undefined
+                  project?.person_id === null && !reviewer ? t("error.notLinked") : undefined
                 }
               />
             ) : (

@@ -1,13 +1,15 @@
 # Putting Shabetz on the internet with Render
 
-About 20 minutes, no programming. At the end you have a web address anyone
-you invite can sign in to, from a computer or a phone.
+About 20 minutes, no programming. At the end you have a web address where anyone
+can sign in with Google, create a project, and invite others to it — from a
+computer or a phone.
 
-Two free services are involved:
+Three free services are involved:
 
-- **Neon** keeps the **database**: every division, person, schedule and account.
+- **Neon** keeps the **database**: every project, person, schedule and account.
 - **Render** runs the **website**: the pages and the server together, from
   `render.yaml` in this project.
+- **Firebase** lets people sign in with Google.
 
 The database is kept at Neon rather than Render on purpose: Render's free
 database is deleted after a fixed period, with no way to renew it. Neon's
@@ -37,32 +39,96 @@ free database has no expiry.
    5–10 minutes. When the **shabetz** service shows **Live** in green, it is
    ready.
 
-## 3. Find your address and setup code
+## 3. Turn on Google sign-in (Firebase)
 
-1. Click the **shabetz** web service. Your address is at the top, like
-   `https://shabetz-xxxx.onrender.com`.
-2. Open the **Environment** tab. Find **SHABETZ_SETUP_TOKEN** and click the
-   eye icon to show it. Copy that value — it is your setup code.
+People sign in — and sign up — with their Google account, the same way as in
+AppMyTrip. Google checks who they are through **Firebase**, which is free for
+this.
 
-## 4. Create the administrator
+You can reuse the Firebase project you already have for AppMyTrip, or create a
+new one. Either works.
 
-1. Open your address. The page asks you to **create the first administrator**.
-2. Paste the setup code, then your name, email and a password (at least 12
-   characters).
-3. You are in. The setup guide opens; the files in `examples/` work here too.
+1. Go to **https://console.firebase.google.com** and open your project (or
+   **Create a project** → name it `shabetz` → you can turn Google Analytics off).
+2. **Build → Authentication → Get started** (only the first time).
+3. **Sign-in method** tab → **Google** → **Enable** → choose a support email →
+   **Save**. (If AppMyTrip already uses Google sign-in here, it is on already.)
+4. **Settings** tab → **Authorized domains** → **Add domain** → type your Render
+   address **without** `https://`, e.g. `shabetz-xxxx.onrender.com` → **Add**.
+   Without this, the Google window closes with an error.
+5. Click the gear ⚙ next to **Project Overview** → **Project settings** →
+   **General**. Under **Your apps**, click the web icon **`</>`**, name it
+   `shabetz`, and **Register app** (skip hosting). Firebase shows a block like:
 
-Without the setup code nobody else can claim the site, even if they find the
-address first. Once the administrator exists, the code is no longer used.
+   ```js
+   const firebaseConfig = {
+     apiKey: "AIza...",
+     authDomain: "your-project.firebaseapp.com",
+     projectId: "your-project",
+     appId: "1:1234:web:abcd",
+     ...
+   };
+   ```
 
-## 5. Invite people
+   Keep this page open for the next step. (These values are not secrets —
+   every visitor's browser receives them — but copy them exactly.)
 
-**Configuration → Accounts → Add account.** Give each person the address and
-their password. Staff accounts should be linked to their person in the roster
-so they see their own shifts.
+## 4. Give the four values to Render
 
-Create a **second administrator** too: on the website, a forgotten password is
-reset by another administrator (the Windows app's reset-code file does not
-exist here).
+1. In Render, open the **shabetz** web service → **Environment**.
+2. Add these four, one by one (**Add Environment Variable**):
+
+   | Key | Value from the Firebase block |
+   | :-- | :-- |
+   | `SHABETZ_FIREBASE_API_KEY` | `apiKey` |
+   | `SHABETZ_FIREBASE_AUTH_DOMAIN` | `authDomain` |
+   | `SHABETZ_FIREBASE_PROJECT_ID` | `projectId` |
+   | `SHABETZ_FIREBASE_APP_ID` | `appId` |
+
+   Paste only what is inside the quotes.
+3. **Save, rebuild, and deploy**. After a few minutes the service is **Live**
+   again.
+
+## 5. Sign in and start a project
+
+1. Open your address, e.g. `https://shabetz-xxxx.onrender.com`.
+2. **Continue with Google**. The first time, this creates your account.
+3. Name your first project (for example, your organisation) and **Create
+   project**. You are its **administrator**; the setup guide opens. The files
+   in `examples/` work here too.
+
+Anyone can sign up the same way and create projects of their own. Each project
+is separate: nobody sees a project they are not a member of.
+
+## 6. Bring people into your project
+
+**Configuration → Members → Invite by link.**
+
+1. Choose the role:
+   - **Administrator** — everything, including members and invite links.
+   - **Collaborator** — edits people, jobs and settings, generates schedules
+     and approves time off, but cannot manage members.
+   - **Staff** — sees their own shifts and asks for time off. Choose which
+     person in the roster they are, so they see their shifts.
+2. **Create link** → **Copy**, and send it by WhatsApp or email.
+3. They open it, sign in with Google, and press **Join the project**.
+
+A link for an administrator, a collaborator or a named person works **once**.
+A staff link without a person can be shared with a whole team until it
+expires. The link is shown only when created; if it gets lost, **Revoke** it
+and create another. Roles can be changed, and people removed, in the list
+below the links.
+
+**Add a second administrator** to each project, so it is never left with
+nobody able to manage it.
+
+### Already had the site running before Google sign-in?
+
+Nothing is lost. Everything you entered became your first project, and the
+administrator you created keeps it. Sign in with **Continue with Google** using
+the **same email address** as that administrator; the two are joined
+automatically. (**Sign in with email and password instead** also still works
+for that account.)
 
 ## Costs and the free plans
 
@@ -88,8 +154,13 @@ and updates the site by itself, in a few minutes. Data stays.
 - **The logs mention the database or a connection.** Check
   **SHABETZ_DATABASE_URL** under the service's **Environment** tab is the whole
   Neon string, including the `?sslmode=require` part.
-- **"Incorrect setup code".** Copy **SHABETZ_SETUP_TOKEN** again from the
-  Environment tab; it is long, so make sure all of it was pasted.
+- **The Google window opens and closes with an error**, or says the domain is
+  not authorized: add the Render address to Firebase → Authentication →
+  Settings → **Authorized domains** (step 3.4).
+- **There is no Google button.** Check the four `SHABETZ_FIREBASE_…` values
+  under the service's **Environment** tab (step 4), then redeploy.
+- **Someone's invite link "is not valid any more".** It was used, expired or
+  revoked; create a new one.
 - **The page loads slowly the first time.** That is the free plan waking up.
 
 ## The website and the Windows app are separate

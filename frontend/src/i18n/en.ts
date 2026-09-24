@@ -23,10 +23,11 @@ export const en = {
   "nav.signOut": "Sign out",
 
   "role.ADMIN": "Administrator",
-  "role.SCHEDULER": "Scheduler",
+  "role.COLLABORATOR": "Collaborator",
   "role.STAFF": "Staff",
-  "roleHint.ADMIN": "Everything, including configuration and accounts",
-  "roleHint.SCHEDULER": "Generate schedules and review time off; cannot change configuration",
+  "roleHint.ADMIN": "Everything, including members and invite links",
+  "roleHint.COLLABORATOR":
+    "Edit people, jobs and settings, generate schedules and review time off; cannot manage members",
   "roleHint.STAFF": "See own shifts and request own time off",
 
   "section.divisions": "Divisions",
@@ -37,7 +38,7 @@ export const en = {
   "section.people": "People",
   "section.rules": "Rules",
   "section.review": "Review",
-  "section.users": "Accounts",
+  "section.members": "Members",
 
   // ------------------------------------------------------------------- wizard
   "wizard.loading": "Loading configuration…",
@@ -367,35 +368,83 @@ export const en = {
   "timeoffStatus.DENIED": "denied",
   "timeoffStatus.CANCELLED": "cancelled",
 
-  // ----------------------------------------------------------------- accounts
-  "users.intro":
-    "Everyone who can sign in. The first-run screen creates one administrator and then closes, so accounts are added here.",
-  "users.role": "Role",
-  "users.initialPassword": "Initial password (optional)",
-  "users.linkedPerson": "Linked person",
-  "users.notLinked": "Not linked",
-  "users.add": "Add account",
-  "users.unlinkedWarning": "A staff account not linked to a person sees an empty schedule.",
-  "users.noPasswordHint":
-    "Leave the password empty for an account that will sign in with Google. You can set one later.",
-  "users.empty": "No accounts",
-  "users.col.account": "Account",
-  "users.col.signIn": "Sign-in",
-  "users.col.lastSeen": "Last seen",
-  "users.you": "you",
-  "users.roleFor": "Role for {email}",
-  "users.password": "password",
-  "users.cannotSignIn": "cannot sign in yet",
-  "users.locked": "locked",
-  "users.never": "never",
-  "users.setPasswordHint": "Set a new password; this also clears a lockout",
-  "users.newPasswordPrompt": "New password for {email} (at least 12 characters)",
-  "users.signOutEverywhere": "Sign this account out everywhere",
-  "users.lastAdminDeactivate": "The only administrator cannot be deactivated",
-  "users.deactivate": "Deactivate this account",
-  "users.reactivate": "Reactivate",
-  "users.roleChangeNote":
-    "Changing a role or deactivating an account signs it out immediately, so the old rights cannot outlive the change.",
+  // ------------------------------------------------------------------ members
+  "members.intro":
+    "Who belongs to this project and what each may do. Everything here applies to this project only.",
+  "members.projectHeading": "Project",
+  "members.rename": "Rename",
+  "members.deleteProject": "Delete project",
+  "members.deleteConfirm":
+    "This deletes \"{name}\" with all its people, jobs and schedules, for every member. Type the project's name to confirm:",
+  "members.deleteMismatch": "The name did not match; nothing was deleted.",
+  "members.inviteHeading": "Invite by link",
+  "members.inviteIntro":
+    "Create a link for a role and send it by WhatsApp or email. Whoever opens it signs in with Google and joins this project.",
+  "members.role": "Role",
+  "members.linkedPerson": "Is this person",
+  "members.notLinked": "Not linked",
+  "members.validFor": "Valid for",
+  "members.days_one": "{count} day",
+  "members.days_other": "{count} days",
+  "members.createLink": "Create link",
+  "members.linkSingleUse": "the link works for one person.",
+  "members.linkMultiUse": "the link can be shared with a whole team until it expires.",
+  "members.linkReady": "Your invite link is ready. Send it to the person you are inviting:",
+  "members.inviteLink": "Invite link",
+  "members.copy": "Copy",
+  "members.copied": "Copied",
+  "members.linkOnce":
+    "The link is shown only now. If it gets lost, revoke it and create a new one.",
+  "members.singleUse": "one person",
+  "members.usedTimes_one": "used {count} time",
+  "members.usedTimes_other": "used {count} times",
+  "members.expires": "expires {date}",
+  "members.revoke": "Revoke",
+  "members.addLocal": "Add an account on this computer",
+  "members.add": "Add",
+  "members.listHeading": "Members",
+  "members.empty": "No members",
+  "members.col.account": "Account",
+  "members.col.lastSeen": "Last seen",
+  "members.you": "you",
+  "members.roleFor": "Role for {email}",
+  "members.personFor": "Person for {email}",
+  "members.password": "password",
+  "members.locked": "locked",
+  "members.never": "never",
+  "members.setPassword": "Set a new password; this also clears a lockout",
+  "members.newPasswordPrompt": "New password for {email} (at least 12 characters)",
+  "members.remove": "Remove from the project",
+  "members.removeNamed": "Remove {email} from the project",
+  "members.removeConfirm":
+    "Remove {email} from this project? Their account and other projects stay as they are.",
+
+  // ----------------------------------------------------------------- projects
+  "projects.title": "Your projects",
+  "projects.intro":
+    "Each project is a separate organisation with its own people, jobs, schedules and members.",
+  "projects.empty": "No projects yet",
+  "projects.emptyHint":
+    "Create one below, or open an invite link someone sent you to join theirs.",
+  "projects.new": "New project",
+  "projects.name": "Project name",
+  "projects.namePlaceholder": "e.g. Security team, North branch",
+  "projects.create": "Create project",
+  "projects.createHint": "You will be its administrator and can invite others.",
+  "projects.leave": "Leave",
+  "projects.leaveConfirm": "Leave \"{name}\"? You will need a new invite to come back.",
+  "projects.switch": "Project",
+  "projects.all": "All projects",
+
+  // ------------------------------------------------------------------- invite
+  "invite.title": "Invitation",
+  "invite.summary": "You are invited to join \"{project}\" as {role}.",
+  "invite.signedInAs": "Signed in as {email}.",
+  "invite.join": "Join the project",
+  "invite.notNow": "Not now",
+  "invite.invalid":
+    "This invite link is not valid any more: it expired, was already used, or was revoked. Ask for a new one.",
+  "invite.continue": "Continue",
 
   // -------------------------------------------------------------------- login
   "login.signIn": "Sign in",
@@ -409,14 +458,13 @@ export const en = {
   "login.password": "Password",
   "login.passwordHint": "At least 12 characters.",
   "login.google": "Continue with Google",
+  "login.googleIntro": "Sign in with your Google account. New here? The same button creates your account.",
+  "login.withPassword": "Sign in with email and password instead",
   "login.forgot": "Forgot your password?",
   "login.hebrewKeyboard":
     "The password contains Hebrew letters — is the keyboard set to Hebrew? Switch it with Alt+Shift.",
   "login.capsLock": "Caps Lock is on.",
-  "login.googleCancelled": "Google sign-in was cancelled.",
   "login.googleFailed": "Google sign-in could not be completed. Please try again.",
-  "login.googleNoAccount":
-    "That Google account is not registered here. Ask an administrator to invite it.",
 
   // -------------------------------------------------------- password reset
   "reset.title": "Reset your password",
@@ -446,7 +494,7 @@ export const en = {
   "error.setupCode": "Incorrect setup code.",
   "error.setupDone": "Setup has already been completed.",
   "error.sessionExpired": "Your session has ended. Please sign in again.",
-  "error.lastAdmin": "This is the only administrator; promote another account first.",
+  "error.lastAdmin": "This is the project's only administrator; make someone else one first.",
   "error.emailTaken": "An account already exists for that email address.",
   "error.divisionInUse": "This division still has people in it. Move or remove them first.",
   "error.levelInUse": "This level is still used by a person's skill or a job requirement.",
