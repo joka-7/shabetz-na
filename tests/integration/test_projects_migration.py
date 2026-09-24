@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import create_engine, text
+from sqlalchemy import column, create_engine, table, text
 
 from shabetz.config import normalize_database_url
 from shabetz.db.migrate import MIGRATIONS_DIR
@@ -73,9 +73,15 @@ def _seed_old_schema(url: str) -> None:
                 ),
                 {"id": uid, "email": email, "role": role, "person": person},
             )
+        # Built rather than written as text: "key" is a reserved word in MySQL.
+        settings = table("settings", column("key"), column("value_json"))
         db.execute(
-            text("INSERT INTO settings (key, value_json) VALUES ('scheduling', :v)"),
-            {"v": json.dumps({"organization_name": "Acme Security", "rest_period_hours": 10})},
+            settings.insert().values(
+                key="scheduling",
+                value_json=json.dumps(
+                    {"organization_name": "Acme Security", "rest_period_hours": 10}
+                ),
+            )
         )
         db.execute(
             text(
