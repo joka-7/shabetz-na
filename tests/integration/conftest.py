@@ -9,6 +9,7 @@ and end-to-end against a live server when one is configured.
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterator
 
 import pytest
@@ -39,14 +40,23 @@ def settings() -> Settings:
     )
 
 
+# Set to run the same tests against a real server database, e.g. the
+# PostgreSQL a hosted deployment uses. Each test creates and drops the schema.
+TEST_DATABASE_URL = os.environ.get("SHABETZ_TEST_DATABASE_URL", "")
+
+
 @pytest.fixture
 def session_factory() -> Iterator[sessionmaker[Session]]:
-    engine = create_engine(
-        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
-    )
+    if TEST_DATABASE_URL:
+        engine = create_engine(Settings(database_url=TEST_DATABASE_URL).database_url)
+    else:
+        engine = create_engine(
+            "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
+        )
     Base.metadata.create_all(engine)
     yield sessionmaker(bind=engine, expire_on_commit=False, future=True)
     Base.metadata.drop_all(engine)
+    engine.dispose()
 
 
 @pytest.fixture

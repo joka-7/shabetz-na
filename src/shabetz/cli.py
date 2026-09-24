@@ -34,8 +34,9 @@ def generate_setup_code() -> str:
 @app.command("serve")
 def serve(
     host: str = typer.Option("0.0.0.0", help="Address to listen on."),
-    port: int = typer.Option(8000, help="Port to listen on."),
-    workers: int = typer.Option(2, help="Worker processes."),
+    # Hosts such as Render choose the port and pass it in $PORT.
+    port: int = typer.Option(8000, envvar="PORT", help="Port to listen on."),
+    workers: int = typer.Option(2, envvar="WEB_CONCURRENCY", help="Worker processes."),
     migrate: bool = typer.Option(True, help="Apply database migrations before starting."),
     forwarded_allow_ips: str = typer.Option(
         "127.0.0.1",

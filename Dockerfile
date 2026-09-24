@@ -46,8 +46,9 @@ ENV PATH="/app/.venv/bin:$PATH" \
     SHABETZ_DEPLOYMENT=server \
     SHABETZ_COOKIE_SECURE=true
 
+# 8000 unless the host names another port in $PORT, as Render does.
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/meta/health', timeout=4)"
+    CMD python -c "import os, urllib.request; urllib.request.urlopen(f'http://127.0.0.1:{os.environ.get(\"PORT\", \"8000\")}/api/meta/health', timeout=4)"
 
-CMD ["shabetz", "serve", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["shabetz", "serve", "--host", "0.0.0.0"]

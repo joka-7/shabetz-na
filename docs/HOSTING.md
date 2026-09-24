@@ -1,6 +1,9 @@
 # Hosting the Shabetz website
 
 This is the version people sign in to from anywhere with their own accounts.
+
+**Using Render?** Follow [RENDER.md](RENDER.md) instead: `render.yaml` sets up
+the site and its database in one step. This page is for any other host.
 It is the same application as the Windows desktop app, run as a server with
 MySQL. (The desktop app keeps its data on one computer; the two do not share
 data.)
@@ -8,7 +11,7 @@ data.)
 ## What you need
 
 - A server or container host that can run a Docker image.
-- A MySQL 8 database (most hosts offer a managed one).
+- A PostgreSQL (13 or newer) or MySQL 8 database; most hosts offer a managed one.
 - A domain name, and HTTPS in front of the app — from the host, or from a
   reverse proxy such as Caddy or nginx.
 
@@ -18,7 +21,7 @@ Create a `.env` file from `.env.example`. The values that matter:
 
 | Setting | Value |
 | :-- | :-- |
-| `SHABETZ_DATABASE_URL` | `mysql+pymysql://USER:PASS@HOST:3306/DB?charset=utf8mb4` — keep `charset=utf8mb4` |
+| `SHABETZ_DATABASE_URL` | PostgreSQL: the URL exactly as your host shows it (`postgres://…` or `postgresql://…`). MySQL: `mysql+pymysql://USER:PASS@HOST:3306/DB?charset=utf8mb4` — keep `charset=utf8mb4` |
 | `SHABETZ_SECRET_KEY` | A long random string, kept the same across restarts. Generate one with `python -c "import secrets; print(secrets.token_urlsafe(48))"`. Google sign-in refuses to work in production without it. |
 | `SHABETZ_COOKIE_SECURE` | `true` (the image sets this). Only turn it off for plain-http testing. |
 | `SHABETZ_FORWARDED_ALLOW_IPS` | The address of your reverse proxy. **Required for correct sign-in throttling** — without it every visitor looks like the proxy, and one person's failed sign-ins throttle everyone. |

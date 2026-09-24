@@ -1,0 +1,52 @@
+# Render Blueprint: the Shabetz website.
+#
+# In Render: New > Blueprint > pick this repository. See docs/RENDER.md for the
+# click-by-click version.
+#
+# One web service serves both the pages and the API from the same Docker image
+# CI already builds and tests, so there is no separate static site: sign-in
+# uses a cookie from this server, which only works reliably when the pages
+# come from the same address.
+#
+# The database is NOT created here. Render's free PostgreSQL expires after a
+# fixed period with no renewal, and everything in it is lost, so
+# SHABETZ_DATABASE_URL points at an external host instead (Neon's free tier
+# has no forced expiry). Paste its connection string when Render asks.
+
+services:
+  - type: web
+    name: shabetz
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    # "free" sleeps after 15 idle minutes and takes about a minute to wake.
+    # Change to "starter" in the Render dashboard for an always-on site.
+    plan: free
+    branch: main
+    autoDeploy: true
+    healthCheckPath: /api/meta/health
+    # A preview copy would not get the database URL (a sync:false secret)
+    # and would fail to start.
+    pullRequestPreviewsEnabled: false
+    envVars:
+      # The PostgreSQL connection string from Neon (or any host), pasted as
+      # given; the app picks its driver itself.
+      - key: SHABETZ_DATABASE_URL
+        sync: false
+      # Generated once by Render and kept; it signs the Google sign-in
+      # handshake, so it must not change between deploys.
+      - key: SHABETZ_SECRET_KEY
+        generateValue: true
+      # The code needed to create the first administrator. Fixed rather than
+      # printed at each start, because a free service restarts whenever it
+      # wakes. Find it under the service's Environment tab.
+      - key: SHABETZ_SETUP_TOKEN
+        generateValue: true
+      # The app is reachable only through Render's proxy, which reports the
+      # visitor's real address. Needed for per-address sign-in throttling.
+      - key: SHABETZ_FORWARDED_ALLOW_IPS
+        value: "*"
+      # One server process. Sign-in throttling is kept in memory, so with
+      # several processes each would count failures separately; one is plenty
+      # for an organisation's roster, and fits the free plan's memory.
+      - key: WEB_CONCURRENCY
+        value: "1"
