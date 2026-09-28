@@ -3,7 +3,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarClock,
   CalendarDays,
+  FolderGit2,
   FolderOpen,
+  Github,
+  Globe,
   LayoutDashboard,
   LogOut,
   Settings2,
@@ -175,6 +178,18 @@ export function App() {
         {tab === "timeoff" && <TimeOffView />}
         {tab === "config" && editor && <ConfigView />}
       </main>
+
+      <footer className="mx-auto flex max-w-7xl items-center justify-center gap-4 px-4 py-4 text-slate-400">
+        <a href="https://github.com/joka-7" target="_blank" rel="noreferrer" aria-label="GitHub" className="hover:text-slate-600 dark:hover:text-slate-300">
+          <Github className="h-4 w-4" aria-hidden />
+        </a>
+        <a href="https://jk-dev-7.vercel.app" target="_blank" rel="noreferrer" aria-label="jk.dev portfolio" className="hover:text-slate-600 dark:hover:text-slate-300">
+          <Globe className="h-4 w-4" aria-hidden />
+        </a>
+        <a href="https://github.com/joka-7/shabetz-na" target="_blank" rel="noreferrer" aria-label="View repository" className="hover:text-slate-600 dark:hover:text-slate-300">
+          <FolderGit2 className="h-4 w-4" aria-hidden />
+        </a>
+      </footer>
     </div>
   );
 }
