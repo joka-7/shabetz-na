@@ -503,4 +503,7 @@ export const en = {
   "error.notLinked": "This account is not linked to a person record yet.",
   "error.resetCode": "That code is wrong or has expired. Create a new code and try again.",
   "error.noSuchEmail": "No account uses that email address. The code file lists the administrator emails.",
+
+  // -------------------------------------------------------------------- footer
+  "footer.credit": "Built by joka-7",
 } as const;
