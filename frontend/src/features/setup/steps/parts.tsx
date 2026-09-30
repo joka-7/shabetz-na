@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { ClipboardPaste, Trash2 } from "lucide-react";
+import { Check, ClipboardPaste, Pencil, Trash2, X } from "lucide-react";
 import { ErrorNotice } from "@/components/ui";
 import { useI18n } from "@/i18n";
 import { errorText } from "@/i18n/errors";
@@ -34,14 +34,28 @@ export function Row({
   children,
   onDelete,
   deleteLabel,
+  onEdit,
+  editLabel,
 }: {
   children: ReactNode;
   onDelete?: () => void;
   deleteLabel: string;
+  onEdit?: () => void;
+  editLabel?: string;
 }) {
   return (
     <li className="flex items-center gap-3 py-2">
       <div className="min-w-0 flex-1">{children}</div>
+      {onEdit && (
+        <button
+          className="btn-ghost px-2 py-1"
+          onClick={onEdit}
+          aria-label={editLabel}
+          title={editLabel}
+        >
+          <Pencil className="h-4 w-4" aria-hidden />
+        </button>
+      )}
       {onDelete && (
         <button
           className="btn-ghost px-2 py-1"
@@ -53,6 +67,81 @@ export function Row({
         </button>
       )}
     </li>
+  );
+}
+
+/**
+ * A name that turns into a text box when its pencil is pressed. Enter saves,
+ * Escape cancels; an unchanged or empty name is treated as a cancel.
+ */
+export function EditableName({
+  value,
+  label,
+  onSave,
+  children,
+}: {
+  value: string;
+  label: string;
+  onSave: (name: string) => void;
+  children: ReactNode;
+}) {
+  const { t } = useI18n();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+
+  function finish(save: boolean) {
+    const name = draft.trim();
+    if (save && name && name !== value) onSave(name);
+    setEditing(false);
+  }
+
+  if (!editing) {
+    return (
+      <div className="flex items-center gap-2">
+        {children}
+        <button
+          className="btn-ghost px-1.5 py-1"
+          onClick={() => {
+            setDraft(value);
+            setEditing(true);
+          }}
+          aria-label={label}
+          title={label}
+        >
+          <Pencil className="h-3.5 w-3.5" aria-hidden />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      className="flex items-center gap-1"
+      onSubmit={(event) => {
+        event.preventDefault();
+        finish(true);
+      }}
+    >
+      <input
+        className="input py-1"
+        value={draft}
+        autoFocus
+        aria-label={label}
+        onChange={(event) => setDraft(event.target.value)}
+        onKeyDown={(event) => event.key === "Escape" && finish(false)}
+      />
+      <button className="btn-ghost px-1.5 py-1" type="submit" aria-label={t("common.save")}>
+        <Check className="h-4 w-4" aria-hidden />
+      </button>
+      <button
+        className="btn-ghost px-1.5 py-1"
+        type="button"
+        onClick={() => finish(false)}
+        aria-label={t("common.cancel")}
+      >
+        <X className="h-4 w-4" aria-hidden />
+      </button>
+    </form>
   );
 }
 

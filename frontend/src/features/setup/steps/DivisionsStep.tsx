@@ -5,7 +5,7 @@ import { keys, useConfigMutation, useDivisions } from "@/api/queries";
 import { DivisionBadge, EmptyState, Spinner } from "@/components/ui";
 import { useI18n } from "@/i18n";
 import type { BulkResult, Division } from "@/types/api";
-import { MutationError, PasteList, Row, RowList, StepShell } from "./parts";
+import { EditableName, MutationError, PasteList, Row, RowList, StepShell } from "./parts";
 
 export function DivisionsStep() {
   const { t, dir } = useI18n();
@@ -89,7 +89,13 @@ export function DivisionsStep() {
               >
                 <div className="flex items-center gap-2">
                   <span className="w-6 text-xs tabular-nums text-slate-400">{index + 1}</span>
-                  <DivisionBadge id={division.id} name={division.name} />
+                  <EditableName
+                    value={division.name}
+                    label={t("common.editNamed", { name: division.name })}
+                    onSave={(name) => update.mutate({ ...division, name })}
+                  >
+                    <DivisionBadge id={division.id} name={division.name} />
+                  </EditableName>
                   <div className="ms-auto flex gap-1">
                     <button
                       className="btn-ghost px-1.5 py-1"

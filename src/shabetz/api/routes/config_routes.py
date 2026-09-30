@@ -114,6 +114,7 @@ def update_division(
         raise NotFound("Division not found")
     for key, value in payload.model_dump().items():
         setattr(row, key, value)
+    db.flush()
     _audit(db, ctx, "division", division_id, "update")
     return row
 
@@ -182,6 +183,32 @@ def create_level(
     return row
 
 
+@router.put("/proficiency-levels/{level_id}", response_model=ProficiencyLevelOut)
+def update_level(
+    level_id: int,
+    payload: ProficiencyLevelIn,
+    db: DbSession = Depends(get_db),
+    ctx: ProjectContext = Depends(require_editor),
+) -> orm.ProficiencyLevel:
+    row = owned(db, orm.ProficiencyLevel, level_id, ctx)
+    if row is None or not row.is_active:
+        raise NotFound("Level not found")
+    clash = db.scalar(
+        select(orm.ProficiencyLevel).where(
+            orm.ProficiencyLevel.project_id == ctx.project_id,
+            orm.ProficiencyLevel.rank == payload.rank,
+            orm.ProficiencyLevel.id != level_id,
+        )
+    )
+    if clash is not None:
+        raise Conflict(f"Rank {payload.rank} is already used by {clash.name!r}")
+    row.name = payload.name
+    row.rank = payload.rank
+    db.flush()
+    _audit(db, ctx, "proficiency_level", level_id, "update")
+    return row
+
+
 @router.delete("/proficiency-levels/{level_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_level(
     level_id: int,
@@ -228,6 +255,23 @@ def create_skill(
     db.add(row)
     db.flush()
     _audit(db, ctx, "skill", row.id, "create")
+    return row
+
+
+@router.put("/skills/{skill_id}", response_model=SkillOut)
+def update_skill(
+    skill_id: int,
+    payload: SkillIn,
+    db: DbSession = Depends(get_db),
+    ctx: ProjectContext = Depends(require_editor),
+) -> orm.Skill:
+    row = owned(db, orm.Skill, skill_id, ctx)
+    if row is None or not row.is_active:
+        raise NotFound("Skill not found")
+    for key, value in payload.model_dump().items():
+        setattr(row, key, value)
+    db.flush()
+    _audit(db, ctx, "skill", skill_id, "update")
     return row
 
 
@@ -295,6 +339,24 @@ def split_day(
     for row in created:
         _audit(db, ctx, "shift_template", row.id, "create")
     return created
+
+
+@router.put("/shift-templates/{template_id}", response_model=ShiftTemplateOut)
+def update_template(
+    template_id: int,
+    payload: ShiftTemplateIn,
+    db: DbSession = Depends(get_db),
+    ctx: ProjectContext = Depends(require_editor),
+) -> orm.ShiftTemplate:
+    """Changes apply to schedules generated from now on; past runs keep their times."""
+    row = owned(db, orm.ShiftTemplate, template_id, ctx)
+    if row is None or not row.is_active:
+        raise NotFound("Shift template not found")
+    for key, value in payload.model_dump().items():
+        setattr(row, key, value)
+    db.flush()
+    _audit(db, ctx, "shift_template", template_id, "update")
+    return row
 
 
 @router.delete("/shift-templates/{template_id}", status_code=status.HTTP_204_NO_CONTENT)

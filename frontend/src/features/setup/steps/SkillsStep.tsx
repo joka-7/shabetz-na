@@ -4,8 +4,8 @@ import { api } from "@/api/client";
 import { keys, useConfigMutation, useSkills } from "@/api/queries";
 import { EmptyState, Spinner } from "@/components/ui";
 import { useI18n } from "@/i18n";
-import type { BulkResult } from "@/types/api";
-import { MutationError, PasteList, Row, RowList, StepShell } from "./parts";
+import type { BulkResult, Skill } from "@/types/api";
+import { EditableName, MutationError, PasteList, Row, RowList, StepShell } from "./parts";
 
 export function SkillsStep() {
   const { t } = useI18n();
@@ -15,6 +15,11 @@ export function SkillsStep() {
   const add = useConfigMutation(
     (names: string[]) => api.post<BulkResult>("/api/config/skills/bulk", { names }),
     [keys.skills],
+  );
+
+  const update = useConfigMutation(
+    ({ id, ...payload }: Skill) => api.put<Skill>(`/api/config/skills/${id}`, payload),
+    [keys.skills, keys.jobs, keys.people],
   );
 
   function submit(event: React.FormEvent) {
@@ -46,7 +51,7 @@ export function SkillsStep() {
         onSubmit={(names) => add.mutateAsync(names)}
       />
 
-      <MutationError error={add.error} />
+      <MutationError error={add.error ?? update.error} />
 
       {isLoading ? (
         <Spinner />
@@ -56,7 +61,13 @@ export function SkillsStep() {
         <RowList>
           {skills.map((skill) => (
             <Row key={skill.id} deleteLabel={t("common.removeNamed", { name: skill.name })}>
-              <span className="text-sm font-medium">{skill.name}</span>
+              <EditableName
+                value={skill.name}
+                label={t("common.editNamed", { name: skill.name })}
+                onSave={(name) => update.mutate({ ...skill, name })}
+              >
+                <span className="text-sm font-medium">{skill.name}</span>
+              </EditableName>
             </Row>
           ))}
         </RowList>
