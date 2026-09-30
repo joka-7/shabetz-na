@@ -206,6 +206,8 @@ export interface Assignment {
   satisfied_requirement_id: number | null;
   /** Placed or swapped by hand after the schedule was generated. */
   is_manual?: boolean;
+  /** Kept when the schedule is regenerated. */
+  is_locked?: boolean;
 }
 
 export interface SlotRef {

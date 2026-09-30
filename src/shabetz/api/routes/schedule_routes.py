@@ -21,6 +21,7 @@ from ..schemas import (
     AssignmentAddIn,
     AssignmentCheckIn,
     AssignmentCheckOut,
+    AssignmentLockIn,
     AssignmentOut,
     AssignmentReassignIn,
     ConflictOut,
@@ -64,7 +65,9 @@ def generate(
         raise UnprocessableConfig("End date must not precede start date")
 
     service = JobOrchestrationService(db, ctx.project_id)
-    schedule_id, result, params = service.generate(payload.start_date, payload.end_date)
+    schedule_id, result, params = service.generate(
+        payload.start_date, payload.end_date, keep_locked=payload.keep_locked
+    )
     run = service.persist(schedule_id, result, params, created_by=ctx.user.id)
     db.flush()
     return _run_out(run)
@@ -201,6 +204,34 @@ def suggestions(
         )
         for person, found, load in ranked
     ]
+
+
+@router.put("/runs/{schedule_id}/assignments/lock", response_model=ScheduleRunOut)
+def set_lock(
+    schedule_id: str,
+    payload: AssignmentLockIn,
+    db: DbSession = Depends(get_db),
+    ctx: ProjectContext = Depends(require_editor),
+) -> ScheduleRunOut:
+    """Pin a shift so regenerating the schedule keeps it, or release it."""
+    editor = _editor(db, schedule_id, ctx)
+    try:
+        editor.set_lock(
+            SlotKey(payload.job_id, payload.template_id, payload.calendar_date),
+            payload.person_id,
+            payload.locked,
+        )
+        editor.save()
+    except EditError as exc:
+        raise _edit_error(exc) from exc
+    _audit_edit(
+        db,
+        ctx,
+        schedule_id,
+        "lock" if payload.locked else "unlock",
+        payload.model_dump(mode="json"),
+    )
+    return _run_out(editor.run)
 
 
 @router.put("/runs/{schedule_id}/assignments", response_model=ScheduleRunOut)

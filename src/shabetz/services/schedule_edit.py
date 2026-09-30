@@ -15,7 +15,7 @@ from __future__ import annotations
 import gzip
 import json
 from collections import defaultdict
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import date, timedelta
 
 from sqlalchemy.orm import Session as DbSession
@@ -241,6 +241,7 @@ class ScheduleEditor:
             is_division_fallback=False,
             satisfied_requirement_id=old.satisfied_requirement_id,
             is_manual=True,
+            is_locked=True,
         )
         return conflicts
 
@@ -266,10 +267,15 @@ class ScheduleEditor:
                 is_division_fallback=False,
                 satisfied_requirement_id=None,
                 is_manual=True,
+                is_locked=True,
             )
         )
         self.assignments.sort(key=lambda a: a.calendar_date)
         return conflicts
+
+    def set_lock(self, key: SlotKey, person_id: int, locked: bool) -> None:
+        index = self._index_of(key, person_id)
+        self.assignments[index] = replace(self.assignments[index], is_locked=locked)
 
     def remove(self, key: SlotKey, person_id: int) -> None:
         del self.assignments[self._index_of(key, person_id)]

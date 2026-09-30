@@ -261,6 +261,8 @@ class Assignment:
     satisfied_requirement_id: int | None = None
     # Set when a person placed or swapped the shift by hand after generation.
     is_manual: bool = False
+    # Kept when the schedule is regenerated.
+    is_locked: bool = False
 
 
 @dataclass(frozen=True, slots=True)

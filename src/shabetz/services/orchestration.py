@@ -8,10 +8,12 @@ import secrets
 from dataclasses import asdict
 from datetime import date
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
 from ..db.models import ScheduleRun
-from ..domain.models import Job, Person, ScheduleParams
+from ..domain.enums import AssignmentRole
+from ..domain.models import Assignment, Job, Person, ScheduleParams
 from ..repositories.db_repo import DbSchedulingRepository
 from ..scheduling.greedy import SimpleGreedyScheduler
 from ..scheduling.result import ScheduleResult
@@ -68,9 +70,36 @@ class JobOrchestrationService:
 
     # --------------------------------------------------------------- generate
 
-    def generate(self, start: date, end: date) -> tuple[str, ScheduleResult, ScheduleParams]:
+    def locked_assignments(self) -> list[Assignment]:
+        """Pinned shifts from the project's most recent run."""
+        latest = self._db.scalars(
+            select(ScheduleRun)
+            .where(ScheduleRun.project_id == self._project_id)
+            .order_by(ScheduleRun.created_at.desc())
+            .limit(1)
+        ).first()
+        if latest is None:
+            return []
+        kept: list[Assignment] = []
+        for raw in self.load_payload(latest)["assignments"]:
+            if raw.get("is_locked"):
+                kept.append(
+                    Assignment(
+                        **{
+                            **raw,
+                            "calendar_date": date.fromisoformat(raw["calendar_date"]),
+                            "role": AssignmentRole(raw["role"]),
+                        }
+                    )
+                )
+        return kept
+
+    def generate(
+        self, start: date, end: date, *, keep_locked: bool = False
+    ) -> tuple[str, ScheduleResult, ScheduleParams]:
         people, jobs, params = self._config(start, end)
-        result = self._strategy.generate(people, jobs, params)
+        locked = self.locked_assignments() if keep_locked else []
+        result = self._strategy.generate(people, jobs, params, locked)
         schedule_id = secrets.token_urlsafe(16)
         return schedule_id, result, params
 

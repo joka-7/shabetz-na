@@ -7,7 +7,7 @@ import {
   useReactTable,
   type SortingState,
 } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, Pencil, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, Lock, Pencil, Search, Unlock } from "lucide-react";
 import { DivisionBadge, EmptyState } from "@/components/ui";
 import {
   crossesMidnight,
@@ -25,11 +25,14 @@ export function AssignmentsTable({
   run,
   divisions,
   onEdit,
+  onToggleLock,
 }: {
   run: ScheduleRun;
   divisions: Division[];
   /** Present only for roles that may change a schedule. */
   onEdit?: (assignment: Assignment) => void;
+  /** Pin or release a shift; pinned shifts survive regeneration. */
+  onToggleLock?: (assignment: Assignment) => void;
 }) {
   const { t, formatDate } = useI18n();
   const [filters, setFilters] = useState<AssignmentFilters>(emptyFilters);
@@ -129,20 +132,41 @@ export function AssignmentsTable({
               id: "actions",
               header: t("edit.actions"),
               cell: ({ row }) => (
-                <button
-                  className="btn-ghost p-1.5"
-                  onClick={() => onEdit(row.original)}
-                  aria-label={t("edit.changeNamed", { name: row.original.person_name })}
-                  title={t("edit.change")}
-                >
-                  <Pencil className="h-3.5 w-3.5" aria-hidden />
-                </button>
+                <div className="flex gap-1">
+                  <button
+                    className="btn-ghost p-1.5"
+                    onClick={() => onEdit(row.original)}
+                    aria-label={t("edit.changeNamed", { name: row.original.person_name })}
+                    title={t("edit.change")}
+                  >
+                    <Pencil className="h-3.5 w-3.5" aria-hidden />
+                  </button>
+                  {onToggleLock && (
+                    <button
+                      className="btn-ghost p-1.5"
+                      onClick={() => onToggleLock(row.original)}
+                      aria-pressed={Boolean(row.original.is_locked)}
+                      aria-label={
+                        row.original.is_locked
+                          ? t("edit.unlockNamed", { name: row.original.person_name })
+                          : t("edit.lockNamed", { name: row.original.person_name })
+                      }
+                      title={row.original.is_locked ? t("edit.lockedHint") : t("edit.lockHint")}
+                    >
+                      {row.original.is_locked ? (
+                        <Lock className="h-3.5 w-3.5" aria-hidden />
+                      ) : (
+                        <Unlock className="h-3.5 w-3.5 text-slate-400" aria-hidden />
+                      )}
+                    </button>
+                  )}
+                </div>
               ),
             }),
           ]
         : []),
     ],
-    [divisionName, t, formatDate, onEdit],
+    [divisionName, t, formatDate, onEdit, onToggleLock],
   );
 
   const table = useReactTable({

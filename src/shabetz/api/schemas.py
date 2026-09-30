@@ -384,6 +384,8 @@ class FeasibilityOut(BaseModel):
 class GenerateRequest(BaseModel):
     start_date: date
     end_date: date
+    # Carry pinned shifts over from the previous schedule.
+    keep_locked: bool = True
 
 
 class AssignmentOut(BaseModel):
@@ -402,6 +404,7 @@ class AssignmentOut(BaseModel):
     satisfied_requirement_id: int | None = None
     # Runs stored before manual editing existed have no such key.
     is_manual: bool = False
+    is_locked: bool = False
 
 
 class WarningOut(BaseModel):
@@ -459,6 +462,11 @@ class AssignmentCheckIn(SlotRef):
 class AssignmentAddIn(SlotRef):
     person_id: int
     acknowledge_conflicts: bool = False
+
+
+class AssignmentLockIn(SlotRef):
+    person_id: int
+    locked: bool
 
 
 class AssignmentReassignIn(SlotRef):

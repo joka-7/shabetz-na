@@ -1,7 +1,13 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CalendarRange, Play, Printer, UserPlus } from "lucide-react";
-import { generateSchedule, runKeys, useDivisions, useLatestRun } from "@/api/queries";
+import {
+  generateSchedule,
+  runKeys,
+  setShiftLock,
+  useDivisions,
+  useLatestRun,
+} from "@/api/queries";
 import { can, useSession } from "@/hooks/useSession";
 import {
   EmptyState,
@@ -23,7 +29,7 @@ import { WarningsPanel } from "./WarningsPanel";
 import { ExportBar } from "@/features/export/ExportBar";
 import { useI18n } from "@/i18n";
 import { errorText } from "@/i18n/errors";
-import type { Division, ScheduleRun } from "@/types/api";
+import type { Assignment, Division, ScheduleRun } from "@/types/api";
 
 /** A local calendar date; toISOString would give UTC's, a day off near midnight. */
 function isoDaysFromToday(days: number): string {
@@ -43,16 +49,30 @@ export function DashboardView() {
 
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<EditTarget | null>(null);
+  const [keepLocked, setKeepLocked] = useState(true);
   const canEdit = can.generate(project);
 
   // The schedule lives on the server, so a reload shows the latest one --
   // including any changes made to it by hand.
   const latest = useLatestRun(canEdit);
   const generate = useMutation<ScheduleRun, unknown, void>({
-    mutationFn: () => generateSchedule(start, end),
+    mutationFn: () => generateSchedule(start, end, keepLocked),
     onSuccess: (created) => queryClient.setQueryData(runKeys.latest, created),
   });
   const run = latest.data ?? undefined;
+
+  const toggleLock = useMutation({
+    mutationFn: (a: Assignment) =>
+      setShiftLock(
+        run!.schedule_id,
+        { job_id: a.job_id, template_id: a.template_id, calendar_date: a.calendar_date },
+        a.person_id,
+        !a.is_locked,
+      ),
+    onSuccess: (updated) => queryClient.setQueryData(runKeys.latest, updated),
+  });
+
+  const lockedCount = run?.assignments.filter((a) => a.is_locked).length ?? 0;
 
   const onSaved = (updated: ScheduleRun) => {
     queryClient.setQueryData(runKeys.latest, updated);
@@ -94,6 +114,16 @@ export function DashboardView() {
               <Play className="h-4 w-4" aria-hidden />
               {generate.isPending ? t("dashboard.generating") : t("dashboard.generate")}
             </button>
+            {lockedCount > 0 && (
+              <label className="flex items-center gap-2 pb-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={keepLocked}
+                  onChange={(event) => setKeepLocked(event.target.checked)}
+                />
+                {t("dashboard.keepLocked", { count: lockedCount })}
+              </label>
+            )}
             {run && <ExportBar scheduleId={run.schedule_id} />}
           </div>
 
@@ -192,6 +222,7 @@ export function DashboardView() {
               run={run}
               divisions={divisions ?? []}
               onEdit={canEdit ? (assignment) => setEditing({ kind: "reassign", assignment }) : undefined}
+              onToggleLock={canEdit ? (assignment) => toggleLock.mutate(assignment) : undefined}
             />
           ) : view === "timeline" ? (
             <TimelineGantt run={run} divisions={divisions ?? []} />

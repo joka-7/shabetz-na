@@ -41,8 +41,19 @@ class SimpleGreedyScheduler(SchedulingStrategy):
         people: Sequence[Person],
         jobs: Sequence[Job],
         params: ScheduleParams,
+        locked: Sequence[Assignment] = (),
     ) -> ScheduleResult:
         state = SchedulerState(people, params.rest_period_hours)
+        known = {person.id: person for person in people}
+        # Anyone no longer on the roster, or outside the window, cannot be kept.
+        pinned: dict[tuple[int, int, date], list[Assignment]] = defaultdict(list)
+        for pin in locked:
+            if (
+                pin.person_id in known
+                and params.start_date <= pin.calendar_date <= params.end_date
+            ):
+                pinned[(pin.job_id, pin.template_id, pin.calendar_date)].append(pin)
+                state.reserve(pin.person_id, pin.start_abs, pin.end_abs)
         rotation = DivisionRotation(
             division_order=params.division_order,
             block_days=params.rotation_block_days,
@@ -71,7 +82,10 @@ class SimpleGreedyScheduler(SchedulingStrategy):
             for job in ordered_jobs:
                 for template in job.shift_templates:
                     slot = ShiftSlot.build(job, template, day, day_index)
-                    picked = self._staff_slot(job, slot, by_division, rotation, active, state, day)
+                    kept = pinned.get((job.id, template.id, day), [])
+                    picked = self._staff_slot(
+                        job, slot, by_division, rotation, active, state, day, kept, known
+                    )
                     assignments.extend(picked)
                     warnings.extend(slot_warnings(job, slot, picked))
 
@@ -101,10 +115,19 @@ class SimpleGreedyScheduler(SchedulingStrategy):
         active: int | None,
         state: SchedulerState,
         day: date,
+        kept: Sequence[Assignment] = (),
+        known: dict[int, Person] | None = None,
     ) -> list[Assignment]:
         tiers = self._candidate_tiers(job, by_division, rotation, active, day)
         chosen: list[Assignment] = []
         taken: set[int] = set()
+
+        # Pinned people first: they count toward the head count and toward any
+        # named role they were filling, so the engine only fills what is left.
+        for pinned_assignment in kept:
+            state.commit((known or {})[pinned_assignment.person_id], slot)
+            taken.add(pinned_assignment.person_id)
+            chosen.append(pinned_assignment)
 
         # Phase 1 - satisfy every requirement that names a specific number of
         # people.  Ordered by scarcity so the hardest role is filled while the

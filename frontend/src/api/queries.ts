@@ -95,8 +95,8 @@ export function useConfigMutation<TArgs, TResult>(
   });
 }
 
-export const generateSchedule = (start_date: string, end_date: string) =>
-  api.post<ScheduleRun>("/api/schedule/generate", { start_date, end_date });
+export const generateSchedule = (start_date: string, end_date: string, keep_locked = true) =>
+  api.post<ScheduleRun>("/api/schedule/generate", { start_date, end_date, keep_locked });
 
 // ----------------------------------------------------------- schedule editing
 
@@ -142,6 +142,18 @@ export const fetchSuggestions = (
       ...(replacesPersonId !== null ? { replaces_person_id: String(replacesPersonId) } : {}),
     })}`,
   );
+
+export const setShiftLock = (
+  scheduleId: string,
+  slot: SlotRef,
+  personId: number,
+  locked: boolean,
+) =>
+  api.put<ScheduleRun>(`${assignmentsUrl(scheduleId)}/lock`, {
+    ...slot,
+    person_id: personId,
+    locked,
+  });
 
 export const reassignShift = (
   scheduleId: string,

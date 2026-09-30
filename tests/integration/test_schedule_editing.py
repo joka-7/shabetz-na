@@ -262,3 +262,30 @@ def test_suggestions_offer_free_people_first(admin: Actor, world: dict) -> None:
     assert holder["person_id"] not in {r["person_id"] for r in ranked}
     conflict_counts = [len(r["conflicts"]) for r in ranked]
     assert conflict_counts == sorted(conflict_counts)
+
+
+def test_hand_edits_survive_regeneration_unless_released(admin: Actor, world: dict) -> None:
+    holder = _holder(world["run"], world, "day")
+    target = _free_person(world["run"], world)
+    edited = admin.put(
+        _url(world),
+        json={**_slot(world, "day"), "from_person_id": holder["person_id"], "to_person_id": target},
+    ).json()
+    assert _holder(edited, world, "day")["is_locked"] is True
+
+    window = {"start_date": "2026-10-05", "end_date": "2026-10-06"}
+    kept = admin.post("/api/schedule/generate", json=window).json()
+    assert _holder(kept, world, "day")["person_id"] == target
+    assert _holder(kept, world, "day")["is_locked"] is True
+
+    released = admin.put(
+        f"/api/schedule/runs/{kept['schedule_id']}/assignments/lock",
+        json={**_slot(world, "day"), "person_id": target, "locked": False},
+    )
+    assert released.status_code == 200, released.text
+    fresh = admin.post("/api/schedule/generate", json=window).json()
+    # Free to be reshuffled by the engine again (deterministic: back to its own pick).
+    assert _holder(fresh, world, "day")["person_id"] == holder["person_id"]
+
+    ignored = admin.post("/api/schedule/generate", json={**window, "keep_locked": False}).json()
+    assert _holder(ignored, world, "day")["is_locked"] is False
