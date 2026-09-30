@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
-import { CalendarRange, Play } from "lucide-react";
-import { generateSchedule, useDivisions } from "@/api/queries";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { CalendarRange, Play, UserPlus } from "lucide-react";
+import { generateSchedule, runKeys, useDivisions, useLatestRun } from "@/api/queries";
 import { can, useSession } from "@/hooks/useSession";
 import {
   EmptyState,
@@ -15,6 +15,7 @@ import {
   utilizationPercent,
 } from "@/lib/schedule";
 import { AssignmentsTable } from "./AssignmentsTable";
+import { EditShiftDialog, type EditTarget } from "./EditShiftDialog";
 import { TimelineGantt } from "./TimelineGantt";
 import { WarningsPanel } from "./WarningsPanel";
 import { ExportBar } from "@/features/export/ExportBar";
@@ -38,10 +39,23 @@ export function DashboardView() {
   const [end, setEnd] = useState(isoDaysFromToday(13));
   const [view, setView] = useState<"table" | "timeline">("table");
 
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState<EditTarget | null>(null);
+  const canEdit = can.generate(project);
+
+  // The schedule lives on the server, so a reload shows the latest one --
+  // including any changes made to it by hand.
+  const latest = useLatestRun(canEdit);
   const generate = useMutation<ScheduleRun, unknown, void>({
     mutationFn: () => generateSchedule(start, end),
+    onSuccess: (created) => queryClient.setQueryData(runKeys.latest, created),
   });
-  const run = generate.data;
+  const run = latest.data ?? undefined;
+
+  const onSaved = (updated: ScheduleRun) => {
+    queryClient.setQueryData(runKeys.latest, updated);
+    setEditing(null);
+  };
 
   return (
     <div className="space-y-4">
@@ -138,7 +152,7 @@ export function DashboardView() {
 
           <RotationStrip run={run} divisions={divisions ?? []} />
 
-          <div className="flex gap-1">
+          <div className="flex flex-wrap items-center gap-1">
             {(["table", "timeline"] as const).map((option) => (
               <button
                 key={option}
@@ -153,15 +167,34 @@ export function DashboardView() {
                 {option === "table" ? t("dashboard.table") : t("timeline.title")}
               </button>
             ))}
+            {canEdit && (
+              <button className="btn-ghost ms-auto text-sm" onClick={() => setEditing({ kind: "add" })}>
+                <UserPlus className="h-4 w-4" aria-hidden />
+                {t("edit.add")}
+              </button>
+            )}
           </div>
 
           {view === "table" ? (
-            <AssignmentsTable run={run} divisions={divisions ?? []} />
+            <AssignmentsTable
+              run={run}
+              divisions={divisions ?? []}
+              onEdit={canEdit ? (assignment) => setEditing({ kind: "reassign", assignment }) : undefined}
+            />
           ) : (
             <TimelineGantt run={run} divisions={divisions ?? []} />
           )}
 
           <WarningsPanel warnings={run.warnings} />
+
+          {editing && (
+            <EditShiftDialog
+              run={run}
+              target={editing}
+              onClose={() => setEditing(null)}
+              onSaved={onSaved}
+            />
+          )}
         </>
       )}
     </div>

@@ -204,6 +204,21 @@ export interface Assignment {
   role: "ROLE" | "MEMBER";
   is_division_fallback: boolean;
   satisfied_requirement_id: number | null;
+  /** Placed or swapped by hand after the schedule was generated. */
+  is_manual?: boolean;
+}
+
+export interface SlotRef {
+  job_id: number;
+  template_id: number;
+  calendar_date: string;
+}
+
+export interface ScheduleConflict {
+  kind: string;
+  person_id: number;
+  person_name: string;
+  message: string;
 }
 
 export interface ScheduleWarning {

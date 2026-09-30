@@ -36,6 +36,11 @@ class WarningKind(StrEnum):
     UNDERSTAFFED = "UNDERSTAFFED"
     MISSING_ROLE = "MISSING_ROLE"
     DIVISION_FALLBACK = "DIVISION_FALLBACK"
+    # Raised for hand-made assignments, which the engine never produces itself.
+    UNAVAILABLE = "UNAVAILABLE"
+    DOUBLE_BOOKED = "DOUBLE_BOOKED"
+    REST_VIOLATION = "REST_VIOLATION"
+    MISSING_SKILL = "MISSING_SKILL"
 
 
 class ProjectRole(StrEnum):

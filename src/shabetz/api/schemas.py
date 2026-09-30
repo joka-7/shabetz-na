@@ -400,6 +400,8 @@ class AssignmentOut(BaseModel):
     role: str
     is_division_fallback: bool
     satisfied_requirement_id: int | None = None
+    # Runs stored before manual editing existed have no such key.
+    is_manual: bool = False
 
 
 class WarningOut(BaseModel):
@@ -437,6 +439,43 @@ class ScheduleRunOut(BaseModel):
     summary: SummaryOut
     assignments: list[AssignmentOut] = Field(default_factory=list)
     warnings: list[WarningOut] = Field(default_factory=list)
+
+
+class SlotRef(BaseModel):
+    """One shift: a job's window on a day."""
+
+    job_id: int
+    template_id: int
+    calendar_date: date
+
+
+class AssignmentCheckIn(SlotRef):
+    person_id: int
+    # The person being swapped out, so they are not counted against their own
+    # replacement.
+    replaces_person_id: int | None = None
+
+
+class AssignmentAddIn(SlotRef):
+    person_id: int
+    acknowledge_conflicts: bool = False
+
+
+class AssignmentReassignIn(SlotRef):
+    from_person_id: int
+    to_person_id: int
+    acknowledge_conflicts: bool = False
+
+
+class ConflictOut(BaseModel):
+    kind: str
+    person_id: int
+    person_name: str
+    message: str
+
+
+class AssignmentCheckOut(BaseModel):
+    conflicts: list[ConflictOut]
 
 
 class ScheduleRunSummaryOut(BaseModel):

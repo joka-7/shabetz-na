@@ -7,7 +7,7 @@ import {
   useReactTable,
   type SortingState,
 } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, Pencil, Search } from "lucide-react";
 import { DivisionBadge, EmptyState } from "@/components/ui";
 import {
   crossesMidnight,
@@ -24,9 +24,12 @@ const helper = createColumnHelper<Assignment>();
 export function AssignmentsTable({
   run,
   divisions,
+  onEdit,
 }: {
   run: ScheduleRun;
   divisions: Division[];
+  /** Present only for roles that may change a schedule. */
+  onEdit?: (assignment: Assignment) => void;
 }) {
   const { t, formatDate } = useI18n();
   const [filters, setFilters] = useState<AssignmentFilters>(emptyFilters);
@@ -94,6 +97,14 @@ export function AssignmentsTable({
                 {t("table.role")}
               </span>
             )}
+            {row.original.is_manual && (
+              <span
+                className="badge bg-sky-100 text-sky-900 dark:bg-sky-950 dark:text-sky-300"
+                title={t("edit.manualHint")}
+              >
+                {t("edit.manual")}
+              </span>
+            )}
             {row.original.is_division_fallback && (
               <span
                 className="badge bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300"
@@ -112,8 +123,26 @@ export function AssignmentsTable({
           return <DivisionBadge id={id} name={divisionName.get(id) ?? `#${id}`} />;
         },
       }),
+      ...(onEdit
+        ? [
+            helper.display({
+              id: "actions",
+              header: t("edit.actions"),
+              cell: ({ row }) => (
+                <button
+                  className="btn-ghost p-1.5"
+                  onClick={() => onEdit(row.original)}
+                  aria-label={t("edit.changeNamed", { name: row.original.person_name })}
+                  title={t("edit.change")}
+                >
+                  <Pencil className="h-3.5 w-3.5" aria-hidden />
+                </button>
+              ),
+            }),
+          ]
+        : []),
     ],
-    [divisionName, t, formatDate],
+    [divisionName, t, formatDate, onEdit],
   );
 
   const table = useReactTable({

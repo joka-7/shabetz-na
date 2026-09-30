@@ -259,6 +259,8 @@ class Assignment:
     role: AssignmentRole
     is_division_fallback: bool
     satisfied_requirement_id: int | None = None
+    # Set when a person placed or swapped the shift by hand after generation.
+    is_manual: bool = False
 
 
 @dataclass(frozen=True, slots=True)

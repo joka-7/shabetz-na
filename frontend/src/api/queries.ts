@@ -1,7 +1,7 @@
 /** Shared query keys and fetchers. */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "./client";
+import { api, request } from "./client";
 import type {
   Division,
   Feasibility,
@@ -10,7 +10,9 @@ import type {
   Member,
   Person,
   ProficiencyLevel,
+  ScheduleConflict,
   ScheduleRun,
+  SlotRef,
   Settings,
   ShiftTemplate,
   Skill,
@@ -94,3 +96,59 @@ export function useConfigMutation<TArgs, TResult>(
 
 export const generateSchedule = (start_date: string, end_date: string) =>
   api.post<ScheduleRun>("/api/schedule/generate", { start_date, end_date });
+
+// ----------------------------------------------------------- schedule editing
+
+export const runKeys = {
+  latest: ["schedule-run", "latest"] as const,
+  one: (id: string) => ["schedule-run", id] as const,
+};
+
+/**
+ * The most recent run, so a reload (or a colleague's edit) shows the current
+ * schedule instead of an empty page. Only editors may list runs.
+ */
+export function useLatestRun(enabled: boolean) {
+  return useQuery({
+    queryKey: runKeys.latest,
+    enabled,
+    queryFn: async () => {
+      const [latest] = await api.get<{ schedule_id: string }[]>("/api/schedule/runs?limit=1");
+      return latest ? api.get<ScheduleRun>(`/api/schedule/runs/${latest.schedule_id}`) : null;
+    },
+  });
+}
+
+const assignmentsUrl = (scheduleId: string) =>
+  `/api/schedule/runs/${encodeURIComponent(scheduleId)}/assignments`;
+
+export const checkAssignment = (
+  scheduleId: string,
+  body: SlotRef & { person_id: number; replaces_person_id?: number | null },
+) =>
+  api.post<{ conflicts: ScheduleConflict[] }>(`${assignmentsUrl(scheduleId)}/check`, body);
+
+export const reassignShift = (
+  scheduleId: string,
+  body: SlotRef & {
+    from_person_id: number;
+    to_person_id: number;
+    acknowledge_conflicts: boolean;
+  },
+) => api.put<ScheduleRun>(assignmentsUrl(scheduleId), body);
+
+export const addShiftPerson = (
+  scheduleId: string,
+  body: SlotRef & { person_id: number; acknowledge_conflicts: boolean },
+) => api.post<ScheduleRun>(assignmentsUrl(scheduleId), body);
+
+export const removeShiftPerson = (scheduleId: string, slot: SlotRef, personId: number) =>
+  request<ScheduleRun>(
+    `${assignmentsUrl(scheduleId)}?${new URLSearchParams({
+      job_id: String(slot.job_id),
+      template_id: String(slot.template_id),
+      calendar_date: slot.calendar_date,
+      person_id: String(personId),
+    })}`,
+    { method: "DELETE" },
+  );

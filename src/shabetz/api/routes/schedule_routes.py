@@ -14,10 +14,16 @@ from ...exporters.base import ExporterUnavailable, ExportFormat
 from ...exporters.renderers import render
 from ...repositories.db_repo import DbSchedulingRepository
 from ...services.orchestration import JobOrchestrationService
+from ...services.schedule_edit import Conflict, EditError, ScheduleEditor, SlotKey
 from ..deps import ProjectContext, get_db, project_member, require_editor
-from ..errors import FeatureUnavailable, NotFound, UnprocessableConfig
+from ..errors import ApiError, FeatureUnavailable, NotFound, UnprocessableConfig
 from ..schemas import (
+    AssignmentAddIn,
+    AssignmentCheckIn,
+    AssignmentCheckOut,
     AssignmentOut,
+    AssignmentReassignIn,
+    ConflictOut,
     GenerateRequest,
     ScheduleRunOut,
     ScheduleRunSummaryOut,
@@ -93,6 +99,150 @@ def get_run(
     ctx: ProjectContext = Depends(require_editor),
 ) -> ScheduleRunOut:
     return _run_out(_load_run(db, schedule_id, ctx))
+
+
+# ------------------------------------------------------------ manual editing
+#
+# The schedule the engine produces is a proposal. These let an administrator or
+# collaborator change it afterwards. A change that breaks a rule (someone on
+# leave, double-booked, too little rest, missing a skill) is reported first and
+# only saved once the caller acknowledges it.
+
+_EDIT_STATUS = {"NOT_FOUND": 404, "CONFLICT": 409, "INVALID_CONFIGURATION": 422}
+
+
+def _editor(db: DbSession, schedule_id: str, ctx: ProjectContext) -> ScheduleEditor:
+    return ScheduleEditor(db, ctx.project_id, _load_run(db, schedule_id, ctx))
+
+
+def _edit_error(exc: EditError) -> ApiError:
+    return ApiError(exc.code, str(exc), _EDIT_STATUS.get(exc.code, 400))
+
+
+def _conflicts_out(conflicts: list[Conflict]) -> list[ConflictOut]:
+    return [
+        ConflictOut(
+            kind=c.kind.value, person_id=c.person_id, person_name=c.person_name, message=c.message
+        )
+        for c in conflicts
+    ]
+
+
+def _require_acknowledged(conflicts: list[Conflict], acknowledged: bool) -> None:
+    if conflicts and not acknowledged:
+        raise ApiError("SCHEDULE_CONFLICT", "; ".join(c.message for c in conflicts), 409)
+
+
+def _audit_edit(
+    db: DbSession, ctx: ProjectContext, schedule_id: str, action: str, detail: dict
+) -> None:
+    db.add(
+        orm.AuditLog(
+            user_id=ctx.user.id,
+            project_id=ctx.project_id,
+            entity_type="schedule_assignment",
+            entity_id=schedule_id,
+            action=action,
+            after_json=detail,
+        )
+    )
+
+
+@router.post("/runs/{schedule_id}/assignments/check", response_model=AssignmentCheckOut)
+def check_assignment(
+    schedule_id: str,
+    payload: AssignmentCheckIn,
+    db: DbSession = Depends(get_db),
+    ctx: ProjectContext = Depends(require_editor),
+) -> AssignmentCheckOut:
+    """What would go wrong if this person worked this shift. Changes nothing."""
+    editor = _editor(db, schedule_id, ctx)
+    key = SlotKey(payload.job_id, payload.template_id, payload.calendar_date)
+    try:
+        ignore = None
+        requirement_id = None
+        if payload.replaces_person_id is not None:
+            ignore = editor.find(key, payload.replaces_person_id)
+            requirement_id = ignore.satisfied_requirement_id
+        conflicts = editor.conflicts_for(
+            payload.person_id, key, ignore=ignore, requirement_id=requirement_id
+        )
+    except EditError as exc:
+        raise _edit_error(exc) from exc
+    return AssignmentCheckOut(conflicts=_conflicts_out(conflicts))
+
+
+@router.put("/runs/{schedule_id}/assignments", response_model=ScheduleRunOut)
+def reassign(
+    schedule_id: str,
+    payload: AssignmentReassignIn,
+    db: DbSession = Depends(get_db),
+    ctx: ProjectContext = Depends(require_editor),
+) -> ScheduleRunOut:
+    editor = _editor(db, schedule_id, ctx)
+    key = SlotKey(payload.job_id, payload.template_id, payload.calendar_date)
+    try:
+        conflicts = editor.reassign(key, payload.from_person_id, payload.to_person_id)
+        _require_acknowledged(conflicts, payload.acknowledge_conflicts)
+        editor.save()
+    except EditError as exc:
+        raise _edit_error(exc) from exc
+    _audit_edit(db, ctx, schedule_id, "reassign", payload.model_dump(mode="json"))
+    return _run_out(editor.run)
+
+
+@router.post(
+    "/runs/{schedule_id}/assignments",
+    response_model=ScheduleRunOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def add_assignment(
+    schedule_id: str,
+    payload: AssignmentAddIn,
+    db: DbSession = Depends(get_db),
+    ctx: ProjectContext = Depends(require_editor),
+) -> ScheduleRunOut:
+    editor = _editor(db, schedule_id, ctx)
+    key = SlotKey(payload.job_id, payload.template_id, payload.calendar_date)
+    try:
+        conflicts = editor.add(key, payload.person_id)
+        _require_acknowledged(conflicts, payload.acknowledge_conflicts)
+        editor.save()
+    except EditError as exc:
+        raise _edit_error(exc) from exc
+    _audit_edit(db, ctx, schedule_id, "add", payload.model_dump(mode="json"))
+    return _run_out(editor.run)
+
+
+@router.delete("/runs/{schedule_id}/assignments", response_model=ScheduleRunOut)
+def remove_assignment(
+    schedule_id: str,
+    job_id: int = Query(...),
+    template_id: int = Query(...),
+    calendar_date: date = Query(...),
+    person_id: int = Query(...),
+    db: DbSession = Depends(get_db),
+    ctx: ProjectContext = Depends(require_editor),
+) -> ScheduleRunOut:
+    editor = _editor(db, schedule_id, ctx)
+    try:
+        editor.remove(SlotKey(job_id, template_id, calendar_date), person_id)
+        editor.save()
+    except EditError as exc:
+        raise _edit_error(exc) from exc
+    _audit_edit(
+        db,
+        ctx,
+        schedule_id,
+        "remove",
+        {
+            "job_id": job_id,
+            "template_id": template_id,
+            "calendar_date": calendar_date.isoformat(),
+            "person_id": person_id,
+        },
+    )
+    return _run_out(editor.run)
 
 
 @router.get("/runs/{schedule_id}/export")

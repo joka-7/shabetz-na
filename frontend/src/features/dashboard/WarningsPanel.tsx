@@ -2,6 +2,7 @@ import { useState } from "react";
 import { SeverityBadge } from "@/components/ui";
 import { useI18n } from "@/i18n";
 import { blockingWarnings, warningsBySeverity } from "@/lib/schedule";
+import { conflictText, isConflictKind } from "./conflictText";
 import type { ScheduleWarning } from "@/types/api";
 
 /**
@@ -26,6 +27,14 @@ function useWarningText() {
     }
     if (warning.kind === "DIVISION_FALLBACK" && warning.job_name && warning.person_name) {
       return t("warning.fallback", { ...params, person: warning.person_name });
+    }
+    if (isConflictKind(warning.kind) && warning.person_name) {
+      return conflictText(
+        t,
+        warning.kind,
+        { person: warning.person_name, job: params.job, window: params.window, date: params.date },
+        warning.message,
+      );
     }
     return warning.message;
   };
