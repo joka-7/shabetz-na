@@ -343,6 +343,10 @@ export const en = {
   "warning.missingRole": "{job} on {date} ({window}) needs {required} × {skill} but filled {assigned}",
   "warning.fallback": "{person} was borrowed from outside the division on duty for {job} on {date}",
 
+  "edit.suggested": "Suggested — free and rested",
+  "edit.noneFree": "Nobody is free for this shift without breaking a rule.",
+  "edit.shiftsHeld": "{count} shifts",
+  "edit.fix": "Fix",
   "edit.titleReassign": "Change who works this shift",
   "edit.titleAdd": "Add someone to a shift",
   "edit.current": "Currently",

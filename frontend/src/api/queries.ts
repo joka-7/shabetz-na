@@ -15,6 +15,7 @@ import type {
   SlotRef,
   Settings,
   ShiftTemplate,
+  Suggestion,
   Skill,
   TimeOff,
 } from "@/types/api";
@@ -127,6 +128,20 @@ export const checkAssignment = (
   body: SlotRef & { person_id: number; replaces_person_id?: number | null },
 ) =>
   api.post<{ conflicts: ScheduleConflict[] }>(`${assignmentsUrl(scheduleId)}/check`, body);
+
+export const fetchSuggestions = (
+  scheduleId: string,
+  slot: SlotRef,
+  replacesPersonId: number | null,
+) =>
+  api.get<Suggestion[]>(
+    `/api/schedule/runs/${encodeURIComponent(scheduleId)}/suggestions?${new URLSearchParams({
+      job_id: String(slot.job_id),
+      template_id: String(slot.template_id),
+      calendar_date: slot.calendar_date,
+      ...(replacesPersonId !== null ? { replaces_person_id: String(replacesPersonId) } : {}),
+    })}`,
+  );
 
 export const reassignShift = (
   scheduleId: string,

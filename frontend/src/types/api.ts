@@ -214,6 +214,14 @@ export interface SlotRef {
   calendar_date: string;
 }
 
+export interface Suggestion {
+  person_id: number;
+  person_name: string;
+  division_id: number;
+  shifts_in_schedule: number;
+  conflicts: ScheduleConflict[];
+}
+
 export interface ScheduleConflict {
   kind: string;
   person_id: number;

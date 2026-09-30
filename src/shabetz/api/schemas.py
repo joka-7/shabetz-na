@@ -474,6 +474,14 @@ class ConflictOut(BaseModel):
     message: str
 
 
+class SuggestionOut(BaseModel):
+    person_id: int
+    person_name: str
+    division_id: int
+    shifts_in_schedule: int
+    conflicts: list[ConflictOut]
+
+
 class AssignmentCheckOut(BaseModel):
     conflicts: list[ConflictOut]
 

@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 import {
   addShiftPerson,
   checkAssignment,
+  fetchSuggestions,
   reassignShift,
   removeShiftPerson,
   useDivisions,
@@ -18,7 +19,10 @@ import { shiftWindow } from "@/lib/schedule";
 import type { Assignment, ScheduleRun } from "@/types/api";
 import { conflictText } from "./conflictText";
 
-export type EditTarget = { kind: "reassign"; assignment: Assignment } | { kind: "add" };
+export type EditTarget =
+  | { kind: "reassign"; assignment: Assignment }
+  /** `slot` pre-fills the shift, e.g. when fixing a gap from the warnings list. */
+  | { kind: "add"; slot?: { job_id: number; template_id: number; calendar_date: string } };
 
 /**
  * Change who works a shift after the schedule was generated.
@@ -46,9 +50,10 @@ export function EditShiftDialog({
   const { data: templates = [] } = useTemplates();
 
   const current = target.kind === "reassign" ? target.assignment : null;
-  const [jobId, setJobId] = useState<number | null>(current?.job_id ?? null);
-  const [templateId, setTemplateId] = useState<number | null>(current?.template_id ?? null);
-  const [date, setDate] = useState<string>(current?.calendar_date ?? "");
+  const preset = current ?? (target.kind === "add" ? target.slot : undefined);
+  const [jobId, setJobId] = useState<number | null>(preset?.job_id ?? null);
+  const [templateId, setTemplateId] = useState<number | null>(preset?.template_id ?? null);
+  const [date, setDate] = useState<string>(preset?.calendar_date ?? "");
   const [personId, setPersonId] = useState<number | null>(null);
   const [acknowledged, setAcknowledged] = useState(false);
   const [confirmingRemove, setConfirmingRemove] = useState(false);
@@ -83,6 +88,13 @@ export function EditShiftDialog({
     [people, current],
   );
   const person = people.find((candidate) => candidate.id === personId);
+
+  const suggestions = useQuery({
+    queryKey: ["assignment-suggestions", run.schedule_id, slot, current?.person_id ?? null],
+    enabled: slot !== null,
+    queryFn: () => fetchSuggestions(run.schedule_id, slot!, current?.person_id ?? null),
+  });
+  const clean = (suggestions.data ?? []).filter((s) => s.conflicts.length === 0).slice(0, 5);
 
   const check = useQuery({
     queryKey: ["assignment-check", run.schedule_id, slot, personId, current?.person_id ?? null],
@@ -228,6 +240,38 @@ export function EditShiftDialog({
                 }}
               />
             </div>
+          </div>
+        )}
+
+        {slot !== null && !suggestions.isLoading && (
+          <div>
+            <div className="label">{t("edit.suggested")}</div>
+            {clean.length === 0 ? (
+              <p className="text-xs text-slate-500">{t("edit.noneFree")}</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {clean.map((candidate) => (
+                  <button
+                    key={candidate.person_id}
+                    type="button"
+                    className={`btn text-xs ${
+                      personId === candidate.person_id
+                        ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+                        : "border border-slate-300 dark:border-slate-700"
+                    }`}
+                    onClick={() => {
+                      setPersonId(candidate.person_id);
+                      setAcknowledged(false);
+                    }}
+                  >
+                    {candidate.person_name}
+                    <span className="text-[10px] opacity-70">
+                      {t("edit.shiftsHeld", { count: candidate.shifts_in_schedule })}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

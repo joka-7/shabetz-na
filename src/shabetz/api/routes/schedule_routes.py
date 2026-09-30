@@ -27,6 +27,7 @@ from ..schemas import (
     GenerateRequest,
     ScheduleRunOut,
     ScheduleRunSummaryOut,
+    SuggestionOut,
     SummaryOut,
     WarningOut,
 )
@@ -170,6 +171,36 @@ def check_assignment(
     except EditError as exc:
         raise _edit_error(exc) from exc
     return AssignmentCheckOut(conflicts=_conflicts_out(conflicts))
+
+
+@router.get("/runs/{schedule_id}/suggestions", response_model=list[SuggestionOut])
+def suggestions(
+    schedule_id: str,
+    job_id: int = Query(...),
+    template_id: int = Query(...),
+    calendar_date: date = Query(...),
+    replaces_person_id: int | None = Query(default=None),
+    db: DbSession = Depends(get_db),
+    ctx: ProjectContext = Depends(require_editor),
+) -> list[SuggestionOut]:
+    """People who could cover this shift, fewest rule conflicts first."""
+    editor = _editor(db, schedule_id, ctx)
+    try:
+        ranked = editor.suggest(
+            SlotKey(job_id, template_id, calendar_date), replaces_person_id=replaces_person_id
+        )
+    except EditError as exc:
+        raise _edit_error(exc) from exc
+    return [
+        SuggestionOut(
+            person_id=person.id,
+            person_name=person.full_name,
+            division_id=person.division_id,
+            shifts_in_schedule=load,
+            conflicts=_conflicts_out(found),
+        )
+        for person, found, load in ranked
+    ]
 
 
 @router.put("/runs/{schedule_id}/assignments", response_model=ScheduleRunOut)

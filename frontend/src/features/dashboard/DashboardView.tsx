@@ -185,7 +185,22 @@ export function DashboardView() {
             <TimelineGantt run={run} divisions={divisions ?? []} />
           )}
 
-          <WarningsPanel warnings={run.warnings} />
+          <WarningsPanel
+            warnings={run.warnings}
+            onFix={
+              canEdit
+                ? (warning) =>
+                    setEditing({
+                      kind: "add",
+                      slot: {
+                        job_id: warning.job_id!,
+                        template_id: warning.template_id!,
+                        calendar_date: warning.calendar_date!,
+                      },
+                    })
+                : undefined
+            }
+          />
 
           {editing && (
             <EditShiftDialog

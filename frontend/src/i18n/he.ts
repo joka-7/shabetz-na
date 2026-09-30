@@ -335,6 +335,10 @@ export const he: Record<keyof typeof en, string> = {
   "warning.missingRole": "{job} ביום {date} ({window}) צריך {required} × {skill} אבל שובצו {assigned}",
   "warning.fallback": "{person} הושאל ממחוץ למחלקה התורנית ל{job} ביום {date}",
 
+  "edit.suggested": "מוצעים — פנויים ומנוחים",
+  "edit.noneFree": "אין מי שפנוי למשמרת הזו בלי לשבור כלל.",
+  "edit.shiftsHeld": "{count} משמרות",
+  "edit.fix": "תיקון",
   "edit.titleReassign": "שינוי מי עובד במשמרת הזו",
   "edit.titleAdd": "הוספת אדם למשמרת",
   "edit.current": "כרגע",

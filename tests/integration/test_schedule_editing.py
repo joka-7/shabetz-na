@@ -245,3 +245,20 @@ def test_collaborator_can_edit(
         params={**_slot(world, "day"), "person_id": holder["person_id"]},
     )
     assert response.status_code == 200, response.text
+
+
+def test_suggestions_offer_free_people_first(admin: Actor, world: dict) -> None:
+    holder = _holder(world["run"], world, "day")
+    free = _free_person(world["run"], world)
+    response = admin.get(
+        f"/api/schedule/runs/{world['run']['schedule_id']}/suggestions",
+        params={**_slot(world, "day"), "replaces_person_id": holder["person_id"]},
+    )
+    assert response.status_code == 200, response.text
+    ranked = response.json()
+    assert ranked[0]["person_id"] == free
+    assert ranked[0]["conflicts"] == []
+    # The person being replaced is not offered to themselves.
+    assert holder["person_id"] not in {r["person_id"] for r in ranked}
+    conflict_counts = [len(r["conflicts"]) for r in ranked]
+    assert conflict_counts == sorted(conflict_counts)

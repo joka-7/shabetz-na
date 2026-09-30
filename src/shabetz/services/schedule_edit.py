@@ -188,6 +188,31 @@ class ScheduleEditor:
             )
         return found
 
+    def suggest(
+        self, key: SlotKey, *, replaces_person_id: int | None = None, limit: int = 8
+    ) -> list[tuple[Person, list[Conflict], int]]:
+        """Who could work this slot, cleanest first.
+
+        Ordered by fewest broken rules, then fewest shifts already held in this
+        schedule, so a gap is offered to whoever can cover it most fairly.
+        """
+        self._slot(key)
+        ignore = self.find(key, replaces_person_id) if replaces_person_id is not None else None
+        requirement_id = ignore.satisfied_requirement_id if ignore else None
+        on_slot = {a.person_id for a in self.assignments if _key(a) == key}
+        load: dict[int, int] = defaultdict(int)
+        for a in self.assignments:
+            load[a.person_id] += 1
+
+        ranked = []
+        for person in self._people.values():
+            if person.id in on_slot:
+                continue
+            found = self.conflicts_for(person.id, key, ignore=ignore, requirement_id=requirement_id)
+            ranked.append((person, found, load[person.id]))
+        ranked.sort(key=lambda r: (len(r[1]), r[2], r[0].id))
+        return ranked[:limit]
+
     # ------------------------------------------------------------------ edits
 
     def reassign(self, key: SlotKey, from_person_id: int, to_person_id: int) -> list[Conflict]:

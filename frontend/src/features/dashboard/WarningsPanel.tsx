@@ -40,7 +40,16 @@ function useWarningText() {
   };
 }
 
-export function WarningsPanel({ warnings }: { warnings: ScheduleWarning[] }) {
+const FIXABLE = new Set(["UNDERSTAFFED", "MISSING_ROLE"]);
+
+export function WarningsPanel({
+  warnings,
+  onFix,
+}: {
+  warnings: ScheduleWarning[];
+  /** Present only for roles that may change a schedule. */
+  onFix?: (warning: ScheduleWarning) => void;
+}) {
   const { t } = useI18n();
   const text = useWarningText();
   const [showInfo, setShowInfo] = useState(false);
@@ -98,6 +107,15 @@ export function WarningsPanel({ warnings }: { warnings: ScheduleWarning[] }) {
           >
             <SeverityBadge severity={warning.severity} />
             <span className="flex-1">{text(warning)}</span>
+            {onFix &&
+              FIXABLE.has(warning.kind) &&
+              warning.job_id !== null &&
+              warning.template_id !== null &&
+              warning.calendar_date !== null && (
+                <button className="btn-ghost shrink-0 px-2 py-0.5 text-xs" onClick={() => onFix(warning)}>
+                  {t("edit.fix")}
+                </button>
+              )}
             {warning.required !== null && warning.assigned !== null && (
               <span className="shrink-0 text-xs tabular-nums text-slate-500">
                 {warning.assigned}/{warning.required}
