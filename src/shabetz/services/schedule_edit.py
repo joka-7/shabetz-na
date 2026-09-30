@@ -273,6 +273,23 @@ class ScheduleEditor:
         self.assignments.sort(key=lambda a: a.calendar_date)
         return conflicts
 
+    def snapshot(self, key: SlotKey, person_id: int) -> dict:
+        """The stored form of one assignment, for the history and for undo."""
+        return jsonable(asdict(self.find(key, person_id)))  # type: ignore[return-value]
+
+    def restore(self, before: dict | None, after: dict | None) -> None:
+        """Put one assignment back as it was, without re-checking any rule.
+
+        ``after`` is what the edit left behind and ``before`` what it replaced;
+        either may be absent (an add has no before, a removal no after).
+        """
+        if after is not None:
+            now = _assignment(after)
+            del self.assignments[self._index_of(_key(now), now.person_id)]
+        if before is not None:
+            self.assignments.append(_assignment(before))
+            self.assignments.sort(key=lambda a: a.calendar_date)
+
     def set_lock(self, key: SlotKey, person_id: int, locked: bool) -> None:
         index = self._index_of(key, person_id)
         self.assignments[index] = replace(self.assignments[index], is_locked=locked)

@@ -289,3 +289,43 @@ def test_hand_edits_survive_regeneration_unless_released(admin: Actor, world: di
 
     ignored = admin.post("/api/schedule/generate", json={**window, "keep_locked": False}).json()
     assert _holder(ignored, world, "day")["is_locked"] is False
+
+
+def test_edits_are_listed_and_the_latest_can_be_undone(admin: Actor, world: dict) -> None:
+    run_id = world["run"]["schedule_id"]
+    holder = _holder(world["run"], world, "day")
+    target = _free_person(world["run"], world)
+
+    admin.put(
+        _url(world),
+        json={**_slot(world, "day"), "from_person_id": holder["person_id"], "to_person_id": target},
+    )
+    admin.delete(
+        _url(world),
+        params={
+            **_slot(world, "evening"),
+            "person_id": _holder(world["run"], world, "evening")["person_id"],
+        },
+    )
+
+    entries = admin.get(f"/api/schedule/runs/{run_id}/history").json()
+    assert [e["action"] for e in entries] == ["remove", "reassign"]
+    assert entries[0]["can_undo"] and not entries[1]["can_undo"]
+
+    # Only the newest edit may be undone first.
+    assert (
+        admin.post(f"/api/schedule/runs/{run_id}/history/{entries[1]['id']}/undo").status_code
+        == 409
+    )
+
+    undone = admin.post(f"/api/schedule/runs/{run_id}/history/{entries[0]['id']}/undo")
+    assert undone.status_code == 200, undone.text
+    assert len(undone.json()["assignments"]) == len(world["run"]["assignments"])
+
+    entries = admin.get(f"/api/schedule/runs/{run_id}/history").json()
+    assert entries[0]["undone"] is True
+    assert entries[1]["can_undo"] is True
+
+    back = admin.post(f"/api/schedule/runs/{run_id}/history/{entries[1]['id']}/undo").json()
+    assert _holder(back, world, "day")["person_id"] == holder["person_id"]
+    assert all(e["undone"] for e in admin.get(f"/api/schedule/runs/{run_id}/history").json())

@@ -5,6 +5,7 @@ import { api, request } from "./client";
 import type {
   Division,
   Feasibility,
+  HistoryEntry,
   Invite,
   Job,
   Member,
@@ -154,6 +155,21 @@ export const setShiftLock = (
     person_id: personId,
     locked,
   });
+
+export const historyKey = (scheduleId: string) => ["schedule-history", scheduleId] as const;
+
+export const useHistory = (scheduleId: string | undefined, enabled: boolean) =>
+  useQuery({
+    queryKey: historyKey(scheduleId ?? ""),
+    enabled: enabled && Boolean(scheduleId),
+    queryFn: () =>
+      api.get<HistoryEntry[]>(`/api/schedule/runs/${encodeURIComponent(scheduleId!)}/history`),
+  });
+
+export const undoEdit = (scheduleId: string, entryId: number) =>
+  api.post<ScheduleRun>(
+    `/api/schedule/runs/${encodeURIComponent(scheduleId)}/history/${entryId}/undo`,
+  );
 
 export const reassignShift = (
   scheduleId: string,

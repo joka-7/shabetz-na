@@ -23,6 +23,7 @@ import {
 import { AssignmentsTable } from "./AssignmentsTable";
 import { EditShiftDialog, type EditTarget } from "./EditShiftDialog";
 import { FairnessTable } from "./FairnessTable";
+import { HistoryPanel } from "./HistoryPanel";
 import { PrintGrid } from "./PrintGrid";
 import { TimelineGantt } from "./TimelineGantt";
 import { WarningsPanel } from "./WarningsPanel";
@@ -246,6 +247,8 @@ export function DashboardView() {
                 : undefined
             }
           />
+
+          {canEdit && <HistoryPanel run={run} />}
 
           {editing && (
             <EditShiftDialog

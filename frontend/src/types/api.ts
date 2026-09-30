@@ -210,6 +210,20 @@ export interface Assignment {
   is_locked?: boolean;
 }
 
+export interface HistoryEntry {
+  id: number;
+  at: string | null;
+  user_name: string | null;
+  action: "reassign" | "add" | "remove" | "lock" | "unlock";
+  job_name: string | null;
+  template_name: string | null;
+  calendar_date: string | null;
+  person_before: string | null;
+  person_after: string | null;
+  undone: boolean;
+  can_undo: boolean;
+}
+
 export interface SlotRef {
   job_id: number;
   template_id: number;

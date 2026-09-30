@@ -26,6 +26,7 @@ from ..schemas import (
     AssignmentReassignIn,
     ConflictOut,
     GenerateRequest,
+    HistoryEntryOut,
     ScheduleRunOut,
     ScheduleRunSummaryOut,
     SuggestionOut,
@@ -112,6 +113,7 @@ def get_run(
 # leave, double-booked, too little rest, missing a skill) is reported first and
 # only saved once the caller acknowledges it.
 
+_AUDIT_ENTITY = "schedule_assignment"
 _EDIT_STATUS = {"NOT_FOUND": 404, "CONFLICT": 409, "INVALID_CONFIGURATION": 422}
 
 
@@ -138,16 +140,23 @@ def _require_acknowledged(conflicts: list[Conflict], acknowledged: bool) -> None
 
 
 def _audit_edit(
-    db: DbSession, ctx: ProjectContext, schedule_id: str, action: str, detail: dict
+    db: DbSession,
+    ctx: ProjectContext,
+    schedule_id: str,
+    action: str,
+    before: dict | None = None,
+    after: dict | None = None,
 ) -> None:
+    """Record an edit with what it replaced and what it left, so it can be undone."""
     db.add(
         orm.AuditLog(
             user_id=ctx.user.id,
             project_id=ctx.project_id,
-            entity_type="schedule_assignment",
+            entity_type=_AUDIT_ENTITY,
             entity_id=schedule_id,
             action=action,
-            after_json=detail,
+            before_json=before,
+            after_json=after,
         )
     )
 
@@ -215,22 +224,15 @@ def set_lock(
 ) -> ScheduleRunOut:
     """Pin a shift so regenerating the schedule keeps it, or release it."""
     editor = _editor(db, schedule_id, ctx)
+    key = SlotKey(payload.job_id, payload.template_id, payload.calendar_date)
     try:
-        editor.set_lock(
-            SlotKey(payload.job_id, payload.template_id, payload.calendar_date),
-            payload.person_id,
-            payload.locked,
-        )
+        before = editor.snapshot(key, payload.person_id)
+        editor.set_lock(key, payload.person_id, payload.locked)
+        after = editor.snapshot(key, payload.person_id)
         editor.save()
     except EditError as exc:
         raise _edit_error(exc) from exc
-    _audit_edit(
-        db,
-        ctx,
-        schedule_id,
-        "lock" if payload.locked else "unlock",
-        payload.model_dump(mode="json"),
-    )
+    _audit_edit(db, ctx, schedule_id, "lock" if payload.locked else "unlock", before, after)
     return _run_out(editor.run)
 
 
@@ -244,12 +246,14 @@ def reassign(
     editor = _editor(db, schedule_id, ctx)
     key = SlotKey(payload.job_id, payload.template_id, payload.calendar_date)
     try:
+        before = editor.snapshot(key, payload.from_person_id)
         conflicts = editor.reassign(key, payload.from_person_id, payload.to_person_id)
         _require_acknowledged(conflicts, payload.acknowledge_conflicts)
+        after = editor.snapshot(key, payload.to_person_id)
         editor.save()
     except EditError as exc:
         raise _edit_error(exc) from exc
-    _audit_edit(db, ctx, schedule_id, "reassign", payload.model_dump(mode="json"))
+    _audit_edit(db, ctx, schedule_id, "reassign", before, after)
     return _run_out(editor.run)
 
 
@@ -269,10 +273,11 @@ def add_assignment(
     try:
         conflicts = editor.add(key, payload.person_id)
         _require_acknowledged(conflicts, payload.acknowledge_conflicts)
+        after = editor.snapshot(key, payload.person_id)
         editor.save()
     except EditError as exc:
         raise _edit_error(exc) from exc
-    _audit_edit(db, ctx, schedule_id, "add", payload.model_dump(mode="json"))
+    _audit_edit(db, ctx, schedule_id, "add", None, after)
     return _run_out(editor.run)
 
 
@@ -287,23 +292,110 @@ def remove_assignment(
     ctx: ProjectContext = Depends(require_editor),
 ) -> ScheduleRunOut:
     editor = _editor(db, schedule_id, ctx)
+    key = SlotKey(job_id, template_id, calendar_date)
     try:
-        editor.remove(SlotKey(job_id, template_id, calendar_date), person_id)
+        before = editor.snapshot(key, person_id)
+        editor.remove(key, person_id)
         editor.save()
     except EditError as exc:
         raise _edit_error(exc) from exc
-    _audit_edit(
-        db,
-        ctx,
-        schedule_id,
-        "remove",
-        {
-            "job_id": job_id,
-            "template_id": template_id,
-            "calendar_date": calendar_date.isoformat(),
-            "person_id": person_id,
-        },
+    _audit_edit(db, ctx, schedule_id, "remove", before, None)
+    return _run_out(editor.run)
+
+
+# ------------------------------------------------------------------ history
+
+_EDIT_ACTIONS = {"reassign", "add", "remove", "lock", "unlock"}
+
+
+def _edit_log(db: DbSession, schedule_id: str, ctx: ProjectContext) -> list[orm.AuditLog]:
+    """This schedule's edits, newest first."""
+    return list(
+        db.scalars(
+            select(orm.AuditLog)
+            .where(
+                orm.AuditLog.project_id == ctx.project_id,
+                orm.AuditLog.entity_type == _AUDIT_ENTITY,
+                orm.AuditLog.entity_id == schedule_id,
+            )
+            .order_by(orm.AuditLog.id.desc())
+        )
     )
+
+
+def _undone_ids(entries: list[orm.AuditLog]) -> set[int]:
+    """Edits already taken back. Each undo cancels the newest edit still standing."""
+    undone: set[int] = set()
+    pending = 0
+    for entry in entries:  # newest first
+        if entry.action == "undo":
+            pending += 1
+        elif pending:
+            undone.add(entry.id)
+            pending -= 1
+    return undone
+
+
+@router.get("/runs/{schedule_id}/history", response_model=list[HistoryEntryOut])
+def history(
+    schedule_id: str,
+    db: DbSession = Depends(get_db),
+    ctx: ProjectContext = Depends(require_editor),
+) -> list[HistoryEntryOut]:
+    _load_run(db, schedule_id, ctx)
+    entries = _edit_log(db, schedule_id, ctx)
+    undone = _undone_ids(entries)
+    user_ids = {e.user_id for e in entries if e.user_id}
+    names = {
+        u.id: u.full_name for u in db.scalars(select(orm.User).where(orm.User.id.in_(user_ids)))
+    }
+    out: list[HistoryEntryOut] = []
+    top_found = False
+    for entry in entries:
+        if entry.action not in _EDIT_ACTIONS:
+            continue
+        is_undone = entry.id in undone
+        can_undo = not is_undone and not top_found
+        top_found = top_found or not is_undone
+        shown = entry.after_json or entry.before_json or {}
+        out.append(
+            HistoryEntryOut(
+                id=entry.id,
+                at=entry.at,
+                user_name=names.get(entry.user_id or -1),
+                action=entry.action,
+                job_name=shown.get("job_name"),
+                template_name=shown.get("template_name"),
+                calendar_date=shown.get("calendar_date"),
+                person_before=(entry.before_json or {}).get("person_name"),
+                person_after=(entry.after_json or {}).get("person_name"),
+                undone=is_undone,
+                can_undo=can_undo,
+            )
+        )
+    return out
+
+
+@router.post("/runs/{schedule_id}/history/{entry_id}/undo", response_model=ScheduleRunOut)
+def undo(
+    schedule_id: str,
+    entry_id: int,
+    db: DbSession = Depends(get_db),
+    ctx: ProjectContext = Depends(require_editor),
+) -> ScheduleRunOut:
+    """Take back the newest edit still standing; older ones can then be undone in turn."""
+    editor = _editor(db, schedule_id, ctx)
+    entries = _edit_log(db, schedule_id, ctx)
+    undone = _undone_ids(entries)
+    target = next((e for e in entries if e.action in _EDIT_ACTIONS and e.id not in undone), None)
+    if target is None or target.id != entry_id:
+        raise ApiError("CONFLICT", "Only the most recent edit can be undone", 409)
+    try:
+        editor.restore(target.before_json, target.after_json)
+        editor.save()
+    except EditError as exc:
+        raise _edit_error(exc) from exc
+    _audit_edit(db, ctx, schedule_id, "undo", target.after_json, target.before_json)
     return _run_out(editor.run)
 
 

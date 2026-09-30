@@ -490,6 +490,20 @@ class SuggestionOut(BaseModel):
     conflicts: list[ConflictOut]
 
 
+class HistoryEntryOut(BaseModel):
+    id: int
+    at: datetime | None
+    user_name: str | None
+    action: str
+    job_name: str | None
+    template_name: str | None
+    calendar_date: str | None
+    person_before: str | None
+    person_after: str | None
+    undone: bool
+    can_undo: bool
+
+
 class AssignmentCheckOut(BaseModel):
     conflicts: list[ConflictOut]
 

@@ -48,10 +48,7 @@ class SimpleGreedyScheduler(SchedulingStrategy):
         # Anyone no longer on the roster, or outside the window, cannot be kept.
         pinned: dict[tuple[int, int, date], list[Assignment]] = defaultdict(list)
         for pin in locked:
-            if (
-                pin.person_id in known
-                and params.start_date <= pin.calendar_date <= params.end_date
-            ):
+            if pin.person_id in known and params.start_date <= pin.calendar_date <= params.end_date:
                 pinned[(pin.job_id, pin.template_id, pin.calendar_date)].append(pin)
                 state.reserve(pin.person_id, pin.start_abs, pin.end_abs)
         rotation = DivisionRotation(
