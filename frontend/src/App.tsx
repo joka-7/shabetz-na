@@ -9,6 +9,8 @@ import {
   Globe,
   LayoutDashboard,
   LogOut,
+  Mail,
+  MessageSquare,
   Settings2,
   Wand2,
 } from "lucide-react";
@@ -190,6 +192,12 @@ export function App() {
           </a>
           <a href="https://github.com/joka-7/shabetz-na" target="_blank" rel="noreferrer" aria-label="View repository" className="hover:text-slate-600 dark:hover:text-slate-300">
             <FolderGit2 className="h-4 w-4" aria-hidden />
+          </a>
+          <a href="mailto:joka.dev.7@gmail.com" rel="noreferrer" aria-label="Send feedback by email" className="hover:text-slate-600 dark:hover:text-slate-300">
+            <Mail className="h-4 w-4" aria-hidden />
+          </a>
+          <a href="https://github.com/joka-7/shabetz-na/issues/new" target="_blank" rel="noreferrer" aria-label="Report an issue" className="hover:text-slate-600 dark:hover:text-slate-300">
+            <MessageSquare className="h-4 w-4" aria-hidden />
           </a>
         </div>
       </footer>
