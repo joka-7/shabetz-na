@@ -422,6 +422,11 @@ class ScheduleRun(Base):
     summary_json: Mapped[dict] = mapped_column(JSON)
     payload_gz: Mapped[bytes] = mapped_column(PayloadBlob)
     created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+    # A schedule is a private draft until published; only then can staff see it.
+    published_at: Mapped[datetime | None] = mapped_column(UtcDateTime, default=None)
+    published_by: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), default=None
+    )
 
 
 class AuditLog(Base):

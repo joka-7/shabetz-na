@@ -24,7 +24,9 @@ import { AssignmentsTable } from "./AssignmentsTable";
 import { EditShiftDialog, type EditTarget } from "./EditShiftDialog";
 import { FairnessTable } from "./FairnessTable";
 import { HistoryPanel } from "./HistoryPanel";
+import { MyShiftsView } from "./MyShiftsView";
 import { PrintGrid } from "./PrintGrid";
+import { PublishBar } from "./PublishBar";
 import { TimelineGantt } from "./TimelineGantt";
 import { WarningsPanel } from "./WarningsPanel";
 import { ExportBar } from "@/features/export/ExportBar";
@@ -79,6 +81,9 @@ export function DashboardView() {
     queryClient.setQueryData(runKeys.latest, updated);
     setEditing(null);
   };
+
+  // Staff do not plan; they see their own shifts once a schedule is published.
+  if (!canEdit) return <MyShiftsView />;
 
   return (
     <>
@@ -153,6 +158,8 @@ export function DashboardView() {
 
       {run && (
         <>
+          <PublishBar run={run} />
+
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <StatCard label={t("stat.shifts")} value={run.summary.total_assignments} />
             <StatCard

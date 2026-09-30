@@ -67,6 +67,15 @@ class Settings(BaseSettings):
     firebase_project_id: str = ""
     firebase_app_id: str = ""
 
+    # Outgoing email, for telling staff a schedule was published. Optional: with
+    # no host set, publishing works and simply sends nothing.
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = ""
+    smtp_starttls: bool = True
+
     cors_origins: list[str] = Field(default_factory=list)
     max_upload_bytes: int = 5 * 1024 * 1024
 
@@ -99,6 +108,10 @@ class Settings(BaseSettings):
             "projectId": self.firebase_project_id,
             "appId": self.firebase_app_id,
         }
+
+    @property
+    def email_enabled(self) -> bool:
+        return bool(self.smtp_host and self.smtp_from)
 
     @property
     def password_recovery_enabled(self) -> bool:

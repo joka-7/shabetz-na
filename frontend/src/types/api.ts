@@ -224,6 +224,18 @@ export interface HistoryEntry {
   can_undo: boolean;
 }
 
+export interface MyShifts {
+  schedule_id: string | null;
+  published_at: string | null;
+  assignments: Assignment[];
+}
+
+export interface PublishResult {
+  published_at: string | null;
+  notified: number | null;
+  email_configured: boolean;
+}
+
 export interface SlotRef {
   job_id: number;
   template_id: number;
@@ -275,6 +287,7 @@ export interface ScheduleSummary {
 export interface ScheduleRun {
   schedule_id: string;
   created_at: string | null;
+  published_at?: string | null;
   params: Record<string, unknown>;
   summary: ScheduleSummary;
   assignments: Assignment[];
@@ -302,6 +315,8 @@ export interface Capabilities {
   setup_complete: boolean;
   /** Desktop only: a reset code can be written to the app's own folder. */
   password_recovery?: boolean;
+  /** The server can send email, so publishing can notify staff. */
+  email_available?: boolean;
 }
 
 export interface BulkResult {

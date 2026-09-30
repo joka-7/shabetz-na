@@ -3,7 +3,7 @@ import { downloadExport } from "@/api/client";
 import { useSession } from "@/hooks/useSession";
 import { useI18n } from "@/i18n";
 
-const LABELS: Record<string, string> = { csv: "CSV", html: "HTML", pdf: "PDF" };
+const LABELS: Record<string, string> = { csv: "CSV", html: "HTML", pdf: "PDF", ics: "iCal" };
 
 /**
  * Only the formats the deployment can actually produce are offered.

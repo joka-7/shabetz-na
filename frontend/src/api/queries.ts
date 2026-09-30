@@ -9,7 +9,9 @@ import type {
   Invite,
   Job,
   Member,
+  MyShifts,
   Person,
+  PublishResult,
   ProficiencyLevel,
   ScheduleConflict,
   ScheduleRun,
@@ -155,6 +157,17 @@ export const setShiftLock = (
     person_id: personId,
     locked,
   });
+
+export const myShiftsKey = ["my-shifts"] as const;
+export const fetchMyShifts = () => api.get<MyShifts>("/api/schedule/my-shifts");
+
+export const publishRun = (scheduleId: string, notify: boolean) =>
+  api.post<PublishResult>(`/api/schedule/runs/${encodeURIComponent(scheduleId)}/publish`, {
+    notify,
+  });
+
+export const unpublishRun = (scheduleId: string) =>
+  api.post<PublishResult>(`/api/schedule/runs/${encodeURIComponent(scheduleId)}/unpublish`);
 
 export const historyKey = (scheduleId: string) => ["schedule-history", scheduleId] as const;
 

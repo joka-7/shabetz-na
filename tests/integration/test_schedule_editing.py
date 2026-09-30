@@ -329,3 +329,100 @@ def test_edits_are_listed_and_the_latest_can_be_undone(admin: Actor, world: dict
     back = admin.post(f"/api/schedule/runs/{run_id}/history/{entries[1]['id']}/undo").json()
     assert _holder(back, world, "day")["person_id"] == holder["person_id"]
     assert all(e["undone"] for e in admin.get(f"/api/schedule/runs/{run_id}/history").json())
+
+
+# ---------------------------------------------------------------- publishing
+
+
+def _staff_for(client, admin, factory, person_id: int, email: str) -> Actor:
+    make_member(factory, admin.project_id, email, ProjectRole.STAFF, person_id=person_id)
+    return sign_in(client, email, admin.project_id)
+
+
+def test_staff_see_nothing_until_a_schedule_is_published(
+    client: TestClient,
+    admin: Actor,
+    world: dict,
+    session_factory: sessionmaker[Session],
+) -> None:
+    run_id = world["run"]["schedule_id"]
+    person = _holder(world["run"], world, "day")["person_id"]
+    staff = _staff_for(client, admin, session_factory, person, "s1@example.com")
+
+    assert staff.get("/api/schedule/my-shifts").json()["schedule_id"] is None
+    assert (
+        staff.get(f"/api/schedule/runs/{run_id}/export", params={"format": "csv"}).status_code
+        == 404
+    )
+
+    manager = sign_in(client, "admin@example.com", admin.project_id)
+    published = manager.post(f"/api/schedule/runs/{run_id}/publish", json={})
+    assert published.status_code == 200, published.text
+    assert published.json()["published_at"]
+
+    staff = sign_in(client, "s1@example.com", admin.project_id)
+    mine = staff.get("/api/schedule/my-shifts").json()
+    assert mine["schedule_id"] == run_id
+    assert mine["assignments"] and {a["person_id"] for a in mine["assignments"]} == {person}
+    calendar = staff.get(f"/api/schedule/runs/{run_id}/export", params={"format": "ics"})
+    assert calendar.status_code == 200
+    assert calendar.text.count("BEGIN:VEVENT") == len(mine["assignments"])
+    assert "DTSTART:20261005T" in calendar.text
+
+    manager = sign_in(client, "admin@example.com", admin.project_id)
+    manager.post(f"/api/schedule/runs/{run_id}/unpublish")
+    staff = sign_in(client, "s1@example.com", admin.project_id)
+    assert staff.get("/api/schedule/my-shifts").json()["schedule_id"] is None
+
+
+def test_staff_cannot_publish(
+    client: TestClient,
+    admin: Actor,
+    world: dict,
+    session_factory: sessionmaker[Session],
+) -> None:
+    person = _holder(world["run"], world, "day")["person_id"]
+    staff = _staff_for(client, admin, session_factory, person, "s2@example.com")
+    response = staff.post(f"/api/schedule/runs/{world['run']['schedule_id']}/publish", json={})
+    assert response.status_code == 403
+
+
+def test_publishing_publishes_only_one_schedule_at_a_time(admin: Actor, world: dict) -> None:
+    first = world["run"]["schedule_id"]
+    second = admin.post(
+        "/api/schedule/generate", json={"start_date": "2026-10-07", "end_date": "2026-10-08"}
+    ).json()["schedule_id"]
+    admin.post(f"/api/schedule/runs/{first}/publish", json={})
+    admin.post(f"/api/schedule/runs/{second}/publish", json={})
+    runs = {r["schedule_id"]: r["published_at"] for r in admin.get("/api/schedule/runs").json()}
+    assert runs[first] is None and runs[second] is not None
+
+
+def test_publish_emails_the_people_who_work_it(
+    client: TestClient,
+    admin: Actor,
+    world: dict,
+    session_factory: sessionmaker[Session],
+    settings,
+    monkeypatch,
+) -> None:
+    sent: list[tuple] = []
+    monkeypatch.setattr(
+        "shabetz.api.routes.schedule_routes.send_email",
+        lambda cfg, to, subject, body: sent.append((list(to), subject)),
+    )
+    settings.smtp_host = "mail.example.com"
+    settings.smtp_from = "noreply@example.com"
+    person = _holder(world["run"], world, "day")["person_id"]
+    make_member(session_factory, admin.project_id, "worker@example.com", ProjectRole.STAFF, person)
+    # A member whose person has no shift must not be emailed.
+    # Added after the schedule was generated, so nothing was assigned to them.
+    idle = _person(admin, world["division"], "Idle Dan")
+    make_member(session_factory, admin.project_id, "idle@example.com", ProjectRole.STAFF, idle)
+
+    manager = sign_in(client, "admin@example.com", admin.project_id)
+    response = manager.post(
+        f"/api/schedule/runs/{world['run']['schedule_id']}/publish", json={"notify": True}
+    )
+    assert response.json()["notified"] == len(sent[0][0]) == 1
+    assert sent[0][0] == ["worker@example.com"]

@@ -438,6 +438,7 @@ class SummaryOut(BaseModel):
 class ScheduleRunOut(BaseModel):
     schedule_id: str
     created_at: datetime | None = None
+    published_at: datetime | None = None
     params: dict = Field(default_factory=dict)
     summary: SummaryOut
     assignments: list[AssignmentOut] = Field(default_factory=list)
@@ -508,9 +509,29 @@ class AssignmentCheckOut(BaseModel):
     conflicts: list[ConflictOut]
 
 
+class PublishIn(BaseModel):
+    notify: bool = False
+
+
+class PublishOut(BaseModel):
+    published_at: datetime | None
+    # People emailed; None when nobody was asked to be.
+    notified: int | None = None
+    email_configured: bool = False
+
+
+class MyShiftsOut(BaseModel):
+    """The published schedule as one person sees it."""
+
+    schedule_id: str | None = None
+    published_at: datetime | None = None
+    assignments: list[AssignmentOut] = Field(default_factory=list)
+
+
 class ScheduleRunSummaryOut(BaseModel):
     schedule_id: str
     created_at: datetime | None
+    published_at: datetime | None = None
     params: dict
     summary: SummaryOut
 
@@ -553,3 +574,4 @@ class CapabilitiesOut(BaseModel):
     pdf_available: bool
     setup_complete: bool
     password_recovery: bool = False
+    email_available: bool = False

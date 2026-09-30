@@ -4,18 +4,21 @@ from __future__ import annotations
 
 from datetime import date
 
-from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
 from ...auth.rbac import can_view_all_assignments
+from ...config import Settings
 from ...db import models as orm
+from ...db.base import utcnow
 from ...exporters.base import ExporterUnavailable, ExportFormat
 from ...exporters.renderers import render
 from ...repositories.db_repo import DbSchedulingRepository
+from ...services.notifications import send_email
 from ...services.orchestration import JobOrchestrationService
 from ...services.schedule_edit import Conflict, EditError, ScheduleEditor, SlotKey
-from ..deps import ProjectContext, get_db, project_member, require_editor
+from ..deps import ProjectContext, get_db, project_member, require_editor, settings_dep
 from ..errors import ApiError, FeatureUnavailable, NotFound, UnprocessableConfig
 from ..schemas import (
     AssignmentAddIn,
@@ -27,6 +30,9 @@ from ..schemas import (
     ConflictOut,
     GenerateRequest,
     HistoryEntryOut,
+    MyShiftsOut,
+    PublishIn,
+    PublishOut,
     ScheduleRunOut,
     ScheduleRunSummaryOut,
     SuggestionOut,
@@ -42,6 +48,7 @@ def _run_out(run: orm.ScheduleRun) -> ScheduleRunOut:
     return ScheduleRunOut(
         schedule_id=run.id,
         created_at=run.created_at,
+        published_at=run.published_at,
         params=run.params_json,
         summary=SummaryOut.model_validate(run.summary_json),
         assignments=[AssignmentOut.model_validate(a) for a in payload["assignments"]],
@@ -90,6 +97,7 @@ def list_runs(
         ScheduleRunSummaryOut(
             schedule_id=row.id,
             created_at=row.created_at,
+            published_at=row.published_at,
             params=row.params_json,
             summary=SummaryOut.model_validate(row.summary_json),
         )
@@ -399,6 +407,109 @@ def undo(
     return _run_out(editor.run)
 
 
+# ----------------------------------------------------------------- publishing
+
+
+@router.post("/runs/{schedule_id}/publish", response_model=PublishOut)
+def publish(
+    schedule_id: str,
+    payload: PublishIn,
+    background: BackgroundTasks,
+    db: DbSession = Depends(get_db),
+    ctx: ProjectContext = Depends(require_editor),
+    settings: Settings = Depends(settings_dep),
+) -> PublishOut:
+    """Make this schedule visible to staff, and optionally tell them by email."""
+    run = _load_run(db, schedule_id, ctx)
+    run.published_at = utcnow()
+    run.published_by = ctx.user.id
+    # Only one schedule is current for staff at a time.
+    for other in db.scalars(
+        select(orm.ScheduleRun).where(
+            orm.ScheduleRun.project_id == ctx.project_id,
+            orm.ScheduleRun.id != schedule_id,
+            orm.ScheduleRun.published_at.is_not(None),
+        )
+    ):
+        other.published_at = None
+        other.published_by = None
+    _audit_edit(db, ctx, schedule_id, "publish")
+    db.flush()
+
+    notified: int | None = None
+    if payload.notify and settings.email_enabled:
+        working = {a["person_id"] for a in JobOrchestrationService.load_payload(run)["assignments"]}
+        recipients = sorted(
+            {
+                email
+                for (email,) in db.execute(
+                    select(orm.User.email)
+                    .join(orm.ProjectMember, orm.ProjectMember.user_id == orm.User.id)
+                    .where(
+                        orm.ProjectMember.project_id == ctx.project_id,
+                        orm.ProjectMember.person_id.in_(working),
+                    )
+                )
+            }
+        )
+        notified = len(recipients)
+        params = run.params_json
+        background.add_task(
+            send_email,
+            settings,
+            recipients,
+            f"{ctx.project.name}: new schedule "
+            f"{params.get('start_date')} – {params.get('end_date')}",
+            f"A new schedule for {ctx.project.name} covering {params.get('start_date')} to "
+            f"{params.get('end_date')} has been published.\n\nSign in to see your shifts.",
+        )
+    return PublishOut(
+        published_at=run.published_at, notified=notified, email_configured=settings.email_enabled
+    )
+
+
+@router.post("/runs/{schedule_id}/unpublish", response_model=PublishOut)
+def unpublish(
+    schedule_id: str,
+    db: DbSession = Depends(get_db),
+    ctx: ProjectContext = Depends(require_editor),
+    settings: Settings = Depends(settings_dep),
+) -> PublishOut:
+    run = _load_run(db, schedule_id, ctx)
+    run.published_at = None
+    run.published_by = None
+    _audit_edit(db, ctx, schedule_id, "unpublish")
+    return PublishOut(published_at=None, email_configured=settings.email_enabled)
+
+
+@router.get("/my-shifts", response_model=MyShiftsOut)
+def my_shifts(
+    db: DbSession = Depends(get_db), ctx: ProjectContext = Depends(project_member)
+) -> MyShiftsOut:
+    """The person's own shifts from the published schedule; nothing until one is."""
+    run = db.scalar(
+        select(orm.ScheduleRun)
+        .where(
+            orm.ScheduleRun.project_id == ctx.project_id, orm.ScheduleRun.published_at.is_not(None)
+        )
+        .order_by(orm.ScheduleRun.published_at.desc())
+        .limit(1)
+    )
+    if run is None:
+        return MyShiftsOut()
+    person_id = ctx.member.person_id
+    mine = (
+        []
+        if person_id is None
+        else [
+            AssignmentOut.model_validate(a)
+            for a in JobOrchestrationService.load_payload(run)["assignments"]
+            if a["person_id"] == person_id
+        ]
+    )
+    return MyShiftsOut(schedule_id=run.id, published_at=run.published_at, assignments=mine)
+
+
 @router.get("/runs/{schedule_id}/export")
 def export_run(
     schedule_id: str,
@@ -407,6 +518,8 @@ def export_run(
     ctx: ProjectContext = Depends(project_member),
 ) -> Response:
     run = _load_run(db, schedule_id, ctx)
+    if not can_view_all_assignments(ctx.role) and run.published_at is None:
+        raise NotFound("Schedule run not found")
     payload = JobOrchestrationService.load_payload(run)
 
     # Staff may export, but only their own shifts.
@@ -444,6 +557,8 @@ def my_assignments(
     changing an id in the URL cannot reveal someone else's schedule.
     """
     run = _load_run(db, schedule_id, ctx)
+    if not can_view_all_assignments(ctx.role) and run.published_at is None:
+        raise NotFound("Schedule run not found")
     payload = JobOrchestrationService.load_payload(run)
     person_id = ctx.member.person_id
     if person_id is None:

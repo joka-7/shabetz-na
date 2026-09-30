@@ -10,6 +10,7 @@ class ExportFormat(StrEnum):
     CSV = "csv"
     HTML = "html"
     PDF = "pdf"
+    ICS = "ics"
 
 
 @dataclass(frozen=True, slots=True)

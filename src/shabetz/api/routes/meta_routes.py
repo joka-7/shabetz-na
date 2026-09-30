@@ -30,6 +30,7 @@ def capabilities(
         pdf_available=pdf_engine_available(),
         setup_complete=not bootstrap_is_open(db, settings),
         password_recovery=settings.password_recovery_enabled,
+        email_available=settings.email_enabled,
     )
 
 
