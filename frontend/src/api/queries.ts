@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, request } from "./client";
 import type {
+  Assignment,
   Colleague,
   Division,
   Feasibility,
@@ -147,6 +148,26 @@ export const fetchSuggestions = (
       ...(replacesPersonId !== null ? { replaces_person_id: String(replacesPersonId) } : {}),
     })}`,
   );
+
+export const swapShifts = (
+  scheduleId: string,
+  a: Assignment,
+  b: Assignment,
+  acknowledge: boolean,
+) => {
+  const slot = (x: Assignment) => ({
+    job_id: x.job_id,
+    template_id: x.template_id,
+    calendar_date: x.calendar_date,
+  });
+  return api.post<ScheduleRun>(`${assignmentsUrl(scheduleId)}/swap`, {
+    a: slot(a),
+    a_person_id: a.person_id,
+    b: slot(b),
+    b_person_id: b.person_id,
+    acknowledge_conflicts: acknowledge,
+  });
+};
 
 export const setShiftLock = (
   scheduleId: string,

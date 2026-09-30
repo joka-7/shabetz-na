@@ -1,8 +1,12 @@
-import { useMemo } from "react";
-import { EmptyState } from "@/components/ui";
+import { useMemo, useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { swapShifts } from "@/api/queries";
+import { EmptyState, ErrorNotice } from "@/components/ui";
+import { ApiError } from "@/api/client";
+import { errorText } from "@/i18n/errors";
 import { useI18n } from "@/i18n";
 import { buildTimeline, clockTime } from "@/lib/schedule";
-import type { Division, ScheduleRun } from "@/types/api";
+import type { Assignment, Division, ScheduleRun } from "@/types/api";
 
 const JOB_TONES = [
   "bg-sky-500/80",
@@ -23,11 +27,31 @@ const JOB_TONES = [
 export function TimelineGantt({
   run,
   divisions,
+  onChanged,
 }: {
   run: ScheduleRun;
   divisions: Division[];
+  /** Present only for roles that may change a schedule; enables drag to swap. */
+  onChanged?: (run: ScheduleRun) => void;
 }) {
   const { t, formatDate } = useI18n();
+  const [dragging, setDragging] = useState<Assignment | null>(null);
+  const [pending, setPending] = useState<{ a: Assignment; b: Assignment; message: string } | null>(null);
+
+  const swap = useMutation({
+    mutationFn: ({ a, b, acknowledge }: { a: Assignment; b: Assignment; acknowledge: boolean }) =>
+      swapShifts(run.schedule_id, a, b, acknowledge),
+    onSuccess: (updated) => {
+      setPending(null);
+      onChanged?.(updated);
+    },
+    onError: (error, { a, b }) => {
+      // A rule would be broken: ask before overriding, rather than refusing outright.
+      if (error instanceof ApiError && error.code === "SCHEDULE_CONFLICT") {
+        setPending({ a, b, message: error.message });
+      }
+    },
+  });
   const rows = useMemo(() => buildTimeline(run.assignments), [run.assignments]);
 
   const jobTone = useMemo(() => {
@@ -110,9 +134,30 @@ export function TimelineGantt({
                           {assignments.map((assignment) => (
                             <span
                               key={`${assignment.person_id}-${assignment.job_id}`}
+                              draggable={Boolean(onChanged)}
+                              onDragStart={() => setDragging(assignment)}
+                              onDragEnd={() => setDragging(null)}
+                              onDragOver={(event) => {
+                                if (dragging && dragging.person_id !== assignment.person_id) {
+                                  event.preventDefault();
+                                }
+                              }}
+                              onDrop={(event) => {
+                                event.preventDefault();
+                                if (dragging && dragging.person_id !== assignment.person_id) {
+                                  swap.mutate({ a: dragging, b: assignment, acknowledge: false });
+                                }
+                                setDragging(null);
+                              }}
                               className={`h-4 min-w-1.5 flex-1 rounded-sm ${jobTone.get(assignment.job_id)} ${
                                 assignment.is_division_fallback
                                   ? "ring-1 ring-amber-500"
+                                  : ""
+                              } ${onChanged ? "cursor-grab" : ""} ${
+                                dragging?.person_id === assignment.person_id &&
+                                dragging.template_id === assignment.template_id &&
+                                dragging.calendar_date === assignment.calendar_date
+                                  ? "opacity-40"
                                   : ""
                               }`}
                               title={[
@@ -139,7 +184,31 @@ export function TimelineGantt({
         ))}
       </div>
 
-      <p className="text-xs text-slate-500">{t("timeline.legend")}</p>
+      {pending && (
+        <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+          <p className="font-medium">
+            {t("timeline.swapBreaks", { a: pending.a.person_name, b: pending.b.person_name })}
+          </p>
+          <p>{pending.message}</p>
+          <div className="flex gap-2">
+            <button
+              className="btn-primary"
+              disabled={swap.isPending}
+              onClick={() => swap.mutate({ a: pending.a, b: pending.b, acknowledge: true })}
+            >
+              {t("timeline.swapAnyway")}
+            </button>
+            <button className="btn-ghost" onClick={() => setPending(null)}>
+              {t("common.cancel")}
+            </button>
+          </div>
+        </div>
+      )}
+      {swap.error && !pending ? <ErrorNotice message={errorText(swap.error, t)} /> : null}
+
+      <p className="text-xs text-slate-500">
+        {t("timeline.legend")} {onChanged ? t("timeline.dragHint") : ""}
+      </p>
     </section>
   );
 }

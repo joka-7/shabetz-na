@@ -245,6 +245,48 @@ class ScheduleEditor:
         )
         return conflicts
 
+    def swap(self, key_a: SlotKey, person_a: int, key_b: SlotKey, person_b: int) -> list[Conflict]:
+        """Two people trade shifts: each takes the other's.
+
+        Both changes are applied first and the rules checked on the result, so
+        the pair is judged as it would actually stand, not one move at a time.
+        """
+        if key_a == key_b:
+            raise EditError("INVALID_CONFIGURATION", "Choose two different shifts")
+        if person_a == person_b:
+            raise EditError("INVALID_CONFIGURATION", "Choose two different people")
+        index_a = self._index_of(key_a, person_a)
+        index_b = self._index_of(key_b, person_b)
+        old_a, old_b = self.assignments[index_a], self.assignments[index_b]
+        if any(_key(a) == key_b and a.person_id == person_a for a in self.assignments):
+            raise EditError("CONFLICT", "That person is already on the other shift")
+        if any(_key(a) == key_a and a.person_id == person_b for a in self.assignments):
+            raise EditError("CONFLICT", "That person is already on the other shift")
+
+        def moved(old: Assignment, person_id: int) -> Assignment:
+            person = self._person(person_id)
+            return replace(
+                old,
+                person_id=person.id,
+                person_name=person.full_name,
+                division_id=person.division_id,
+                is_division_fallback=False,
+                is_manual=True,
+                is_locked=True,
+            )
+
+        new_a, new_b = moved(old_a, person_b), moved(old_b, person_a)
+        self.assignments[index_a], self.assignments[index_b] = new_a, new_b
+        conflicts: list[Conflict] = []
+        for placed, old in ((new_a, old_a), (new_b, old_b)):
+            conflicts += self.conflicts_for(
+                placed.person_id,
+                _key(placed),
+                ignore=placed,
+                requirement_id=old.satisfied_requirement_id,
+            )
+        return conflicts
+
     def add(self, key: SlotKey, person_id: int) -> list[Conflict]:
         slot = self._slot(key)
         if any(_key(a) == key and a.person_id == person_id for a in self.assignments):
@@ -283,12 +325,15 @@ class ScheduleEditor:
         ``after`` is what the edit left behind and ``before`` what it replaced;
         either may be absent (an add has no before, a removal no after).
         """
-        if after is not None:
-            now = _assignment(after)
+        # A swap records both shifts it touched, as a list on each side.
+        afters = after["items"] if after and "items" in after else [after] if after else []
+        befores = before["items"] if before and "items" in before else [before] if before else []
+        for item in afters:
+            now = _assignment(item)
             del self.assignments[self._index_of(_key(now), now.person_id)]
-        if before is not None:
-            self.assignments.append(_assignment(before))
-            self.assignments.sort(key=lambda a: a.calendar_date)
+        for item in befores:
+            self.assignments.append(_assignment(item))
+        self.assignments.sort(key=lambda a: a.calendar_date)
 
     def set_lock(self, key: SlotKey, person_id: int, locked: bool) -> None:
         index = self._index_of(key, person_id)

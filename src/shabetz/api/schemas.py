@@ -465,6 +465,16 @@ class AssignmentAddIn(SlotRef):
     acknowledge_conflicts: bool = False
 
 
+class AssignmentSwapIn(BaseModel):
+    """Two people trade shifts: ``a`` takes ``b``'s and ``b`` takes ``a``'s."""
+
+    a: SlotRef
+    a_person_id: int
+    b: SlotRef
+    b_person_id: int
+    acknowledge_conflicts: bool = False
+
+
 class AssignmentLockIn(SlotRef):
     person_id: int
     locked: bool

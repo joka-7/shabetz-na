@@ -233,7 +233,11 @@ export function DashboardView() {
               onToggleLock={canEdit ? (assignment) => toggleLock.mutate(assignment) : undefined}
             />
           ) : view === "timeline" ? (
-            <TimelineGantt run={run} divisions={divisions ?? []} />
+            <TimelineGantt
+              run={run}
+              divisions={divisions ?? []}
+              onChanged={canEdit ? onSaved : undefined}
+            />
           ) : (
             <FairnessTable run={run} />
           )}

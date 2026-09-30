@@ -27,6 +27,7 @@ from ..schemas import (
     AssignmentLockIn,
     AssignmentOut,
     AssignmentReassignIn,
+    AssignmentSwapIn,
     ConflictOut,
     GenerateRequest,
     HistoryEntryOut,
@@ -223,6 +224,35 @@ def suggestions(
     ]
 
 
+@router.post("/runs/{schedule_id}/assignments/swap", response_model=ScheduleRunOut)
+def swap_assignments(
+    schedule_id: str,
+    payload: AssignmentSwapIn,
+    db: DbSession = Depends(get_db),
+    ctx: ProjectContext = Depends(require_editor),
+) -> ScheduleRunOut:
+    """Trade two people's shifts in one step, e.g. by dragging one onto the other."""
+    editor = _editor(db, schedule_id, ctx)
+    key_a = SlotKey(payload.a.job_id, payload.a.template_id, payload.a.calendar_date)
+    key_b = SlotKey(payload.b.job_id, payload.b.template_id, payload.b.calendar_date)
+    try:
+        before = [
+            editor.snapshot(key_a, payload.a_person_id),
+            editor.snapshot(key_b, payload.b_person_id),
+        ]
+        conflicts = editor.swap(key_a, payload.a_person_id, key_b, payload.b_person_id)
+        _require_acknowledged(conflicts, payload.acknowledge_conflicts)
+        after = [
+            editor.snapshot(key_a, payload.b_person_id),
+            editor.snapshot(key_b, payload.a_person_id),
+        ]
+        editor.save()
+    except EditError as exc:
+        raise _edit_error(exc) from exc
+    _audit_edit(db, ctx, schedule_id, "swap", {"items": before}, {"items": after})
+    return _run_out(editor.run)
+
+
 @router.put("/runs/{schedule_id}/assignments/lock", response_model=ScheduleRunOut)
 def set_lock(
     schedule_id: str,
@@ -313,7 +343,14 @@ def remove_assignment(
 
 # ------------------------------------------------------------------ history
 
-_EDIT_ACTIONS = {"reassign", "add", "remove", "lock", "unlock"}
+_EDIT_ACTIONS = {"reassign", "add", "remove", "lock", "unlock", "swap"}
+
+
+def _first_item(blob: dict | None) -> dict:
+    """The assignment an audit entry describes; a swap holds two, the first stands for both."""
+    if not blob:
+        return {}
+    return (blob.get("items") or [blob])[0]
 
 
 def _edit_log(db: DbSession, schedule_id: str, ctx: ProjectContext) -> list[orm.AuditLog]:
@@ -366,6 +403,7 @@ def history(
         can_undo = not is_undone and not top_found
         top_found = top_found or not is_undone
         shown = entry.after_json or entry.before_json or {}
+        shown = _first_item(shown)
         out.append(
             HistoryEntryOut(
                 id=entry.id,
@@ -375,8 +413,8 @@ def history(
                 job_name=shown.get("job_name"),
                 template_name=shown.get("template_name"),
                 calendar_date=shown.get("calendar_date"),
-                person_before=(entry.before_json or {}).get("person_name"),
-                person_after=(entry.after_json or {}).get("person_name"),
+                person_before=_first_item(entry.before_json).get("person_name"),
+                person_after=_first_item(entry.after_json).get("person_name"),
                 undone=is_undone,
                 can_undo=can_undo,
             )

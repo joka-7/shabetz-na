@@ -372,3 +372,45 @@ def test_publish_emails_the_people_who_work_it(
     )
     assert response.json()["notified"] == len(sent[0][0]) == 1
     assert sent[0][0] == ["worker@example.com"]
+
+
+def test_two_people_can_trade_shifts_in_one_step_and_undo_it(admin: Actor, world: dict) -> None:
+    run_id = world["run"]["schedule_id"]
+    a = _holder(world["run"], world, "day", "2026-10-05")
+    b = _holder(world["run"], world, "day", "2026-10-06")
+    if a["person_id"] == b["person_id"]:
+        # With three people over two days the engine rotates; fall back to another pair.
+        b = _holder(world["run"], world, "evening", "2026-10-06")
+    assert a["person_id"] != b["person_id"]
+    body = {
+        "a": {
+            "job_id": a["job_id"],
+            "template_id": a["template_id"],
+            "calendar_date": a["calendar_date"],
+        },
+        "a_person_id": a["person_id"],
+        "b": {
+            "job_id": b["job_id"],
+            "template_id": b["template_id"],
+            "calendar_date": b["calendar_date"],
+        },
+        "b_person_id": b["person_id"],
+        "acknowledge_conflicts": True,
+    }
+    response = admin.post(_url(world, "/swap"), json=body)
+    assert response.status_code == 200, response.text
+    after = response.json()
+    holder = lambda run, x: next(  # noqa: E731
+        r
+        for r in run["assignments"]
+        if (r["template_id"], r["calendar_date"]) == (x["template_id"], x["calendar_date"])
+    )
+    assert holder(after, a)["person_id"] == b["person_id"]
+    assert holder(after, b)["person_id"] == a["person_id"]
+    assert len(after["assignments"]) == len(world["run"]["assignments"])
+
+    entries = admin.get(f"/api/schedule/runs/{run_id}/history").json()
+    assert entries[0]["action"] == "swap" and entries[0]["can_undo"]
+    undone = admin.post(f"/api/schedule/runs/{run_id}/history/{entries[0]['id']}/undo").json()
+    assert holder(undone, a)["person_id"] == a["person_id"]
+    assert holder(undone, b)["person_id"] == b["person_id"]
