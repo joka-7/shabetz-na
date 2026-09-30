@@ -157,6 +157,44 @@ jobs:
       - run: npm run build
         working-directory: frontend
 
+  e2e:
+    # The built app in a real browser: sign in, generate, change a shift, undo.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: uv sync --extra dev
+
+      - run: npm ci
+        working-directory: frontend
+
+      - run: npm run build
+        working-directory: frontend
+
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+
+      - run: npm run e2e
+        working-directory: frontend
+        env:
+          CI: "true"
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-report
+          path: frontend/test-results/
+
   api-types:
     # The generated types are the only thing keeping the API contract and the
     # React code in step, so a drifted checkout should fail rather than be

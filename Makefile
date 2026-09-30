@@ -88,3 +88,7 @@ serve: web ## Run the hosted server locally
 
 .PHONY: check
 check: lint test ## Lint, typecheck and test everything
+
+.PHONY: e2e
+e2e: ## Browser tests against the built app (run `make ui-build` first)
+	$(NPM) run e2e

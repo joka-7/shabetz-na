@@ -328,6 +328,13 @@ class ScheduleEditor:
         # A swap records both shifts it touched, as a list on each side.
         afters = after["items"] if after and "items" in after else [after] if after else []
         befores = before["items"] if before and "items" in before else [before] if before else []
+        if len(afters) == len(befores):
+            # A change in place (reassign, pin, trade): put each back where it sat,
+            # so the schedule's order is exactly as it was.
+            for changed, original in zip(afters, befores, strict=True):
+                now = _assignment(changed)
+                self.assignments[self._index_of(_key(now), now.person_id)] = _assignment(original)
+            return
         for item in afters:
             now = _assignment(item)
             del self.assignments[self._index_of(_key(now), now.person_id)]
