@@ -575,3 +575,43 @@ class CapabilitiesOut(BaseModel):
     setup_complete: bool
     password_recovery: bool = False
     email_available: bool = False
+
+
+class ColleagueOut(BaseModel):
+    person_id: int
+    name: str
+
+
+class SwapIn(BaseModel):
+    job_id: int
+    template_id: int
+    calendar_date: date
+    to_person_id: int
+    note: str | None = Field(default=None, max_length=500)
+
+
+class SwapDecision(BaseModel):
+    note: str | None = Field(default=None, max_length=500)
+    acknowledge_conflicts: bool = False
+
+
+class SwapOut(BaseModel):
+    id: int
+    status: str
+    schedule_id: str
+    job_id: int
+    template_id: int
+    calendar_date: date
+    job_name: str
+    template_name: str
+    from_person_id: int
+    from_name: str
+    to_person_id: int
+    to_name: str
+    note: str | None
+    review_note: str | None
+    created_at: datetime | None
+    # What the viewer may do with it right now.
+    can_accept: bool = False
+    can_cancel: bool = False
+    can_decide: bool = False

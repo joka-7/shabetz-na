@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, request } from "./client";
 import type {
+  Colleague,
   Division,
   Feasibility,
   HistoryEntry,
@@ -16,6 +17,7 @@ import type {
   ScheduleConflict,
   ScheduleRun,
   SlotRef,
+  Swap,
   Settings,
   ShiftTemplate,
   Suggestion,
@@ -168,6 +170,30 @@ export const publishRun = (scheduleId: string, notify: boolean) =>
 
 export const unpublishRun = (scheduleId: string) =>
   api.post<PublishResult>(`/api/schedule/runs/${encodeURIComponent(scheduleId)}/unpublish`);
+
+export const swapKeys = { all: ["swaps"] as const, colleagues: ["swap-colleagues"] as const };
+
+export const useSwaps = () =>
+  useQuery({ queryKey: swapKeys.all, queryFn: () => api.get<Swap[]>("/api/swaps") });
+
+export const useColleagues = (enabled: boolean) =>
+  useQuery({
+    queryKey: swapKeys.colleagues,
+    enabled,
+    queryFn: () => api.get<Colleague[]>("/api/swaps/colleagues"),
+  });
+
+export const requestSwap = (body: SlotRef & { to_person_id: number; note: string | null }) =>
+  api.post<Swap>("/api/swaps", body);
+
+export const swapAction = (
+  id: number,
+  action: "accept" | "decline" | "cancel" | "approve" | "deny",
+  body?: { note?: string | null; acknowledge_conflicts?: boolean },
+) => api.post<Swap>(`/api/swaps/${id}/${action}`, body);
+
+export const swapConflicts = (id: number) =>
+  api.get<ScheduleConflict[]>(`/api/swaps/${id}/conflicts`);
 
 export const historyKey = (scheduleId: string) => ["schedule-history", scheduleId] as const;
 

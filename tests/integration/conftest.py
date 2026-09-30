@@ -180,3 +180,67 @@ def sign_in(client: TestClient, email: str, project_id: int | None = None) -> Ac
     assert response.status_code == 200, response.text
     body = response.json()
     return Actor(client, body["csrf_token"], body["user"], project_id)
+
+
+# ------------------------------------------------ a small generated schedule
+
+WORKDAYS = [0, 1, 2, 3, 4, 5, 6]
+DAY = {"name": "Day", "start_hour": 8.0, "duration_hours": 8.0}
+EVENING = {"name": "Evening", "start_hour": 16.0, "duration_hours": 8.0}
+
+
+def _person(admin: Actor, division: int, name: str, days: list[int] = WORKDAYS) -> int:
+    response = admin.post(
+        "/api/config/people",
+        json={"full_name": name, "division_id": division, "working_weekdays": days},
+    )
+    assert response.status_code == 201, response.text
+    return response.json()["id"]
+
+
+@pytest.fixture
+def world(admin: Actor) -> dict:
+    division = admin.post("/api/config/divisions", json={"name": "Alpha"}).json()["id"]
+    day = admin.post("/api/config/shift-templates", json=DAY).json()["id"]
+    evening = admin.post("/api/config/shift-templates", json=EVENING).json()["id"]
+    ana = _person(admin, division, "Ana")
+    ben = _person(admin, division, "Ben")
+    cat = _person(admin, division, "Cat")
+    job = admin.post(
+        "/api/config/jobs",
+        json={
+            "name": "Desk",
+            "required_people_per_shift": 1,
+            "shift_template_ids": [day, evening],
+            "requirements": [],
+        },
+    ).json()["id"]
+    run = admin.post(
+        "/api/schedule/generate", json={"start_date": "2026-10-05", "end_date": "2026-10-06"}
+    ).json()
+    return {
+        "division": division,
+        "day": day,
+        "evening": evening,
+        "people": {"Ana": ana, "Ben": ben, "Cat": cat},
+        "job": job,
+        "run": run,
+    }
+
+
+def _slot(world: dict, template: str, date: str = "2026-10-05") -> dict:
+    return {"job_id": world["job"], "template_id": world[template], "calendar_date": date}
+
+
+def _holder(run: dict, world: dict, template: str, date: str = "2026-10-05") -> dict:
+    return next(
+        a
+        for a in run["assignments"]
+        if a["template_id"] == world[template] and a["calendar_date"] == date
+    )
+
+
+def _free_person(run: dict, world: dict, date: str = "2026-10-05") -> int:
+    """Someone with no shift at all that day, so swapping them in is conflict-free."""
+    busy = {a["person_id"] for a in run["assignments"] if a["calendar_date"] == date}
+    return next(pid for pid in world["people"].values() if pid not in busy)

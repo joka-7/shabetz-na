@@ -8,6 +8,7 @@ import {
   Github,
   Globe,
   LayoutDashboard,
+  Repeat,
   LogOut,
   Mail,
   MessageSquare,
@@ -19,6 +20,7 @@ import { LoginPage } from "@/features/auth/LoginPage";
 import { SetupWizard } from "@/features/setup/SetupWizard";
 import { ConfigView } from "@/features/config/ConfigView";
 import { DashboardView } from "@/features/dashboard/DashboardView";
+import { SwapsView } from "@/features/swaps/SwapsView";
 import { TimeOffView } from "@/features/timeoff/TimeOffView";
 import { InvitePage, inviteTokenFromPath } from "@/features/projects/InvitePage";
 import { ProjectsPage } from "@/features/projects/ProjectsPage";
@@ -28,7 +30,7 @@ import { api } from "@/api/client";
 import { keys } from "@/api/queries";
 import type { Settings } from "@/types/api";
 
-type Tab = "dashboard" | "config" | "timeoff";
+type Tab = "dashboard" | "config" | "timeoff" | "swaps";
 
 export function App() {
   const { user, capabilities, loading, signOut, refreshProjects, project, projects, selectProject } =
@@ -98,6 +100,7 @@ export function App() {
   const tabs: { id: Tab; label: string; icon: typeof LayoutDashboard; show: boolean }[] = [
     { id: "dashboard", label: t("nav.schedule"), icon: LayoutDashboard, show: true },
     { id: "timeoff", label: t("nav.timeOff"), icon: CalendarDays, show: true },
+    { id: "swaps", label: t("nav.swaps"), icon: Repeat, show: true },
     { id: "config", label: t("nav.configuration"), icon: Settings2, show: editor },
   ];
 
@@ -178,6 +181,7 @@ export function App() {
       <main key={project.id} className="mx-auto max-w-7xl p-4">
         {tab === "dashboard" && <DashboardView />}
         {tab === "timeoff" && <TimeOffView />}
+        {tab === "swaps" && <SwapsView />}
         {tab === "config" && editor && <ConfigView />}
       </main>
 

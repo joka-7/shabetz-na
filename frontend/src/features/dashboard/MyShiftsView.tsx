@@ -1,17 +1,21 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarPlus, Clock } from "lucide-react";
+import { CalendarPlus, Clock, Repeat } from "lucide-react";
 import { downloadExport } from "@/api/client";
 import { myShiftsKey, fetchMyShifts } from "@/api/queries";
 import { EmptyState, Skeleton } from "@/components/ui";
 import { useI18n } from "@/i18n";
 import { shiftWindow } from "@/lib/schedule";
 import { groupByDate, nextShift } from "@/lib/myShifts";
+import { SwapDialog } from "@/features/swaps/SwapDialog";
+import type { Assignment } from "@/types/api";
 
 /** What a staff member sees: their own shifts from the published schedule. */
 export function MyShiftsView() {
   const { t, formatDate } = useI18n();
   const shifts = useQuery({ queryKey: myShiftsKey, queryFn: fetchMyShifts });
+  const [swapping, setSwapping] = useState<Assignment | null>(null);
+  const [sent, setSent] = useState(false);
 
   const days = useMemo(() => groupByDate(shifts.data?.assignments ?? []), [shifts.data]);
   const upcoming = useMemo(() => nextShift(shifts.data?.assignments ?? [], new Date()), [shifts.data]);
@@ -54,6 +58,8 @@ export function MyShiftsView() {
         </button>
       </div>
 
+      {sent && <p className="text-sm text-emerald-700 dark:text-emerald-400">{t("swap.sent")}</p>}
+
       <ul className="space-y-2">
         {days.map(([date, list]) => (
           <li key={date} className="card">
@@ -66,12 +72,33 @@ export function MyShiftsView() {
                   <span dir="ltr" className="w-28 shrink-0 tabular-nums font-medium">{shiftWindow(a)}</span>
                   <span>{a.job_name}</span>
                   <span className="text-slate-500">{a.template_name}</span>
+                  <button
+                    className="btn-ghost ms-auto px-2 py-0.5 text-xs"
+                    onClick={() => {
+                      setSent(false);
+                      setSwapping(a);
+                    }}
+                  >
+                    <Repeat className="h-3.5 w-3.5" aria-hidden />
+                    {t("swap.offer")}
+                  </button>
                 </li>
               ))}
             </ul>
           </li>
         ))}
       </ul>
+
+      {swapping && (
+        <SwapDialog
+          shift={swapping}
+          onClose={() => setSwapping(null)}
+          onSent={() => {
+            setSwapping(null);
+            setSent(true);
+          }}
+        />
+      )}
     </div>
   );
 }

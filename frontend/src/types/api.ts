@@ -236,6 +236,40 @@ export interface PublishResult {
   email_configured: boolean;
 }
 
+export type SwapStatus =
+  | "AWAITING_COLLEAGUE"
+  | "AWAITING_MANAGER"
+  | "APPROVED"
+  | "DENIED"
+  | "DECLINED"
+  | "CANCELLED";
+
+export interface Swap {
+  id: number;
+  status: SwapStatus;
+  schedule_id: string;
+  job_id: number;
+  template_id: number;
+  calendar_date: string;
+  job_name: string;
+  template_name: string;
+  from_person_id: number;
+  from_name: string;
+  to_person_id: number;
+  to_name: string;
+  note: string | null;
+  review_note: string | null;
+  created_at: string | null;
+  can_accept: boolean;
+  can_cancel: boolean;
+  can_decide: boolean;
+}
+
+export interface Colleague {
+  person_id: number;
+  name: string;
+}
+
 export interface SlotRef {
   job_id: number;
   template_id: number;

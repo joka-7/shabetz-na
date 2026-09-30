@@ -59,6 +59,17 @@ class TimeOffStatus(StrEnum):
     CANCELLED = "CANCELLED"
 
 
+class SwapStatus(StrEnum):
+    """A request to hand a shift to a colleague, and where it has got to."""
+
+    AWAITING_COLLEAGUE = "AWAITING_COLLEAGUE"  # the colleague has not answered yet
+    AWAITING_MANAGER = "AWAITING_MANAGER"  # both agree; a manager decides
+    APPROVED = "APPROVED"  # applied to the schedule
+    DENIED = "DENIED"  # by a manager
+    DECLINED = "DECLINED"  # by the colleague
+    CANCELLED = "CANCELLED"  # by the requester
+
+
 class FeasibilityVerdict(StrEnum):
     OK = "OK"
     TIGHT = "TIGHT"
