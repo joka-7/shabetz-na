@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight } from "lucide-react";
+import { useToast } from "@/components/Toasts";
 import { runKeys, swapAction, swapConflicts, swapKeys, useSwaps } from "@/api/queries";
 import { EmptyState, ErrorNotice, Skeleton } from "@/components/ui";
 import { useI18n } from "@/i18n";
@@ -43,6 +44,7 @@ export function SwapsView() {
 function SwapCard({ swap }: { swap: Swap }) {
   const { t, formatDate } = useI18n();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [acknowledged, setAcknowledged] = useState(false);
 
   const conflicts = useQuery({
@@ -55,6 +57,7 @@ function SwapCard({ swap }: { swap: Swap }) {
     mutationFn: (action: "accept" | "decline" | "cancel" | "approve" | "deny") =>
       swapAction(swap.id, action, { acknowledge_conflicts: acknowledged }),
     onSuccess: () => {
+      toast(t("toast.swapUpdated"));
       void queryClient.invalidateQueries({ queryKey: swapKeys.all });
       // An approved swap changes the schedule itself.
       void queryClient.invalidateQueries({ queryKey: runKeys.latest });

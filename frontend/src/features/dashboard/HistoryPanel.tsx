@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { History, Undo2 } from "lucide-react";
+import { useToast } from "@/components/Toasts";
 import { historyKey, runKeys, undoEdit, useHistory } from "@/api/queries";
 import { ErrorNotice } from "@/components/ui";
 import { useI18n } from "@/i18n";
@@ -11,6 +12,7 @@ import type { HistoryEntry, ScheduleRun } from "@/types/api";
 export function HistoryPanel({ run }: { run: ScheduleRun }) {
   const { t, formatDate } = useI18n();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [open, setOpen] = useState(false);
   // Fetched only once opened, but refreshed whenever the schedule changes.
   const history = useHistory(run.schedule_id, open);
@@ -18,6 +20,7 @@ export function HistoryPanel({ run }: { run: ScheduleRun }) {
   const undo = useMutation({
     mutationFn: (entry: HistoryEntry) => undoEdit(run.schedule_id, entry.id),
     onSuccess: (updated) => {
+      toast(t("toast.undone"));
       queryClient.setQueryData(runKeys.latest, updated);
       void queryClient.invalidateQueries({ queryKey: historyKey(run.schedule_id) });
     },

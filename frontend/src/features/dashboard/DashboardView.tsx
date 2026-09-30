@@ -24,6 +24,7 @@ import { AssignmentsTable } from "./AssignmentsTable";
 import { EditShiftDialog, type EditTarget } from "./EditShiftDialog";
 import { FairnessTable } from "./FairnessTable";
 import { HistoryPanel } from "./HistoryPanel";
+import { useToast } from "@/components/Toasts";
 import { MyShiftsView } from "./MyShiftsView";
 import { PrintGrid } from "./PrintGrid";
 import { PublishBar } from "./PublishBar";
@@ -51,6 +52,7 @@ export function DashboardView() {
   const [view, setView] = useState<"table" | "timeline" | "fairness">("table");
 
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [editing, setEditing] = useState<EditTarget | null>(null);
   const [keepLocked, setKeepLocked] = useState(true);
   const canEdit = can.generate(project);
@@ -80,6 +82,7 @@ export function DashboardView() {
   const onSaved = (updated: ScheduleRun) => {
     queryClient.setQueryData(runKeys.latest, updated);
     setEditing(null);
+    toast(t("toast.changeSaved"));
   };
 
   // Staff do not plan; they see their own shifts once a schedule is published.
@@ -141,6 +144,8 @@ export function DashboardView() {
         </section>
       )}
 
+      {canEdit && latest.isLoading && !run && <Skeleton className="h-40" />}
+
       {generate.isPending && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {Array.from({ length: 5 }, (_, index) => (
@@ -149,7 +154,7 @@ export function DashboardView() {
         </div>
       )}
 
-      {!run && !generate.isPending && (
+      {!run && !generate.isPending && !latest.isLoading && (
         <EmptyState
           title={t("dashboard.emptyTitle")}
           hint={can.generate(project) ? t("dashboard.emptyHint") : t("dashboard.emptyHintStaff")}

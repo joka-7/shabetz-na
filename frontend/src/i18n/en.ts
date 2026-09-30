@@ -4,6 +4,15 @@
  */
 export const en = {
   // ------------------------------------------------------------------ common
+  "boundary.title": "Something went wrong on this page",
+  "boundary.hint": "Anything you already saved is safe. Reload to carry on.",
+  "boundary.reload": "Reload",
+  "toast.offline": "Could not reach the server. Check your connection and try again.",
+  "toast.changeSaved": "Change saved",
+  "toast.published": "Published to staff",
+  "toast.withdrawn": "Withdrawn from staff",
+  "toast.undone": "Change undone",
+  "toast.swapUpdated": "Swap request updated",
   "common.add": "Add",
   "common.cancel": "Cancel",
   "common.close": "Close",

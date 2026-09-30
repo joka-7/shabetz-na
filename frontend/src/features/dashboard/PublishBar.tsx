@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Eye, EyeOff, Send } from "lucide-react";
+import { useToast } from "@/components/Toasts";
 import { publishRun, runKeys, unpublishRun } from "@/api/queries";
 import { ErrorNotice } from "@/components/ui";
 import { useSession } from "@/hooks/useSession";
@@ -16,6 +17,7 @@ export function PublishBar({ run }: { run: ScheduleRun }) {
   const { t, formatDate } = useI18n();
   const { capabilities } = useSession();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [notify, setNotify] = useState(true);
   const [notified, setNotified] = useState<number | null>(null);
   const published = Boolean(run.published_at);
@@ -25,6 +27,7 @@ export function PublishBar({ run }: { run: ScheduleRun }) {
       published ? unpublishRun(run.schedule_id) : publishRun(run.schedule_id, notify),
     onSuccess: (result) => {
       setNotified(result.notified);
+      toast(result.published_at ? t("toast.published") : t("toast.withdrawn"));
       queryClient.setQueryData<ScheduleRun | null>(runKeys.latest, (current) =>
         current ? { ...current, published_at: result.published_at } : current,
       );

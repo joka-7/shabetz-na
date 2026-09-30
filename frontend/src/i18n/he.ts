@@ -3,6 +3,15 @@ import type { en } from "./en";
 /** Hebrew interface text. Typed against `en`, so a missing key fails the build. */
 export const he: Record<keyof typeof en, string> = {
   // ------------------------------------------------------------------ common
+  "boundary.title": "משהו השתבש בעמוד הזה",
+  "boundary.hint": "כל מה ששמרתם בטוח. טענו מחדש כדי להמשיך.",
+  "boundary.reload": "טעינה מחדש",
+  "toast.offline": "אין חיבור לשרת. בדקו את החיבור ונסו שוב.",
+  "toast.changeSaved": "השינוי נשמר",
+  "toast.published": "פורסם לעובדים",
+  "toast.withdrawn": "נמשך מהעובדים",
+  "toast.undone": "השינוי בוטל",
+  "toast.swapUpdated": "בקשת ההחלפה עודכנה",
   "common.add": "הוספה",
   "common.cancel": "ביטול",
   "common.close": "סגירה",
