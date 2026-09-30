@@ -103,7 +103,7 @@ export function App() {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+      <header className="border-b print:hidden border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-3">
           <div className="flex items-center gap-2 font-semibold">
             <CalendarClock className="h-5 w-5" aria-hidden />
@@ -181,7 +181,7 @@ export function App() {
         {tab === "config" && editor && <ConfigView />}
       </main>
 
-      <footer className="mx-auto flex max-w-7xl flex-col items-center gap-1.5 px-4 py-4 text-slate-400">
+      <footer className="mx-auto flex max-w-7xl flex-col print:hidden items-center gap-1.5 px-4 py-4 text-slate-400">
         <span className="text-xs">{t("footer.credit")}</span>
         <div className="flex items-center justify-center gap-4">
           <a href="https://github.com/joka-7" target="_blank" rel="noreferrer" aria-label="GitHub" className="hover:text-slate-600 dark:hover:text-slate-300">

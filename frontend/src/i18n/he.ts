@@ -288,6 +288,7 @@ export const he: Record<keyof typeof en, string> = {
   "dashboard.emptyHint": "בחרו טווח תאריכים והפיקו סידור.",
   "dashboard.emptyHintStaff": "המשבץ צריך להפיק סידור לפני שהמשמרות שלכם יופיעו.",
   "dashboard.table": "טבלה",
+  "dashboard.print": "הדפסה",
   "dashboard.onDuty": "המחלקה התורנית",
   "dashboard.rotationOff": "ללא סבב",
 
@@ -323,6 +324,13 @@ export const he: Record<keyof typeof en, string> = {
   "timeline.borrowed": "(הושאל)",
   "timeline.legend": "כל מלבן הוא אדם אחד. מסגרת כתומה מסמנת מי שהושאל ממחוץ למחלקה התורנית.",
 
+  "fairness.title": "הוגנות",
+  "fairness.intro": "שעות ומשמרות קשות לכל אדם בסידור הזה. לילה הוא כל משמרת שנוגעת ב-22:00–06:00; סוף שבוע הוא שישי ושבת.",
+  "fairness.spread": "{what}: פער של {gap}",
+  "fairness.hours": "שעות",
+  "fairness.shifts": "משמרות",
+  "fairness.nights": "לילות",
+  "fairness.weekends": "סופי שבוע",
   "warnings.none": "כל המשמרות אוישו בלי להפר אף כלל.",
   "warnings.errors": "{count} דורשות טיפול",
   "warnings.cautions": "{count} לתשומת לב",

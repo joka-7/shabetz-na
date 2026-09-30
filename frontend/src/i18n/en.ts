@@ -295,6 +295,7 @@ export const en = {
   "dashboard.emptyHint": "Pick a date range and generate one.",
   "dashboard.emptyHintStaff": "A scheduler needs to generate one before your shifts appear.",
   "dashboard.table": "Table",
+  "dashboard.print": "Print",
   "dashboard.onDuty": "Division on duty",
   "dashboard.rotationOff": "Rotation off",
 
@@ -331,6 +332,13 @@ export const en = {
   "timeline.legend":
     "Each block is one person. An amber outline marks someone borrowed from outside the division on duty.",
 
+  "fairness.title": "Fairness",
+  "fairness.intro": "Hours and hard shifts per person in this schedule. Nights are any shift touching 22:00–06:00; weekends are Friday and Saturday.",
+  "fairness.spread": "{what}: gap of {gap}",
+  "fairness.hours": "Hours",
+  "fairness.shifts": "Shifts",
+  "fairness.nights": "Nights",
+  "fairness.weekends": "Weekends",
   "warnings.none": "Every shift was filled with no rule broken.",
   "warnings.errors": "{count} needing attention",
   "warnings.cautions": "{count} cautions",

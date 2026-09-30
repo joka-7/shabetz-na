@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { CalendarRange, Play, UserPlus } from "lucide-react";
+import { CalendarRange, Play, Printer, UserPlus } from "lucide-react";
 import { generateSchedule, runKeys, useDivisions, useLatestRun } from "@/api/queries";
 import { can, useSession } from "@/hooks/useSession";
 import {
@@ -16,6 +16,8 @@ import {
 } from "@/lib/schedule";
 import { AssignmentsTable } from "./AssignmentsTable";
 import { EditShiftDialog, type EditTarget } from "./EditShiftDialog";
+import { FairnessTable } from "./FairnessTable";
+import { PrintGrid } from "./PrintGrid";
 import { TimelineGantt } from "./TimelineGantt";
 import { WarningsPanel } from "./WarningsPanel";
 import { ExportBar } from "@/features/export/ExportBar";
@@ -37,7 +39,7 @@ export function DashboardView() {
   const { data: divisions } = useDivisions();
   const [start, setStart] = useState(isoDaysFromToday(0));
   const [end, setEnd] = useState(isoDaysFromToday(13));
-  const [view, setView] = useState<"table" | "timeline">("table");
+  const [view, setView] = useState<"table" | "timeline" | "fairness">("table");
 
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<EditTarget | null>(null);
@@ -58,7 +60,9 @@ export function DashboardView() {
   };
 
   return (
-    <div className="space-y-4">
+    <>
+    {run && <PrintGrid run={run} projectName={project?.name ?? ""} />}
+    <div className="space-y-4 print:hidden">
       {can.generate(project) && (
         <section className="card">
           <div className="flex flex-wrap items-end gap-3">
@@ -153,7 +157,7 @@ export function DashboardView() {
           <RotationStrip run={run} divisions={divisions ?? []} />
 
           <div className="flex flex-wrap items-center gap-1">
-            {(["table", "timeline"] as const).map((option) => (
+            {(["table", "timeline", "fairness"] as const).map((option) => (
               <button
                 key={option}
                 onClick={() => setView(option)}
@@ -164,11 +168,19 @@ export function DashboardView() {
                     : "border border-slate-300 dark:border-slate-700"
                 }`}
               >
-                {option === "table" ? t("dashboard.table") : t("timeline.title")}
+                {option === "table"
+                  ? t("dashboard.table")
+                  : option === "timeline"
+                    ? t("timeline.title")
+                    : t("fairness.title")}
               </button>
             ))}
+            <button className="btn-ghost ms-auto text-sm" onClick={() => window.print()}>
+              <Printer className="h-4 w-4" aria-hidden />
+              {t("dashboard.print")}
+            </button>
             {canEdit && (
-              <button className="btn-ghost ms-auto text-sm" onClick={() => setEditing({ kind: "add" })}>
+              <button className="btn-ghost text-sm" onClick={() => setEditing({ kind: "add" })}>
                 <UserPlus className="h-4 w-4" aria-hidden />
                 {t("edit.add")}
               </button>
@@ -181,8 +193,10 @@ export function DashboardView() {
               divisions={divisions ?? []}
               onEdit={canEdit ? (assignment) => setEditing({ kind: "reassign", assignment }) : undefined}
             />
-          ) : (
+          ) : view === "timeline" ? (
             <TimelineGantt run={run} divisions={divisions ?? []} />
+          ) : (
+            <FairnessTable run={run} />
           )}
 
           <WarningsPanel
@@ -213,6 +227,7 @@ export function DashboardView() {
         </>
       )}
     </div>
+    </>
   );
 }
 
