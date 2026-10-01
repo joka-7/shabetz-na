@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  CalendarClock,
   CalendarDays,
   FolderGit2,
   FolderOpen,
@@ -24,6 +23,7 @@ import { SwapsView } from "@/features/swaps/SwapsView";
 import { TimeOffView } from "@/features/timeoff/TimeOffView";
 import { InvitePage, inviteTokenFromPath } from "@/features/projects/InvitePage";
 import { ProjectsPage } from "@/features/projects/ProjectsPage";
+import { Logo } from "@/components/Logo";
 import { LanguageSwitch, Skeleton } from "@/components/ui";
 import { useI18n } from "@/i18n";
 import { api } from "@/api/client";
@@ -106,10 +106,10 @@ export function App() {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b print:hidden border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+      <header className="border-b border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800 print:hidden">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-3">
-          <div className="flex items-center gap-2 font-semibold">
-            <CalendarClock className="h-5 w-5" aria-hidden />
+          <div className="flex items-center gap-2 text-lg font-bold tracking-tight">
+            <Logo />
             Shabetz
           </div>
 
@@ -140,16 +140,18 @@ export function App() {
             </div>
           )}
 
-          <nav className="flex gap-1" aria-label={t("nav.sections")}>
+          {/* A tab strip on large screens; a bottom bar on phones, where thumbs reach. */}
+          <nav
+            className="fixed inset-x-0 bottom-0 z-40 flex justify-around gap-1 border-t border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-800 sm:static sm:justify-start sm:rounded-xl sm:border sm:bg-slate-100 sm:p-1 sm:dark:bg-slate-900 print:hidden"
+            aria-label={t("nav.sections")}
+          >
             {tabs.filter((t) => t.show).map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
                 onClick={() => setTab(id)}
                 aria-current={tab === id ? "page" : undefined}
-                className={`btn text-sm ${
-                  tab === id
-                    ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
-                    : "hover:bg-slate-100 dark:hover:bg-slate-800"
+                className={`min-h-11 min-w-0 flex-1 flex-col justify-center gap-0.5 px-1 text-[11px] sm:min-h-0 sm:flex-none sm:flex-row sm:gap-2 sm:px-3 sm:text-sm ${
+                  tab === id ? "pill-active" : "pill"
                 }`}
               >
                 <Icon className="h-4 w-4" aria-hidden />
@@ -178,7 +180,7 @@ export function App() {
       </header>
 
       {/* Keyed on the project so nothing typed in one shows up in another. */}
-      <main key={project.id} className="mx-auto max-w-7xl p-4">
+      <main key={project.id} className="mx-auto max-w-7xl p-4 pb-24 sm:pb-4">
         {tab === "dashboard" && <DashboardView />}
         {tab === "timeoff" && <TimeOffView />}
         {tab === "swaps" && <SwapsView />}

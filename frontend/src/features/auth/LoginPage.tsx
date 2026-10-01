@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { CalendarClock } from "lucide-react";
 import { useSession } from "@/hooks/useSession";
+import { Logo } from "@/components/Logo";
 import { ErrorNotice, LanguageSwitch } from "@/components/ui";
 import { useI18n } from "@/i18n";
 import { errorText } from "@/i18n/errors";
@@ -72,12 +72,18 @@ export function LoginPage({ needsSetup, banner }: { needsSetup: boolean; banner?
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
       <div className="card w-full max-w-sm">
-        <div className="mb-6 flex items-center gap-2">
-          <CalendarClock className="h-5 w-5" aria-hidden />
-          <h1 className="text-lg font-semibold">
+        <div className="mb-2 flex">
+          <LanguageSwitch className="ms-auto" />
+        </div>
+        <div className="mb-6 text-center">
+          <Logo className="mx-auto mb-3 h-12 w-12" />
+          <p className="text-xl font-bold tracking-tight">
+            Shabetz <span className="text-indigo-600 dark:text-indigo-400">(שבץ)</span>
+          </p>
+          <p className="mt-1 text-sm text-slate-500">{t("login.tagline")}</p>
+          <h1 className="mt-4 text-base font-semibold">
             {needsSetup ? t("login.createAdmin") : t("login.signIn")}
           </h1>
-          <LanguageSwitch className="ms-auto" />
         </div>
 
         {banner}

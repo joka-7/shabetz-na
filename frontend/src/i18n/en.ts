@@ -554,6 +554,7 @@ export const en = {
   "invite.continue": "Continue",
 
   // -------------------------------------------------------------------- login
+  "login.tagline": "Round-the-clock shift scheduling",
   "login.signIn": "Sign in",
   "login.createAdmin": "Create the first administrator",
   "login.createAdminButton": "Create administrator",

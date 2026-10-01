@@ -53,7 +53,7 @@ export function ConfigView() {
             aria-current={active === entry.id ? "page" : undefined}
             className={`btn justify-start text-sm ${
               active === entry.id
-                ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+                ? "bg-indigo-600 text-white dark:bg-indigo-500"
                 : "hover:bg-slate-100 dark:hover:bg-slate-800"
             }`}
           >
