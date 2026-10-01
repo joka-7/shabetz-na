@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Plus, Scissors } from "lucide-react";
+import { Check, Moon, Plus, Scissors, Sun, Sunset } from "lucide-react";
 import { api } from "@/api/client";
 import { keys, useConfigMutation, useTemplates } from "@/api/queries";
 import { EmptyState, Spinner } from "@/components/ui";
@@ -176,6 +176,7 @@ export function ShiftTemplatesStep() {
                   editLabel={t("common.editNamed", { name: template.name })}
                 >
                   <div className="flex items-center gap-3 text-sm">
+                    <WindowIcon start={template.start_hour} />
                     <span className="font-medium">{template.name}</span>
                     <span className="tabular-nums text-slate-500" dir="ltr">
                       {clockTime(template.start_hour)}–{clockTime(end)}
@@ -192,6 +193,21 @@ export function ShiftTemplatesStep() {
         </>
       )}
     </StepShell>
+  );
+}
+
+/** Morning, evening or night, from when the window starts. */
+function WindowIcon({ start }: { start: number }) {
+  const [Icon, tone] =
+    start >= 5 && start < 12
+      ? [Sun, "bg-teal-100 text-teal-700 dark:bg-teal-950 dark:text-teal-300"]
+      : start >= 12 && start < 20
+        ? [Sunset, "bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300"]
+        : [Moon, "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300"];
+  return (
+    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${tone}`} aria-hidden>
+      <Icon className="h-4 w-4" />
+    </span>
   );
 }
 
@@ -239,7 +255,7 @@ function DayStrip({ templates }: { templates: ShiftTemplate[] }) {
                 {segments.map(([from, to], index) => (
                   <div
                     key={index}
-                    className="absolute top-0 h-5 rounded bg-slate-500/80 dark:bg-slate-500/60"
+                    className="absolute top-0 h-5 rounded bg-indigo-500/80 dark:bg-indigo-400/70"
                     style={{
                       left: `${(from / 24) * 100}%`,
                       width: `${((to - from) / 24) * 100}%`,

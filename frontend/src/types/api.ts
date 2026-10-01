@@ -214,7 +214,7 @@ export interface HistoryEntry {
   id: number;
   at: string | null;
   user_name: string | null;
-  action: "reassign" | "add" | "remove" | "lock" | "unlock";
+  action: "reassign" | "swap" | "add" | "remove" | "lock" | "unlock";
   job_name: string | null;
   template_name: string | null;
   calendar_date: string | null;

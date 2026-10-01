@@ -8,7 +8,7 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 import { ArrowDown, ArrowUp, Lock, Pencil, Search, Unlock } from "lucide-react";
-import { DivisionBadge, EmptyState } from "@/components/ui";
+import { Avatar, DivisionBadge, EmptyState } from "@/components/ui";
 import {
   crossesMidnight,
   emptyFilters,
@@ -76,7 +76,7 @@ export function AssignmentsTable({
         id: "time",
         header: t("table.time"),
         cell: ({ row }) => (
-          <span className="whitespace-nowrap tabular-nums" dir="ltr">
+          <span className="whitespace-nowrap font-medium tabular-nums text-indigo-700 dark:text-indigo-300" dir="ltr">
             {shiftWindow(row.original)}
             {crossesMidnight(row.original) && (
               <span className="ms-1 text-xs text-slate-400" title={t("table.nextDay")}>
@@ -90,8 +90,9 @@ export function AssignmentsTable({
       helper.accessor("person_name", {
         header: t("table.person"),
         cell: ({ row }) => (
-          <span className="flex items-center gap-1.5">
-            {row.original.person_name}
+          <span className="flex items-center gap-2">
+            <Avatar name={row.original.person_name} id={row.original.division_id} size="sm" />
+            <span className="font-medium">{row.original.person_name}</span>
             {row.original.role === "ROLE" && (
               <span
                 className="badge bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300"
@@ -273,7 +274,7 @@ export function AssignmentsTable({
       ) : (
         <div className="max-h-[32rem] overflow-auto">
           <table className="w-full">
-            <thead className="sticky top-0 bg-white dark:bg-slate-900">
+            <thead className="sticky top-0 bg-white dark:bg-slate-800">
               {table.getHeaderGroups().map((group) => (
                 <tr key={group.id} className="border-b border-slate-200 dark:border-slate-800">
                   {group.headers.map((header) => {
@@ -302,7 +303,7 @@ export function AssignmentsTable({
               {table.getRowModel().rows.map((row) => (
                 <tr
                   key={row.id}
-                  className="border-b border-slate-100 last:border-0 dark:border-slate-800/60"
+                  className="border-b border-slate-100 last:border-0 hover:bg-indigo-50/40 dark:border-slate-700/60 dark:hover:bg-slate-700/30"
                 >
                   {row.getVisibleCells().map((cell) => (
                     <td key={cell.id} className="td">

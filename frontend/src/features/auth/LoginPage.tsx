@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { useSession } from "@/hooks/useSession";
+import { Eye, EyeOff } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { ErrorNotice, LanguageSwitch } from "@/components/ui";
 import { useI18n } from "@/i18n";
@@ -36,6 +37,7 @@ export function LoginPage({ needsSetup, banner }: { needsSetup: boolean; banner?
   // With Google offered, the password form is only for accounts made before
   // it was, so it waits behind a link.
   const [showPassword, setShowPassword] = useState(!google);
+  const [reveal, setReveal] = useState(false);
   // A password that "stopped working" is very often typed with the keyboard
   // switched to Hebrew, or with Caps Lock on; both are invisible in a
   // password field, so they are pointed out.
@@ -97,7 +99,7 @@ export function LoginPage({ needsSetup, banner }: { needsSetup: boolean; banner?
             {google && (
               <button
                 type="button"
-                className="btn-ghost w-full justify-center"
+                className="btn-ghost min-h-11 w-full justify-center font-semibold"
                 disabled={busy}
                 onClick={() => void withGoogle()}
               >
@@ -106,10 +108,18 @@ export function LoginPage({ needsSetup, banner }: { needsSetup: boolean; banner?
               </button>
             )}
 
+            {google && (
+              <div className="my-4 flex items-center gap-3 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                <span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" aria-hidden />
+                {t("login.or")}
+                <span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" aria-hidden />
+              </div>
+            )}
+
             {google && !showPassword && (
               <button
                 type="button"
-                className="mt-4 w-full text-center text-xs text-slate-500 underline"
+                className="btn-ghost w-full justify-center text-sm"
                 onClick={() => setShowPassword(true)}
               >
                 {t("login.withPassword")}
@@ -117,7 +127,7 @@ export function LoginPage({ needsSetup, banner }: { needsSetup: boolean; banner?
             )}
 
             {showPassword && (
-              <form onSubmit={submit} className={`space-y-3 ${google ? "mt-4 border-t border-slate-200 pt-4 dark:border-slate-800" : ""}`}>
+              <form onSubmit={submit} className="space-y-3">
                 {/* On a hosted server the first administrator must prove they
                     deployed it; otherwise the site belongs to whoever loads it first. */}
                 {needsCode && (
@@ -157,10 +167,20 @@ export function LoginPage({ needsSetup, banner }: { needsSetup: boolean; banner?
                 </div>
                 <div>
                   <label className="label" htmlFor="password">{t("login.password")}</label>
-                  <input id="password" className="input" type="password"
-                         autoComplete={needsSetup ? "new-password" : "current-password"}
-                         value={password} required onChange={(e) => setPassword(e.target.value)}
-                         onKeyUp={(e) => setCapsLock(e.getModifierState("CapsLock"))} />
+                  <div className="relative">
+                    <input id="password" className="input pe-10" type={reveal ? "text" : "password"}
+                           autoComplete={needsSetup ? "new-password" : "current-password"}
+                           value={password} required onChange={(e) => setPassword(e.target.value)}
+                           onKeyUp={(e) => setCapsLock(e.getModifierState("CapsLock"))} />
+                    <button
+                      type="button"
+                      className="absolute end-2 top-1/2 -translate-y-1/2 rounded p-1 text-slate-400 hover:text-slate-600"
+                      onClick={() => setReveal((v) => !v)}
+                      aria-label={reveal ? t("login.hidePassword") : t("login.showPassword")}
+                    >
+                      {reveal ? <EyeOff className="h-4 w-4" aria-hidden /> : <Eye className="h-4 w-4" aria-hidden />}
+                    </button>
+                  </div>
                   {typingHebrew && (
                     <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">{t("login.hebrewKeyboard")}</p>
                   )}
@@ -172,7 +192,7 @@ export function LoginPage({ needsSetup, banner }: { needsSetup: boolean; banner?
                   )}
                 </div>
 
-                <button className={`${google ? "btn-ghost" : "btn-primary"} w-full justify-center`} disabled={busy} type="submit">
+                <button className="btn-primary min-h-11 w-full justify-center" disabled={busy} type="submit">
                   {busy ? t("common.working") : needsSetup ? t("login.createAdminButton") : t("login.signIn")}
                 </button>
               </form>

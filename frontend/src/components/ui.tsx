@@ -47,12 +47,20 @@ export function StatCard({
 }) {
   const toneClass =
     tone === "danger"
-      ? "text-rose-600 dark:text-rose-400"
+      ? "text-red-600 dark:text-red-400"
       : tone === "warn"
         ? "text-amber-600 dark:text-amber-400"
         : "text-slate-900 dark:text-slate-100";
   return (
-    <div className="card">
+    <div
+      className={`card border-t-4 ${
+        tone === "danger"
+          ? "border-t-red-500"
+          : tone === "warn"
+            ? "border-t-amber-500"
+            : "border-t-indigo-500"
+      }`}
+    >
       <div className="label">{label}</div>
       <div className={`text-2xl font-semibold tabular-nums ${toneClass}`}>{value}</div>
       {hint && <div className="mt-1 text-xs text-slate-500">{hint}</div>}
@@ -104,6 +112,45 @@ const DIVISION_TONES = [
   "bg-fuchsia-100 text-fuchsia-900 dark:bg-fuchsia-950 dark:text-fuchsia-300",
   "bg-lime-100 text-lime-900 dark:bg-lime-950 dark:text-lime-300",
 ];
+
+/** Outlined chips for a shift cell: border and fill from the division's colour. */
+const DIVISION_CHIPS = [
+  "border-sky-300 bg-sky-50 text-sky-900 dark:border-sky-700 dark:bg-sky-950 dark:text-sky-200",
+  "border-violet-300 bg-violet-50 text-violet-900 dark:border-violet-700 dark:bg-violet-950 dark:text-violet-200",
+  "border-teal-300 bg-teal-50 text-teal-900 dark:border-teal-700 dark:bg-teal-950 dark:text-teal-200",
+  "border-orange-300 bg-orange-50 text-orange-900 dark:border-orange-700 dark:bg-orange-950 dark:text-orange-200",
+  "border-fuchsia-300 bg-fuchsia-50 text-fuchsia-900 dark:border-fuchsia-700 dark:bg-fuchsia-950 dark:text-fuchsia-200",
+  "border-lime-300 bg-lime-50 text-lime-900 dark:border-lime-700 dark:bg-lime-950 dark:text-lime-200",
+];
+export const divisionChip = (id: number): string => DIVISION_CHIPS[id % DIVISION_CHIPS.length]!;
+
+/** Initials in a coloured circle: a person, without needing a photo. */
+export function Avatar({
+  name,
+  id,
+  size = "md",
+}: {
+  name: string;
+  id: number;
+  size?: "sm" | "md" | "lg";
+}) {
+  const initials = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => [...part][0])
+    .join("")
+    .toUpperCase();
+  const dims = size === "sm" ? "h-6 w-6 text-[10px]" : size === "lg" ? "h-11 w-11 text-sm" : "h-8 w-8 text-xs";
+  return (
+    <span
+      aria-hidden
+      className={`inline-flex shrink-0 items-center justify-center rounded-full font-semibold ${dims} ${DIVISION_TONES[id % DIVISION_TONES.length]}`}
+    >
+      {initials}
+    </span>
+  );
+}
 
 /** Divisions are user-created, so colours are derived rather than hardcoded. */
 export function DivisionBadge({ id, name }: { id: number; name: string }) {

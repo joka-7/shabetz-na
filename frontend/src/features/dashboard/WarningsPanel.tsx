@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { SeverityBadge } from "@/components/ui";
+import { AlertTriangle, CheckCircle2, Info, XCircle } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { blockingWarnings, warningsBySeverity } from "@/lib/schedule";
-import { conflictText, isConflictKind } from "./conflictText";
 import type { ScheduleWarning } from "@/types/api";
+import { conflictText, isConflictKind } from "./conflictText";
 
 /**
  * The warning in the interface language, from the names the server recorded.
@@ -42,6 +42,28 @@ function useWarningText() {
 
 const FIXABLE = new Set(["UNDERSTAFFED", "MISSING_ROLE"]);
 
+const TONE = {
+  ERROR: {
+    icon: XCircle,
+    box: "border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950",
+    tag: "text-red-700 dark:text-red-300",
+    bar: "bg-red-500",
+  },
+  WARNING: {
+    icon: AlertTriangle,
+    box: "border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950",
+    tag: "text-amber-800 dark:text-amber-300",
+    bar: "bg-amber-500",
+  },
+  INFO: {
+    icon: Info,
+    box: "border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950",
+    tag: "text-blue-700 dark:text-blue-300",
+    bar: "bg-blue-500",
+  },
+} as const;
+
+/** What needs attention, most serious first, with a one-click way to fix a gap. */
 export function WarningsPanel({
   warnings,
   onFix,
@@ -58,8 +80,9 @@ export function WarningsPanel({
 
   if (warnings.length === 0) {
     return (
-      <section className="card">
-        <p className="text-sm text-emerald-700 dark:text-emerald-400">{t("warnings.none")}</p>
+      <section className="card flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-400">
+        <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden />
+        {t("warnings.none")}
       </section>
     );
   }
@@ -68,16 +91,16 @@ export function WarningsPanel({
 
   return (
     <section className="card space-y-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <h2 className="label mb-0">{t("stat.warnings")}</h2>
-        <div className="flex gap-2 text-xs text-slate-500">
-          {counts.ERROR > 0 && <span>{t("warnings.errors", { count: counts.ERROR })}</span>}
-          {counts.WARNING > 0 && <span>{t("warnings.cautions", { count: counts.WARNING })}</span>}
-          {counts.INFO > 0 && <span>{t("warnings.info", { count: counts.INFO })}</span>}
-        </div>
+      <div className="flex items-center gap-2">
+        <h2 className="text-base font-semibold">{t("warnings.title")}</h2>
+        {blocking.length > 0 && (
+          <span className="badge rounded-full bg-red-100 px-2 text-red-800 dark:bg-red-950 dark:text-red-300">
+            {blocking.length}
+          </span>
+        )}
         {counts.INFO > 0 && (
           <button
-            className="btn-ghost ms-auto text-xs"
+            className="btn-ghost ms-auto px-2 py-1 text-xs"
             onClick={() => setShowInfo((value) => !value)}
           >
             {showInfo ? t("warnings.hideInfo") : t("warnings.showInfo", { count: counts.INFO })}
@@ -86,43 +109,44 @@ export function WarningsPanel({
       </div>
 
       {blocking.length === 0 && !showInfo && (
-        <p className="text-sm text-emerald-700 dark:text-emerald-400">
+        <p className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-400">
+          <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden />
           {t("warnings.onlyInfo", { count: counts.INFO })}
         </p>
       )}
 
-      <ul className="max-h-72 space-y-1 overflow-auto">
-        {shown.map((warning, index) => (
-          <li
-            key={`${warning.kind}-${warning.calendar_date}-${index}`}
-            className="flex items-start gap-2 rounded-md border-s-2 px-3 py-1.5 text-sm"
-            style={{
-              borderInlineStartColor:
-                warning.severity === "ERROR"
-                  ? "#e11d48"
-                  : warning.severity === "WARNING"
-                    ? "#f59e0b"
-                    : "#94a3b8",
-            }}
-          >
-            <SeverityBadge severity={warning.severity} />
-            <span className="flex-1">{text(warning)}</span>
-            {onFix &&
-              FIXABLE.has(warning.kind) &&
-              warning.job_id !== null &&
-              warning.template_id !== null &&
-              warning.calendar_date !== null && (
-                <button className="btn-ghost shrink-0 px-2 py-0.5 text-xs" onClick={() => onFix(warning)}>
-                  {t("edit.fix")}
-                </button>
-              )}
-            {warning.required !== null && warning.assigned !== null && (
-              <span className="shrink-0 text-xs tabular-nums text-slate-500">
-                {warning.assigned}/{warning.required}
-              </span>
-            )}
-          </li>
-        ))}
+      <ul className="max-h-[28rem] space-y-2 overflow-auto">
+        {shown.map((warning, index) => {
+          const tone = TONE[warning.severity];
+          const Icon = tone.icon;
+          return (
+            <li
+              key={`${warning.kind}-${warning.calendar_date}-${index}`}
+              className={`relative overflow-hidden rounded-lg border p-3 ps-4 text-sm ${tone.box}`}
+            >
+              <span className={`absolute inset-y-0 start-0 w-1 ${tone.bar}`} aria-hidden />
+              <div className={`mb-1 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide ${tone.tag}`}>
+                <Icon className="h-3.5 w-3.5" aria-hidden />
+                {t(`severity.${warning.severity}`)}
+                {warning.required !== null && warning.assigned !== null && (
+                  <span className="ms-auto tabular-nums">
+                    {warning.assigned}/{warning.required}
+                  </span>
+                )}
+              </div>
+              <p>{text(warning)}</p>
+              {onFix &&
+                FIXABLE.has(warning.kind) &&
+                warning.job_id !== null &&
+                warning.template_id !== null &&
+                warning.calendar_date !== null && (
+                  <button className="btn-primary mt-2 px-3 py-1 text-xs" onClick={() => onFix(warning)}>
+                    {t("edit.fix")}
+                  </button>
+                )}
+            </li>
+          );
+        })}
       </ul>
     </section>
   );

@@ -29,3 +29,26 @@ export function nextShift(assignments: Assignment[], now: Date): Assignment | nu
   );
   return candidates[0] ?? null;
 }
+
+export type StartsIn =
+  | { kind: "running" }
+  | { kind: "later"; hours: number; minutes: number }
+  | { kind: "day"; days: number };
+
+/** How soon a shift starts, by the viewer's local clock. */
+export function startsIn(a: Assignment, now: Date): StartsIn {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  if (a.calendar_date !== today) {
+    const [y, m, d] = a.calendar_date.split("-").map(Number);
+    const days = Math.round(
+      (Date.UTC(y!, m! - 1, d!) - Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())) / 86_400_000,
+    );
+    return { kind: "day", days };
+  }
+  const nowHours = now.getHours() + now.getMinutes() / 60;
+  const start = a.start_abs % 24;
+  if (start <= nowHours) return { kind: "running" };
+  const total = Math.round((start - nowHours) * 60);
+  return { kind: "later", hours: Math.floor(total / 60), minutes: total % 60 };
+}
