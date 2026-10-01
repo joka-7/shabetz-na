@@ -4,8 +4,8 @@ import { api } from "@/api/client";
 import { keys, useConfigMutation, useLevels } from "@/api/queries";
 import { EmptyState, Spinner } from "@/components/ui";
 import { useI18n } from "@/i18n";
-import type { BulkResult } from "@/types/api";
-import { MutationError, PasteList, Row, RowList, StepShell } from "./parts";
+import type { BulkResult, ProficiencyLevel } from "@/types/api";
+import { EditableName, MutationError, PasteList, Row, RowList, StepShell } from "./parts";
 
 export function LadderStep() {
   const { t } = useI18n();
@@ -24,6 +24,12 @@ export function LadderStep() {
   const remove = useConfigMutation(
     (id: number) => api.del(`/api/config/proficiency-levels/${id}`),
     [keys.levels],
+  );
+
+  const update = useConfigMutation(
+    ({ id, ...payload }: ProficiencyLevel) =>
+      api.put<ProficiencyLevel>(`/api/config/proficiency-levels/${id}`, payload),
+    [keys.levels, keys.jobs, keys.people],
   );
 
   function submit(event: React.FormEvent) {
@@ -56,7 +62,7 @@ export function LadderStep() {
         onSubmit={(names) => add.mutateAsync(names)}
       />
 
-      <MutationError error={add.error ?? remove.error} />
+      <MutationError error={add.error ?? remove.error ?? update.error} />
 
       {isLoading ? (
         <Spinner />
@@ -82,7 +88,13 @@ export function LadderStep() {
             >
               <div className="flex items-center gap-3">
                 <span className="w-6 text-xs tabular-nums text-slate-400">{index + 1}</span>
-                <span className="font-medium">{level.name}</span>
+                <EditableName
+                  value={level.name}
+                  label={t("common.editNamed", { name: level.name })}
+                  onSave={(name) => update.mutate({ ...level, name })}
+                >
+                  <span className="font-medium">{level.name}</span>
+                </EditableName>
                 {index > 0 && (
                   <span className="text-xs text-slate-500">
                     {t("ladder.alsoSatisfies", { name: levels[index - 1]!.name })}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Scissors } from "lucide-react";
+import { Check, Plus, Scissors } from "lucide-react";
 import { api } from "@/api/client";
 import { keys, useConfigMutation, useTemplates } from "@/api/queries";
 import { EmptyState, Spinner } from "@/components/ui";
@@ -16,6 +16,7 @@ export function ShiftTemplatesStep() {
   const [start, setStart] = useState("08:00");
   const [duration, setDuration] = useState(8);
   const [splitCount, setSplitCount] = useState(3);
+  const [editingId, setEditingId] = useState<number | null>(null);
 
   const create = useConfigMutation(
     (payload: { name: string; start_hour: number; duration_hours: number }) =>
@@ -26,6 +27,11 @@ export function ShiftTemplatesStep() {
     (payload: { shifts: number; name_prefix: string }) =>
       api.post<ShiftTemplate[]>("/api/config/shift-templates/split-day", payload),
     [keys.templates],
+  );
+  const update = useConfigMutation(
+    ({ id, ...payload }: { id: number; name: string; start_hour: number; duration_hours: number }) =>
+      api.put<ShiftTemplate>(`/api/config/shift-templates/${id}`, payload),
+    [keys.templates, keys.jobs],
   );
   const remove = useConfigMutation(
     (id: number) => api.del(`/api/config/shift-templates/${id}`),
@@ -43,11 +49,25 @@ export function ShiftTemplatesStep() {
     event.preventDefault();
     const [hours, minutes] = start.split(":").map(Number);
     if (!name.trim() || hours === undefined) return;
-    create.mutate({
+    const payload = {
       name: name.trim(),
       start_hour: hours + (minutes ?? 0) / 60,
       duration_hours: duration,
-    });
+    };
+    if (editingId !== null) update.mutate({ id: editingId, ...payload });
+    else create.mutate(payload);
+    cancelEdit();
+  }
+
+  function startEdit(template: ShiftTemplate) {
+    setEditingId(template.id);
+    setName(template.name);
+    setStart(clockTime(template.start_hour));
+    setDuration(template.duration_hours);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
     setName("");
   }
 
@@ -116,10 +136,15 @@ export function ShiftTemplatesStep() {
             onChange={(event) => setDuration(Number(event.target.value))}
           />
         </div>
-        <button className="btn-primary" type="submit" disabled={create.isPending}>
-          <Plus className="h-4 w-4" aria-hidden />
-          {t("common.add")}
+        <button className="btn-primary" type="submit" disabled={create.isPending || update.isPending}>
+          {editingId === null ? <Plus className="h-4 w-4" aria-hidden /> : <Check className="h-4 w-4" aria-hidden />}
+          {editingId === null ? t("common.add") : t("common.save")}
         </button>
+        {editingId !== null && (
+          <button className="btn-ghost" type="button" onClick={cancelEdit}>
+            {t("common.cancel")}
+          </button>
+        )}
       </form>
 
       <PasteList
@@ -130,7 +155,7 @@ export function ShiftTemplatesStep() {
         onSubmit={(lines) => bulk.mutateAsync(lines)}
       />
 
-      <MutationError error={create.error ?? split.error ?? remove.error ?? bulk.error} />
+      <MutationError error={create.error ?? split.error ?? remove.error ?? bulk.error ?? update.error} />
 
       {isLoading ? (
         <Spinner />
@@ -147,6 +172,8 @@ export function ShiftTemplatesStep() {
                   key={template.id}
                   deleteLabel={t("common.removeNamed", { name: template.name })}
                   onDelete={() => remove.mutate(template.id)}
+                  onEdit={() => startEdit(template)}
+                  editLabel={t("common.editNamed", { name: template.name })}
                 >
                   <div className="flex items-center gap-3 text-sm">
                     <span className="font-medium">{template.name}</span>

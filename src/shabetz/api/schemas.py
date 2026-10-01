@@ -384,6 +384,8 @@ class FeasibilityOut(BaseModel):
 class GenerateRequest(BaseModel):
     start_date: date
     end_date: date
+    # Carry pinned shifts over from the previous schedule.
+    keep_locked: bool = True
 
 
 class AssignmentOut(BaseModel):
@@ -400,6 +402,9 @@ class AssignmentOut(BaseModel):
     role: str
     is_division_fallback: bool
     satisfied_requirement_id: int | None = None
+    # Runs stored before manual editing existed have no such key.
+    is_manual: bool = False
+    is_locked: bool = False
 
 
 class WarningOut(BaseModel):
@@ -433,15 +438,110 @@ class SummaryOut(BaseModel):
 class ScheduleRunOut(BaseModel):
     schedule_id: str
     created_at: datetime | None = None
+    published_at: datetime | None = None
     params: dict = Field(default_factory=dict)
     summary: SummaryOut
     assignments: list[AssignmentOut] = Field(default_factory=list)
     warnings: list[WarningOut] = Field(default_factory=list)
 
 
+class SlotRef(BaseModel):
+    """One shift: a job's window on a day."""
+
+    job_id: int
+    template_id: int
+    calendar_date: date
+
+
+class AssignmentCheckIn(SlotRef):
+    person_id: int
+    # The person being swapped out, so they are not counted against their own
+    # replacement.
+    replaces_person_id: int | None = None
+
+
+class AssignmentAddIn(SlotRef):
+    person_id: int
+    acknowledge_conflicts: bool = False
+
+
+class AssignmentSwapIn(BaseModel):
+    """Two people trade shifts: ``a`` takes ``b``'s and ``b`` takes ``a``'s."""
+
+    a: SlotRef
+    a_person_id: int
+    b: SlotRef
+    b_person_id: int
+    acknowledge_conflicts: bool = False
+
+
+class AssignmentLockIn(SlotRef):
+    person_id: int
+    locked: bool
+
+
+class AssignmentReassignIn(SlotRef):
+    from_person_id: int
+    to_person_id: int
+    acknowledge_conflicts: bool = False
+
+
+class ConflictOut(BaseModel):
+    kind: str
+    person_id: int
+    person_name: str
+    message: str
+
+
+class SuggestionOut(BaseModel):
+    person_id: int
+    person_name: str
+    division_id: int
+    shifts_in_schedule: int
+    conflicts: list[ConflictOut]
+
+
+class HistoryEntryOut(BaseModel):
+    id: int
+    at: datetime | None
+    user_name: str | None
+    action: str
+    job_name: str | None
+    template_name: str | None
+    calendar_date: str | None
+    person_before: str | None
+    person_after: str | None
+    undone: bool
+    can_undo: bool
+
+
+class AssignmentCheckOut(BaseModel):
+    conflicts: list[ConflictOut]
+
+
+class PublishIn(BaseModel):
+    notify: bool = False
+
+
+class PublishOut(BaseModel):
+    published_at: datetime | None
+    # People emailed; None when nobody was asked to be.
+    notified: int | None = None
+    email_configured: bool = False
+
+
+class MyShiftsOut(BaseModel):
+    """The published schedule as one person sees it."""
+
+    schedule_id: str | None = None
+    published_at: datetime | None = None
+    assignments: list[AssignmentOut] = Field(default_factory=list)
+
+
 class ScheduleRunSummaryOut(BaseModel):
     schedule_id: str
     created_at: datetime | None
+    published_at: datetime | None = None
     params: dict
     summary: SummaryOut
 
@@ -484,3 +584,44 @@ class CapabilitiesOut(BaseModel):
     pdf_available: bool
     setup_complete: bool
     password_recovery: bool = False
+    email_available: bool = False
+
+
+class ColleagueOut(BaseModel):
+    person_id: int
+    name: str
+
+
+class SwapIn(BaseModel):
+    job_id: int
+    template_id: int
+    calendar_date: date
+    to_person_id: int
+    note: str | None = Field(default=None, max_length=500)
+
+
+class SwapDecision(BaseModel):
+    note: str | None = Field(default=None, max_length=500)
+    acknowledge_conflicts: bool = False
+
+
+class SwapOut(BaseModel):
+    id: int
+    status: str
+    schedule_id: str
+    job_id: int
+    template_id: int
+    calendar_date: date
+    job_name: str
+    template_name: str
+    from_person_id: int
+    from_name: str
+    to_person_id: int
+    to_name: str
+    note: str | None
+    review_note: str | None
+    created_at: datetime | None
+    # What the viewer may do with it right now.
+    can_accept: bool = False
+    can_cancel: bool = False
+    can_decide: bool = False

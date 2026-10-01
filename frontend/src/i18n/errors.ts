@@ -17,6 +17,7 @@ const BY_CODE: Record<string, MessageKey> = {
   UNREADABLE_FILE: "error.unreadableFile",
   TOO_MANY_ROWS: "error.tooManyRows",
   FILE_TOO_LARGE: "error.fileTooLarge",
+  SCHEDULE_CONFLICT: "error.scheduleConflict",
 };
 
 const BY_MESSAGE: Record<string, MessageKey> = {
@@ -36,6 +37,7 @@ const BY_MESSAGE: Record<string, MessageKey> = {
   "This account is not linked to a person record": "error.notLinked",
   "Incorrect or expired reset code": "error.resetCode",
   "No account uses that email address": "error.noSuchEmail",
+  "That person is already on this shift": "error.alreadyOnShift",
 };
 
 export function errorText(

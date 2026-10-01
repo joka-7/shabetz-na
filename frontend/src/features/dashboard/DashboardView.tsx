@@ -1,7 +1,13 @@
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
-import { CalendarRange, Play } from "lucide-react";
-import { generateSchedule, useDivisions } from "@/api/queries";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { CalendarRange, Play, Printer, UserPlus } from "lucide-react";
+import {
+  generateSchedule,
+  runKeys,
+  setShiftLock,
+  useDivisions,
+  useLatestRun,
+} from "@/api/queries";
 import { can, useSession } from "@/hooks/useSession";
 import {
   EmptyState,
@@ -15,12 +21,19 @@ import {
   utilizationPercent,
 } from "@/lib/schedule";
 import { AssignmentsTable } from "./AssignmentsTable";
+import { EditShiftDialog, type EditTarget } from "./EditShiftDialog";
+import { FairnessTable } from "./FairnessTable";
+import { HistoryPanel } from "./HistoryPanel";
+import { useToast } from "@/components/Toasts";
+import { MyShiftsView } from "./MyShiftsView";
+import { PrintGrid } from "./PrintGrid";
+import { PublishBar } from "./PublishBar";
 import { TimelineGantt } from "./TimelineGantt";
 import { WarningsPanel } from "./WarningsPanel";
 import { ExportBar } from "@/features/export/ExportBar";
 import { useI18n } from "@/i18n";
 import { errorText } from "@/i18n/errors";
-import type { Division, ScheduleRun } from "@/types/api";
+import type { Assignment, Division, ScheduleRun } from "@/types/api";
 
 /** A local calendar date; toISOString would give UTC's, a day off near midnight. */
 function isoDaysFromToday(days: number): string {
@@ -36,15 +49,49 @@ export function DashboardView() {
   const { data: divisions } = useDivisions();
   const [start, setStart] = useState(isoDaysFromToday(0));
   const [end, setEnd] = useState(isoDaysFromToday(13));
-  const [view, setView] = useState<"table" | "timeline">("table");
+  const [view, setView] = useState<"table" | "timeline" | "fairness">("table");
 
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [editing, setEditing] = useState<EditTarget | null>(null);
+  const [keepLocked, setKeepLocked] = useState(true);
+  const canEdit = can.generate(project);
+
+  // The schedule lives on the server, so a reload shows the latest one --
+  // including any changes made to it by hand.
+  const latest = useLatestRun(canEdit);
   const generate = useMutation<ScheduleRun, unknown, void>({
-    mutationFn: () => generateSchedule(start, end),
+    mutationFn: () => generateSchedule(start, end, keepLocked),
+    onSuccess: (created) => queryClient.setQueryData(runKeys.latest, created),
   });
-  const run = generate.data;
+  const run = latest.data ?? undefined;
+
+  const toggleLock = useMutation({
+    mutationFn: (a: Assignment) =>
+      setShiftLock(
+        run!.schedule_id,
+        { job_id: a.job_id, template_id: a.template_id, calendar_date: a.calendar_date },
+        a.person_id,
+        !a.is_locked,
+      ),
+    onSuccess: (updated) => queryClient.setQueryData(runKeys.latest, updated),
+  });
+
+  const lockedCount = run?.assignments.filter((a) => a.is_locked).length ?? 0;
+
+  const onSaved = (updated: ScheduleRun) => {
+    queryClient.setQueryData(runKeys.latest, updated);
+    setEditing(null);
+    toast(t("toast.changeSaved"));
+  };
+
+  // Staff do not plan; they see their own shifts once a schedule is published.
+  if (!canEdit) return <MyShiftsView />;
 
   return (
-    <div className="space-y-4">
+    <>
+    {run && <PrintGrid run={run} projectName={project?.name ?? ""} />}
+    <div className="space-y-4 print:hidden">
       {can.generate(project) && (
         <section className="card">
           <div className="flex flex-wrap items-end gap-3">
@@ -76,6 +123,16 @@ export function DashboardView() {
               <Play className="h-4 w-4" aria-hidden />
               {generate.isPending ? t("dashboard.generating") : t("dashboard.generate")}
             </button>
+            {lockedCount > 0 && (
+              <label className="flex items-center gap-2 pb-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={keepLocked}
+                  onChange={(event) => setKeepLocked(event.target.checked)}
+                />
+                {t("dashboard.keepLocked", { count: lockedCount })}
+              </label>
+            )}
             {run && <ExportBar scheduleId={run.schedule_id} />}
           </div>
 
@@ -87,6 +144,8 @@ export function DashboardView() {
         </section>
       )}
 
+      {canEdit && latest.isLoading && !run && <Skeleton className="h-40" />}
+
       {generate.isPending && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {Array.from({ length: 5 }, (_, index) => (
@@ -95,7 +154,7 @@ export function DashboardView() {
         </div>
       )}
 
-      {!run && !generate.isPending && (
+      {!run && !generate.isPending && !latest.isLoading && (
         <EmptyState
           title={t("dashboard.emptyTitle")}
           hint={can.generate(project) ? t("dashboard.emptyHint") : t("dashboard.emptyHintStaff")}
@@ -104,6 +163,8 @@ export function DashboardView() {
 
       {run && (
         <>
+          <PublishBar run={run} />
+
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <StatCard label={t("stat.shifts")} value={run.summary.total_assignments} />
             <StatCard
@@ -138,8 +199,8 @@ export function DashboardView() {
 
           <RotationStrip run={run} divisions={divisions ?? []} />
 
-          <div className="flex gap-1">
-            {(["table", "timeline"] as const).map((option) => (
+          <div className="flex flex-wrap items-center gap-1">
+            {(["table", "timeline", "fairness"] as const).map((option) => (
               <button
                 key={option}
                 onClick={() => setView(option)}
@@ -150,21 +211,73 @@ export function DashboardView() {
                     : "border border-slate-300 dark:border-slate-700"
                 }`}
               >
-                {option === "table" ? t("dashboard.table") : t("timeline.title")}
+                {option === "table"
+                  ? t("dashboard.table")
+                  : option === "timeline"
+                    ? t("timeline.title")
+                    : t("fairness.title")}
               </button>
             ))}
+            <button className="btn-ghost ms-auto text-sm" onClick={() => window.print()}>
+              <Printer className="h-4 w-4" aria-hidden />
+              {t("dashboard.print")}
+            </button>
+            {canEdit && (
+              <button className="btn-ghost text-sm" onClick={() => setEditing({ kind: "add" })}>
+                <UserPlus className="h-4 w-4" aria-hidden />
+                {t("edit.add")}
+              </button>
+            )}
           </div>
 
           {view === "table" ? (
-            <AssignmentsTable run={run} divisions={divisions ?? []} />
+            <AssignmentsTable
+              run={run}
+              divisions={divisions ?? []}
+              onEdit={canEdit ? (assignment) => setEditing({ kind: "reassign", assignment }) : undefined}
+              onToggleLock={canEdit ? (assignment) => toggleLock.mutate(assignment) : undefined}
+            />
+          ) : view === "timeline" ? (
+            <TimelineGantt
+              run={run}
+              divisions={divisions ?? []}
+              onChanged={canEdit ? onSaved : undefined}
+            />
           ) : (
-            <TimelineGantt run={run} divisions={divisions ?? []} />
+            <FairnessTable run={run} />
           )}
 
-          <WarningsPanel warnings={run.warnings} />
+          <WarningsPanel
+            warnings={run.warnings}
+            onFix={
+              canEdit
+                ? (warning) =>
+                    setEditing({
+                      kind: "add",
+                      slot: {
+                        job_id: warning.job_id!,
+                        template_id: warning.template_id!,
+                        calendar_date: warning.calendar_date!,
+                      },
+                    })
+                : undefined
+            }
+          />
+
+          {canEdit && <HistoryPanel run={run} />}
+
+          {editing && (
+            <EditShiftDialog
+              run={run}
+              target={editing}
+              onClose={() => setEditing(null)}
+              onSaved={onSaved}
+            />
+          )}
         </>
       )}
     </div>
+    </>
   );
 }
 

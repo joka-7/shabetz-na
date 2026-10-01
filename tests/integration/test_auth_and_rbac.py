@@ -228,3 +228,9 @@ def test_saving_settings_does_not_reset_wizard_completion(client: TestClient, ad
     admin.post("/api/setup/complete")
     admin.put("/api/config/settings", json={"rest_period_hours": 10})
     assert admin.get("/api/config/settings").json()["setup_completed"] is True
+
+
+def test_a_reload_can_recover_the_csrf_token_from_its_cookie(client, admin) -> None:
+    """The page holds the token in memory; after a reload it reads it back from
+    this cookie, so writes keep working without signing in again."""
+    assert client.cookies.get("shabetz_csrf") == admin.csrf

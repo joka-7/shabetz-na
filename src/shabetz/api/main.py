@@ -14,6 +14,7 @@ from .routes import (
     meta_routes,
     project_routes,
     schedule_routes,
+    swap_routes,
     timeoff_routes,
 )
 from .static import find_static_dir, mount_frontend
@@ -48,6 +49,7 @@ def create_app() -> FastAPI:
         config_routes,
         import_routes,
         schedule_routes,
+        swap_routes,
         timeoff_routes,
         project_routes,
     ):

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FileSpreadsheet, Plus } from "lucide-react";
+import { Check, FileSpreadsheet, Plus } from "lucide-react";
 import { api } from "@/api/client";
 import {
   keys,
@@ -40,9 +40,15 @@ export function PeopleStep() {
   // saves the most typing.
   const [importing, setImporting] = useState<boolean | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const [editing, setEditing] = useState<Person | null>(null);
 
   const create = useConfigMutation(
     (payload: unknown) => api.post<Person>("/api/config/people", payload),
+    [keys.people],
+  );
+  const update = useConfigMutation(
+    ({ id, ...payload }: { id: number } & Record<string, unknown>) =>
+      api.put<Person>(`/api/config/people/${id}`, payload),
     [keys.people],
   );
   const remove = useConfigMutation(
@@ -61,17 +67,35 @@ export function PeopleStep() {
   function submit(event: React.FormEvent) {
     event.preventDefault();
     if (!fullName.trim() || resolvedDivision === null) return;
-    create.mutate({
+    const payload = {
       full_name: fullName.trim(),
       division_id: resolvedDivision,
       working_weekdays: weekdays,
+      external_ref: editing?.external_ref ?? null,
       skills: Object.entries(personSkills).map(([skill_id, level_id]) => ({
         skill_id: Number(skill_id),
         level_id,
       })),
-    });
+    };
+    if (editing) update.mutate({ id: editing.id, ...payload });
+    else create.mutate(payload);
+    cancelEdit();
+  }
+
+  function startEdit(person: Person) {
+    setEditing(person);
+    setFullName(person.full_name);
+    setDivisionId(person.division_id);
+    setWeekdays(person.working_weekdays);
+    setPersonSkills(Object.fromEntries(person.skills.map((s) => [s.skill_id, s.level_id])));
+    document.getElementById("person-name")?.scrollIntoView({ block: "center" });
+  }
+
+  function cancelEdit() {
+    setEditing(null);
     setFullName("");
     setPersonSkills({});
+    setWeekdays(defaultWeek);
   }
 
   const days = (list: number[]) =>
@@ -148,17 +172,31 @@ export function PeopleStep() {
             </fieldset>
           )}
 
-          <button className="btn-primary" type="submit" disabled={create.isPending}>
-            <Plus className="h-4 w-4" aria-hidden />
-            {t("people.add")}
-          </button>
+          <div className="flex gap-2">
+            <button
+              className="btn-primary"
+              type="submit"
+              disabled={create.isPending || update.isPending}
+            >
+              {editing ? <Check className="h-4 w-4" aria-hidden /> : <Plus className="h-4 w-4" aria-hidden />}
+              {editing ? t("common.save") : t("people.add")}
+            </button>
+            {editing && (
+              <button className="btn-ghost" type="button" onClick={cancelEdit}>
+                {t("common.cancel")}
+              </button>
+            )}
+          </div>
+          {editing && (
+            <p className="text-xs text-slate-500">{t("edit.editing", { name: editing.full_name })}</p>
+          )}
         </form>
       ) : (
         // An import can create divisions as it goes; a single person needs one.
         <p className="text-xs text-slate-500">{t("people.noDivisionsHint")}</p>
       )}
 
-      <MutationError error={create.error ?? remove.error} />
+      <MutationError error={create.error ?? remove.error ?? update.error} />
 
       {isLoading ? (
         <Spinner />
@@ -175,6 +213,8 @@ export function PeopleStep() {
                   key={person.id}
                   deleteLabel={t("common.removeNamed", { name: person.full_name })}
                   onDelete={() => remove.mutate(person.id)}
+                  onEdit={() => startEdit(person)}
+                  editLabel={t("common.editNamed", { name: person.full_name })}
                 >
                   <div className="flex flex-wrap items-center gap-2 text-sm">
                     <span className="font-medium">{person.full_name}</span>

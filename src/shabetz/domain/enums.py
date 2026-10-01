@@ -36,6 +36,11 @@ class WarningKind(StrEnum):
     UNDERSTAFFED = "UNDERSTAFFED"
     MISSING_ROLE = "MISSING_ROLE"
     DIVISION_FALLBACK = "DIVISION_FALLBACK"
+    # Raised for hand-made assignments, which the engine never produces itself.
+    UNAVAILABLE = "UNAVAILABLE"
+    DOUBLE_BOOKED = "DOUBLE_BOOKED"
+    REST_VIOLATION = "REST_VIOLATION"
+    MISSING_SKILL = "MISSING_SKILL"
 
 
 class ProjectRole(StrEnum):
@@ -52,6 +57,17 @@ class TimeOffStatus(StrEnum):
     APPROVED = "APPROVED"
     DENIED = "DENIED"
     CANCELLED = "CANCELLED"
+
+
+class SwapStatus(StrEnum):
+    """A request to hand a shift to a colleague, and where it has got to."""
+
+    AWAITING_COLLEAGUE = "AWAITING_COLLEAGUE"  # the colleague has not answered yet
+    AWAITING_MANAGER = "AWAITING_MANAGER"  # both agree; a manager decides
+    APPROVED = "APPROVED"  # applied to the schedule
+    DENIED = "DENIED"  # by a manager
+    DECLINED = "DECLINED"  # by the colleague
+    CANCELLED = "CANCELLED"  # by the requester
 
 
 class FeasibilityVerdict(StrEnum):

@@ -67,6 +67,19 @@ def _issue_session(
         max_age=settings.session_ttl_hours * 3600,
         path="/",
     )
+    # The same token the response body carries, but readable by the page, so a
+    # reload can recover it: the page keeps it in memory, and without it every
+    # write after a refresh would be refused until the next sign-in. On its own
+    # it is useless -- writes also need the HttpOnly session cookie above.
+    response.set_cookie(
+        settings.csrf_cookie_name,
+        session_row.csrf_token,
+        httponly=False,
+        secure=settings.cookie_secure,
+        samesite="lax",
+        max_age=settings.session_ttl_hours * 3600,
+        path="/",
+    )
     return SessionOut(user=UserOut.model_validate(user), csrf_token=session_row.csrf_token)
 
 
@@ -260,6 +273,7 @@ def logout(
     if session_id:
         revoke(db, session_id)
     response.delete_cookie(settings.cookie_name, path="/")
+    response.delete_cookie(settings.csrf_cookie_name, path="/")
     return {"ok": True}
 
 

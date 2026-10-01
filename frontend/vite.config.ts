@@ -15,5 +15,7 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test-setup.ts"],
+    // Browser tests run under Playwright, not here.
+    include: ["src/**/*.test.{ts,tsx}"],
   },
 });

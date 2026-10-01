@@ -204,6 +204,91 @@ export interface Assignment {
   role: "ROLE" | "MEMBER";
   is_division_fallback: boolean;
   satisfied_requirement_id: number | null;
+  /** Placed or swapped by hand after the schedule was generated. */
+  is_manual?: boolean;
+  /** Kept when the schedule is regenerated. */
+  is_locked?: boolean;
+}
+
+export interface HistoryEntry {
+  id: number;
+  at: string | null;
+  user_name: string | null;
+  action: "reassign" | "add" | "remove" | "lock" | "unlock";
+  job_name: string | null;
+  template_name: string | null;
+  calendar_date: string | null;
+  person_before: string | null;
+  person_after: string | null;
+  undone: boolean;
+  can_undo: boolean;
+}
+
+export interface MyShifts {
+  schedule_id: string | null;
+  published_at: string | null;
+  assignments: Assignment[];
+}
+
+export interface PublishResult {
+  published_at: string | null;
+  notified: number | null;
+  email_configured: boolean;
+}
+
+export type SwapStatus =
+  | "AWAITING_COLLEAGUE"
+  | "AWAITING_MANAGER"
+  | "APPROVED"
+  | "DENIED"
+  | "DECLINED"
+  | "CANCELLED";
+
+export interface Swap {
+  id: number;
+  status: SwapStatus;
+  schedule_id: string;
+  job_id: number;
+  template_id: number;
+  calendar_date: string;
+  job_name: string;
+  template_name: string;
+  from_person_id: number;
+  from_name: string;
+  to_person_id: number;
+  to_name: string;
+  note: string | null;
+  review_note: string | null;
+  created_at: string | null;
+  can_accept: boolean;
+  can_cancel: boolean;
+  can_decide: boolean;
+}
+
+export interface Colleague {
+  person_id: number;
+  name: string;
+}
+
+export interface SlotRef {
+  job_id: number;
+  template_id: number;
+  calendar_date: string;
+}
+
+export interface Suggestion {
+  person_id: number;
+  person_name: string;
+  division_id: number;
+  shifts_in_schedule: number;
+  conflicts: ScheduleConflict[];
+}
+
+export interface ScheduleConflict {
+  kind: string;
+  person_id: number;
+  person_name: string;
+  message: string;
 }
 
 export interface ScheduleWarning {
@@ -236,6 +321,7 @@ export interface ScheduleSummary {
 export interface ScheduleRun {
   schedule_id: string;
   created_at: string | null;
+  published_at?: string | null;
   params: Record<string, unknown>;
   summary: ScheduleSummary;
   assignments: Assignment[];
@@ -263,6 +349,8 @@ export interface Capabilities {
   setup_complete: boolean;
   /** Desktop only: a reset code can be written to the app's own folder. */
   password_recovery?: boolean;
+  /** The server can send email, so publishing can notify staff. */
+  email_available?: boolean;
 }
 
 export interface BulkResult {

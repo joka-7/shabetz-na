@@ -18,12 +18,7 @@ from collections import defaultdict
 from collections.abc import Sequence
 from datetime import date, timedelta
 
-from ..domain.enums import (
-    AssignmentRole,
-    DivisionPolicy,
-    WarningKind,
-    WarningSeverity,
-)
+from ..domain.enums import AssignmentRole, DivisionPolicy
 from ..domain.models import (
     Assignment,
     Job,
@@ -37,6 +32,7 @@ from ..domain.state import SchedulerState
 from .result import ScheduleResult, build_summary
 from .rotation import DivisionRotation
 from .strategy import SchedulingStrategy
+from .warnings import slot_warnings
 
 
 class SimpleGreedyScheduler(SchedulingStrategy):
@@ -45,8 +41,16 @@ class SimpleGreedyScheduler(SchedulingStrategy):
         people: Sequence[Person],
         jobs: Sequence[Job],
         params: ScheduleParams,
+        locked: Sequence[Assignment] = (),
     ) -> ScheduleResult:
         state = SchedulerState(people, params.rest_period_hours)
+        known = {person.id: person for person in people}
+        # Anyone no longer on the roster, or outside the window, cannot be kept.
+        pinned: dict[tuple[int, int, date], list[Assignment]] = defaultdict(list)
+        for pin in locked:
+            if pin.person_id in known and params.start_date <= pin.calendar_date <= params.end_date:
+                pinned[(pin.job_id, pin.template_id, pin.calendar_date)].append(pin)
+                state.reserve(pin.person_id, pin.start_abs, pin.end_abs)
         rotation = DivisionRotation(
             division_order=params.division_order,
             block_days=params.rotation_block_days,
@@ -75,9 +79,12 @@ class SimpleGreedyScheduler(SchedulingStrategy):
             for job in ordered_jobs:
                 for template in job.shift_templates:
                     slot = ShiftSlot.build(job, template, day, day_index)
-                    picked = self._staff_slot(job, slot, by_division, rotation, active, state, day)
+                    kept = pinned.get((job.id, template.id, day), [])
+                    picked = self._staff_slot(
+                        job, slot, by_division, rotation, active, state, day, kept, known
+                    )
                     assignments.extend(picked)
-                    self._record_shortfalls(job, slot, picked, warnings)
+                    warnings.extend(slot_warnings(job, slot, picked))
 
             # Advancing with an explicit timedelta is what keeps this loop
             # finite; the original spun forever without it.
@@ -105,10 +112,19 @@ class SimpleGreedyScheduler(SchedulingStrategy):
         active: int | None,
         state: SchedulerState,
         day: date,
+        kept: Sequence[Assignment] = (),
+        known: dict[int, Person] | None = None,
     ) -> list[Assignment]:
         tiers = self._candidate_tiers(job, by_division, rotation, active, day)
         chosen: list[Assignment] = []
         taken: set[int] = set()
+
+        # Pinned people first: they count toward the head count and toward any
+        # named role they were filling, so the engine only fills what is left.
+        for pinned_assignment in kept:
+            state.commit((known or {})[pinned_assignment.person_id], slot)
+            taken.add(pinned_assignment.person_id)
+            chosen.append(pinned_assignment)
 
         # Phase 1 - satisfy every requirement that names a specific number of
         # people.  Ordered by scarcity so the hardest role is filled while the
@@ -212,79 +228,6 @@ class SimpleGreedyScheduler(SchedulingStrategy):
                 eligible.sort(key=lambda p: (*state.load(p.id), p.id))
                 return eligible[0], tier_index
         return None
-
-    # --------------------------------------------------------------- warnings
-
-    def _record_shortfalls(
-        self,
-        job: Job,
-        slot: ShiftSlot,
-        picked: list[Assignment],
-        warnings: list[ScheduleWarning],
-    ) -> None:
-        if len(picked) < job.required_people_per_shift:
-            warnings.append(
-                ScheduleWarning(
-                    kind=WarningKind.UNDERSTAFFED,
-                    severity=WarningSeverity.ERROR,
-                    message=(
-                        f"{job.name} on {slot.calendar_date.isoformat()} "
-                        f"({slot.template_name}) has {len(picked)} of "
-                        f"{job.required_people_per_shift} required staff"
-                    ),
-                    calendar_date=slot.calendar_date,
-                    job_id=job.id,
-                    template_id=slot.template_id,
-                    required=job.required_people_per_shift,
-                    assigned=len(picked),
-                    job_name=job.name,
-                    template_name=slot.template_name,
-                )
-            )
-
-        for requirement in job.role_requirements:
-            filled = sum(1 for a in picked if a.satisfied_requirement_id == requirement.id)
-            if filled < (requirement.required_count or 0):
-                warnings.append(
-                    ScheduleWarning(
-                        kind=WarningKind.MISSING_ROLE,
-                        severity=WarningSeverity.ERROR,
-                        message=(
-                            f"{job.name} on {slot.calendar_date.isoformat()} "
-                            f"({slot.template_name}) needs "
-                            f"{requirement.required_count} x {requirement.skill_name} "
-                            f"but filled {filled}"
-                        ),
-                        calendar_date=slot.calendar_date,
-                        job_id=job.id,
-                        template_id=slot.template_id,
-                        required=requirement.required_count,
-                        assigned=filled,
-                        job_name=job.name,
-                        template_name=slot.template_name,
-                        skill_name=requirement.skill_name,
-                    )
-                )
-
-        for assignment in picked:
-            if assignment.is_division_fallback:
-                warnings.append(
-                    ScheduleWarning(
-                        kind=WarningKind.DIVISION_FALLBACK,
-                        severity=WarningSeverity.INFO,
-                        message=(
-                            f"{assignment.person_name} was borrowed from outside the "
-                            f"active division for {job.name} on "
-                            f"{slot.calendar_date.isoformat()}"
-                        ),
-                        calendar_date=slot.calendar_date,
-                        job_id=job.id,
-                        template_id=slot.template_id,
-                        job_name=job.name,
-                        template_name=slot.template_name,
-                        person_name=assignment.person_name,
-                    )
-                )
 
     @staticmethod
     def _assignment(

@@ -25,7 +25,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.mysql import LONGBLOB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from ..domain.enums import DivisionPolicy, ProjectRole, TimeOffStatus
+from ..domain.enums import DivisionPolicy, ProjectRole, SwapStatus, TimeOffStatus
 from .base import TABLE_ARGS, Base, StrEnumType, UtcDateTime, utcnow
 
 # MySQL gets LONGBLOB so a long horizon across a large roster is not capped at
@@ -421,6 +421,48 @@ class ScheduleRun(Base):
     params_json: Mapped[dict] = mapped_column(JSON)
     summary_json: Mapped[dict] = mapped_column(JSON)
     payload_gz: Mapped[bytes] = mapped_column(PayloadBlob)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+    # A schedule is a private draft until published; only then can staff see it.
+    published_at: Mapped[datetime | None] = mapped_column(UtcDateTime, default=None)
+    published_by: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), default=None
+    )
+
+
+class SwapRequest(Base):
+    """A member asks to hand one of their published shifts to a colleague."""
+
+    __tablename__ = "swap_requests"
+    __table_args__ = (
+        Index("ix_swap_project_status", "project_id", "status"),
+        TABLE_ARGS,
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True
+    )
+    schedule_id: Mapped[str] = mapped_column(String(64))
+    job_id: Mapped[int] = mapped_column(Integer)
+    template_id: Mapped[int] = mapped_column(Integer)
+    calendar_date: Mapped[date] = mapped_column(Date)
+    # Names as they were when asked, so the request still reads after a rename.
+    job_name: Mapped[str] = mapped_column(String(160))
+    template_name: Mapped[str] = mapped_column(String(120))
+    from_person_id: Mapped[int] = mapped_column(ForeignKey("people.id", ondelete="CASCADE"))
+    to_person_id: Mapped[int] = mapped_column(ForeignKey("people.id", ondelete="CASCADE"))
+    status: Mapped[SwapStatus] = mapped_column(
+        StrEnumType(SwapStatus, length=24), default=SwapStatus.AWAITING_COLLEAGUE
+    )
+    note: Mapped[str | None] = mapped_column(Text, default=None)
+    requested_by: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), default=None
+    )
+    reviewed_by: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), default=None
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(UtcDateTime, default=None)
+    review_note: Mapped[str | None] = mapped_column(Text, default=None)
     created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
 
 

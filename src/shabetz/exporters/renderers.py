@@ -120,7 +120,58 @@ def render_pdf(payload: dict, params: dict, summary: dict, schedule_id: str) -> 
     return ExportedFile(pdf, "application/pdf", f"{_stem(params, schedule_id)}.pdf")
 
 
+def _ics_escape(text: str) -> str:
+    return text.replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,").replace("\n", "\\n")
+
+
+def _floating(day: str, hours: float) -> str:
+    """A local date-time with no zone, so a shift reads as the same wall-clock time anywhere."""
+    from datetime import date as _date
+    from datetime import timedelta
+
+    base = _date.fromisoformat(day)
+    whole_days, clock = divmod(hours, 24)
+    moment = base + timedelta(days=int(whole_days))
+    minutes = int(round(clock * 60))
+    return f"{moment:%Y%m%d}T{minutes // 60 % 24:02d}{minutes % 60:02d}00"
+
+
+def render_ics(payload: dict, params: dict, summary: dict, schedule_id: str) -> ExportedFile:
+    """An iCalendar file, so shifts can be added to a phone or desktop calendar."""
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//Shabetz//Schedule//EN",
+        "CALSCALE:GREGORIAN",
+    ]
+    for a in _rows(payload):
+        # start_abs counts from the schedule's first midnight, so the day the shift
+        # begins is its own calendar_date and only the clock time is taken from it.
+        start = _floating(a["calendar_date"], a["start_abs"] % 24)
+        end = _floating(a["calendar_date"], a["start_abs"] % 24 + (a["end_abs"] - a["start_abs"]))
+        uid = (
+            f"{schedule_id}-{a['person_id']}-{a['job_id']}-{a['template_id']}-{a['calendar_date']}"
+        )
+        lines += [
+            "BEGIN:VEVENT",
+            f"UID:{uid}@shabetz",
+            f"DTSTAMP:{stamp}",
+            f"DTSTART:{start}",
+            f"DTEND:{end}",
+            f"SUMMARY:{_ics_escape(a['job_name'])} ({_ics_escape(a['template_name'])})",
+            f"DESCRIPTION:{_ics_escape(a['person_name'])}",
+            "END:VEVENT",
+        ]
+    lines.append("END:VCALENDAR")
+    content = "\r\n".join(lines) + "\r\n"
+    return ExportedFile(
+        content.encode("utf-8"), "text/calendar; charset=utf-8", f"{_stem(params, schedule_id)}.ics"
+    )
+
+
 RENDERERS = {
+    ExportFormat.ICS: render_ics,
     ExportFormat.CSV: render_csv,
     ExportFormat.HTML: render_html,
     ExportFormat.PDF: render_pdf,
@@ -128,7 +179,7 @@ RENDERERS = {
 
 
 def available_formats() -> list[ExportFormat]:
-    formats = [ExportFormat.CSV, ExportFormat.HTML]
+    formats = [ExportFormat.CSV, ExportFormat.HTML, ExportFormat.ICS]
     if pdf_engine_available():
         formats.append(ExportFormat.PDF)
     return formats

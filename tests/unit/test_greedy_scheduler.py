@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import date, timedelta
 
 import pytest
@@ -376,3 +377,28 @@ def test_configurable_levels_compare_by_rank() -> None:
         params(D1, D1),
     )
     assert [a.person_id for a in result.assignments] == [high.id]
+
+
+# ------------------------------------------------------------- pinned shifts
+
+
+def test_pinned_shift_is_kept_and_nobody_is_double_booked_around_it() -> None:
+    people = roster(3)
+    desk = job(1, "Desk", 1, three_eight_hour_blocks())
+    baseline = SimpleGreedyScheduler().generate(people, [desk], params(D1, D1))
+    # Pin the evening-window worker's shift onto someone the engine would not choose.
+    last = baseline.assignments[-1]
+    other = next(p for p in people if p.id != last.person_id)
+    pinned = replace(last, person_id=other.id, person_name=other.full_name, is_locked=True)
+
+    result = SimpleGreedyScheduler().generate(people, [desk], params(D1, D1), [pinned])
+
+    assert pinned in result.assignments
+    by_person: dict[int, list] = {}
+    for a in result.assignments:
+        by_person.setdefault(a.person_id, []).append(a)
+    for shifts in by_person.values():
+        shifts.sort(key=lambda a: a.start_abs)
+        for first, second in zip(shifts, shifts[1:], strict=False):
+            assert second.start_abs >= first.end_abs  # never overlapping
+    assert len(result.assignments) == len(baseline.assignments)

@@ -1,18 +1,27 @@
 /** Shared query keys and fetchers. */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "./client";
+import { api, request } from "./client";
 import type {
+  Assignment,
+  Colleague,
   Division,
   Feasibility,
+  HistoryEntry,
   Invite,
   Job,
   Member,
+  MyShifts,
   Person,
+  PublishResult,
   ProficiencyLevel,
+  ScheduleConflict,
   ScheduleRun,
+  SlotRef,
+  Swap,
   Settings,
   ShiftTemplate,
+  Suggestion,
   Skill,
   TimeOff,
 } from "@/types/api";
@@ -92,5 +101,157 @@ export function useConfigMutation<TArgs, TResult>(
   });
 }
 
-export const generateSchedule = (start_date: string, end_date: string) =>
-  api.post<ScheduleRun>("/api/schedule/generate", { start_date, end_date });
+export const generateSchedule = (start_date: string, end_date: string, keep_locked = true) =>
+  api.post<ScheduleRun>("/api/schedule/generate", { start_date, end_date, keep_locked });
+
+// ----------------------------------------------------------- schedule editing
+
+export const runKeys = {
+  latest: ["schedule-run", "latest"] as const,
+  one: (id: string) => ["schedule-run", id] as const,
+};
+
+/**
+ * The most recent run, so a reload (or a colleague's edit) shows the current
+ * schedule instead of an empty page. Only editors may list runs.
+ */
+export function useLatestRun(enabled: boolean) {
+  return useQuery({
+    queryKey: runKeys.latest,
+    enabled,
+    queryFn: async () => {
+      const [latest] = await api.get<{ schedule_id: string }[]>("/api/schedule/runs?limit=1");
+      return latest ? api.get<ScheduleRun>(`/api/schedule/runs/${latest.schedule_id}`) : null;
+    },
+  });
+}
+
+const assignmentsUrl = (scheduleId: string) =>
+  `/api/schedule/runs/${encodeURIComponent(scheduleId)}/assignments`;
+
+export const checkAssignment = (
+  scheduleId: string,
+  body: SlotRef & { person_id: number; replaces_person_id?: number | null },
+) =>
+  api.post<{ conflicts: ScheduleConflict[] }>(`${assignmentsUrl(scheduleId)}/check`, body);
+
+export const fetchSuggestions = (
+  scheduleId: string,
+  slot: SlotRef,
+  replacesPersonId: number | null,
+) =>
+  api.get<Suggestion[]>(
+    `/api/schedule/runs/${encodeURIComponent(scheduleId)}/suggestions?${new URLSearchParams({
+      job_id: String(slot.job_id),
+      template_id: String(slot.template_id),
+      calendar_date: slot.calendar_date,
+      ...(replacesPersonId !== null ? { replaces_person_id: String(replacesPersonId) } : {}),
+    })}`,
+  );
+
+export const swapShifts = (
+  scheduleId: string,
+  a: Assignment,
+  b: Assignment,
+  acknowledge: boolean,
+) => {
+  const slot = (x: Assignment) => ({
+    job_id: x.job_id,
+    template_id: x.template_id,
+    calendar_date: x.calendar_date,
+  });
+  return api.post<ScheduleRun>(`${assignmentsUrl(scheduleId)}/swap`, {
+    a: slot(a),
+    a_person_id: a.person_id,
+    b: slot(b),
+    b_person_id: b.person_id,
+    acknowledge_conflicts: acknowledge,
+  });
+};
+
+export const setShiftLock = (
+  scheduleId: string,
+  slot: SlotRef,
+  personId: number,
+  locked: boolean,
+) =>
+  api.put<ScheduleRun>(`${assignmentsUrl(scheduleId)}/lock`, {
+    ...slot,
+    person_id: personId,
+    locked,
+  });
+
+export const myShiftsKey = ["my-shifts"] as const;
+export const fetchMyShifts = () => api.get<MyShifts>("/api/schedule/my-shifts");
+
+export const publishRun = (scheduleId: string, notify: boolean) =>
+  api.post<PublishResult>(`/api/schedule/runs/${encodeURIComponent(scheduleId)}/publish`, {
+    notify,
+  });
+
+export const unpublishRun = (scheduleId: string) =>
+  api.post<PublishResult>(`/api/schedule/runs/${encodeURIComponent(scheduleId)}/unpublish`);
+
+export const swapKeys = { all: ["swaps"] as const, colleagues: ["swap-colleagues"] as const };
+
+export const useSwaps = () =>
+  useQuery({ queryKey: swapKeys.all, queryFn: () => api.get<Swap[]>("/api/swaps") });
+
+export const useColleagues = (enabled: boolean) =>
+  useQuery({
+    queryKey: swapKeys.colleagues,
+    enabled,
+    queryFn: () => api.get<Colleague[]>("/api/swaps/colleagues"),
+  });
+
+export const requestSwap = (body: SlotRef & { to_person_id: number; note: string | null }) =>
+  api.post<Swap>("/api/swaps", body);
+
+export const swapAction = (
+  id: number,
+  action: "accept" | "decline" | "cancel" | "approve" | "deny",
+  body?: { note?: string | null; acknowledge_conflicts?: boolean },
+) => api.post<Swap>(`/api/swaps/${id}/${action}`, body);
+
+export const swapConflicts = (id: number) =>
+  api.get<ScheduleConflict[]>(`/api/swaps/${id}/conflicts`);
+
+export const historyKey = (scheduleId: string) => ["schedule-history", scheduleId] as const;
+
+export const useHistory = (scheduleId: string | undefined, enabled: boolean) =>
+  useQuery({
+    queryKey: historyKey(scheduleId ?? ""),
+    enabled: enabled && Boolean(scheduleId),
+    queryFn: () =>
+      api.get<HistoryEntry[]>(`/api/schedule/runs/${encodeURIComponent(scheduleId!)}/history`),
+  });
+
+export const undoEdit = (scheduleId: string, entryId: number) =>
+  api.post<ScheduleRun>(
+    `/api/schedule/runs/${encodeURIComponent(scheduleId)}/history/${entryId}/undo`,
+  );
+
+export const reassignShift = (
+  scheduleId: string,
+  body: SlotRef & {
+    from_person_id: number;
+    to_person_id: number;
+    acknowledge_conflicts: boolean;
+  },
+) => api.put<ScheduleRun>(assignmentsUrl(scheduleId), body);
+
+export const addShiftPerson = (
+  scheduleId: string,
+  body: SlotRef & { person_id: number; acknowledge_conflicts: boolean },
+) => api.post<ScheduleRun>(assignmentsUrl(scheduleId), body);
+
+export const removeShiftPerson = (scheduleId: string, slot: SlotRef, personId: number) =>
+  request<ScheduleRun>(
+    `${assignmentsUrl(scheduleId)}?${new URLSearchParams({
+      job_id: String(slot.job_id),
+      template_id: String(slot.template_id),
+      calendar_date: slot.calendar_date,
+      person_id: String(personId),
+    })}`,
+    { method: "DELETE" },
+  );

@@ -237,3 +237,7 @@ src/shabetz/web/
 !packaging/*.spec
 !packaging/*.manifest
 *.tsbuildinfo
+
+# Playwright
+frontend/test-results/
+frontend/playwright-report/

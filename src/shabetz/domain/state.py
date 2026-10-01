@@ -28,6 +28,10 @@ class SchedulerState:
         # begins at hour zero on day one, because the rest check would compare
         # it against the schedule's own origin.  Offsetting by a full rest
         # window makes everyone genuinely available before the horizon opens.
+        # Shifts pinned by a person, which regeneration must work around. Kept as
+        # intervals because they can lie ahead of the engine's position, where
+        # the single "available from" mark cannot describe them.
+        self._reserved: dict[int, list[tuple[float, float]]] = {}
         self._availability: dict[int, PersonAvailability] = {
             person.id: PersonAvailability(person.id, 0.0 - rest_period_hours, 0)
             for person in people
@@ -39,7 +43,16 @@ class SchedulerState:
         state = self._availability.get(person.id)
         if state is None:
             return False
-        return state.available_from_hours <= slot.start_abs + EPS
+        if state.available_from_hours > slot.start_abs + EPS:
+            return False
+        rest = self._rest
+        return not any(
+            slot.start_abs < end + rest - EPS and start < slot.end_abs + rest - EPS
+            for start, end in self._reserved.get(person.id, ())
+        )
+
+    def reserve(self, person_id: int, start: float, end: float) -> None:
+        self._reserved.setdefault(person_id, []).append((start, end))
 
     def commit(self, person: Person, slot: ShiftSlot) -> None:
         state = self._availability[person.id]

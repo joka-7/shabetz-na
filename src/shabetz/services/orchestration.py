@@ -8,10 +8,12 @@ import secrets
 from dataclasses import asdict
 from datetime import date
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
 from ..db.models import ScheduleRun
-from ..domain.models import Job, Person, ScheduleParams
+from ..domain.enums import AssignmentRole
+from ..domain.models import Assignment, Job, Person, ScheduleParams
 from ..repositories.db_repo import DbSchedulingRepository
 from ..scheduling.greedy import SimpleGreedyScheduler
 from ..scheduling.result import ScheduleResult
@@ -68,9 +70,36 @@ class JobOrchestrationService:
 
     # --------------------------------------------------------------- generate
 
-    def generate(self, start: date, end: date) -> tuple[str, ScheduleResult, ScheduleParams]:
+    def locked_assignments(self) -> list[Assignment]:
+        """Pinned shifts from the project's most recent run."""
+        latest = self._db.scalars(
+            select(ScheduleRun)
+            .where(ScheduleRun.project_id == self._project_id)
+            .order_by(ScheduleRun.created_at.desc())
+            .limit(1)
+        ).first()
+        if latest is None:
+            return []
+        kept: list[Assignment] = []
+        for raw in self.load_payload(latest)["assignments"]:
+            if raw.get("is_locked"):
+                kept.append(
+                    Assignment(
+                        **{
+                            **raw,
+                            "calendar_date": date.fromisoformat(raw["calendar_date"]),
+                            "role": AssignmentRole(raw["role"]),
+                        }
+                    )
+                )
+        return kept
+
+    def generate(
+        self, start: date, end: date, *, keep_locked: bool = False
+    ) -> tuple[str, ScheduleResult, ScheduleParams]:
         people, jobs, params = self._config(start, end)
-        result = self._strategy.generate(people, jobs, params)
+        locked = self.locked_assignments() if keep_locked else []
+        result = self._strategy.generate(people, jobs, params, locked)
         schedule_id = secrets.token_urlsafe(16)
         return schedule_id, result, params
 
@@ -82,15 +111,15 @@ class JobOrchestrationService:
         created_by: int | None,
     ) -> ScheduleRun:
         payload = {
-            "assignments": [_jsonable(asdict(a)) for a in result.assignments],
-            "warnings": [_jsonable(asdict(w)) for w in result.warnings],
+            "assignments": [jsonable(asdict(a)) for a in result.assignments],
+            "warnings": [jsonable(asdict(w)) for w in result.warnings],
         }
         run = ScheduleRun(
             id=schedule_id,
             project_id=self._project_id,
             created_by=created_by,
-            params_json=_jsonable(asdict(params)),
-            summary_json=_jsonable(asdict(result.summary)),
+            params_json=jsonable(asdict(params)),
+            summary_json=jsonable(asdict(result.summary)),
             payload_gz=gzip.compress(json.dumps(payload).encode("utf-8")),
         )
         self._db.add(run)
@@ -102,12 +131,12 @@ class JobOrchestrationService:
         return json.loads(gzip.decompress(run.payload_gz).decode("utf-8"))
 
 
-def _jsonable(value: object) -> object:
+def jsonable(value: object) -> object:
     """Convert dataclass output into something the JSON column accepts."""
     if isinstance(value, dict):
-        return {str(k): _jsonable(v) for k, v in value.items()}
+        return {str(k): jsonable(v) for k, v in value.items()}
     if isinstance(value, (list, tuple)):
-        return [_jsonable(v) for v in value]
+        return [jsonable(v) for v in value]
     if isinstance(value, date):
         return value.isoformat()
     if hasattr(value, "value") and type(value).__mro__[1] is not object:

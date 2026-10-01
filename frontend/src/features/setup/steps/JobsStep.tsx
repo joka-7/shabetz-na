@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, X } from "lucide-react";
+import { Check, Plus, X } from "lucide-react";
 import { api } from "@/api/client";
 import {
   keys,
@@ -40,9 +40,15 @@ export function JobsStep() {
   const [policy, setPolicy] = useState<DivisionPolicy>("ACTIVE_DIVISION_PREFERRED");
   const [templateIds, setTemplateIds] = useState<number[]>([]);
   const [requirements, setRequirements] = useState<DraftRequirement[]>([]);
+  const [editing, setEditing] = useState<Job | null>(null);
 
   const create = useConfigMutation(
     (payload: unknown) => api.post<Job>("/api/config/jobs", payload),
+    [keys.jobs],
+  );
+  const update = useConfigMutation(
+    ({ id, ...payload }: { id: number } & Record<string, unknown>) =>
+      api.put<Job>(`/api/config/jobs/${id}`, payload),
     [keys.jobs],
   );
   const remove = useConfigMutation(
@@ -53,17 +59,43 @@ export function JobsStep() {
   function submit(event: React.FormEvent) {
     event.preventDefault();
     if (!name.trim() || templateIds.length === 0) return;
-    create.mutate({
+    const payload = {
       name: name.trim(),
       required_people_per_shift: headcount,
       division_policy: policy,
+      priority: editing?.priority ?? null,
       shift_template_ids: templateIds,
       requirements,
-    });
+    };
+    if (editing) update.mutate({ id: editing.id, ...payload });
+    else create.mutate(payload);
+    cancelEdit();
+  }
+
+  function startEdit(job: Job) {
+    setEditing(job);
+    setName(job.name);
+    setHeadcount(job.required_people_per_shift);
+    setPolicy(job.division_policy);
+    setTemplateIds(job.shift_template_ids);
+    setRequirements(
+      job.requirements.map(({ skill_id, min_level_id, required_count, is_leadership }) => ({
+        skill_id,
+        min_level_id,
+        required_count,
+        is_leadership,
+      })),
+    );
+    document.getElementById("job-name")?.scrollIntoView({ block: "center" });
+  }
+
+  function cancelEdit() {
+    setEditing(null);
     setName("");
     setTemplateIds([]);
     setRequirements([]);
     setHeadcount(1);
+    setPolicy("ACTIVE_DIVISION_PREFERRED");
   }
 
   const canBuildRequirements = Boolean(skills?.length && levels?.length);
@@ -157,14 +189,22 @@ export function JobsStep() {
         <button
           className="btn-primary"
           type="submit"
-          disabled={create.isPending || !templateIds.length || !name.trim()}
+          disabled={create.isPending || update.isPending || !templateIds.length || !name.trim()}
         >
-          <Plus className="h-4 w-4" aria-hidden />
-          {t("jobs.add")}
+          {editing ? <Check className="h-4 w-4" aria-hidden /> : <Plus className="h-4 w-4" aria-hidden />}
+          {editing ? t("common.save") : t("jobs.add")}
         </button>
+        {editing && (
+          <>
+            <button className="btn-ghost ms-2" type="button" onClick={cancelEdit}>
+              {t("common.cancel")}
+            </button>
+            <p className="text-xs text-slate-500">{t("edit.editing", { name: editing.name })}</p>
+          </>
+        )}
       </form>
 
-      <MutationError error={create.error ?? remove.error} />
+      <MutationError error={create.error ?? remove.error ?? update.error} />
 
       {isLoading ? (
         <Spinner />
@@ -177,6 +217,8 @@ export function JobsStep() {
               key={job.id}
               deleteLabel={t("common.removeNamed", { name: job.name })}
               onDelete={() => remove.mutate(job.id)}
+              onEdit={() => startEdit(job)}
+              editLabel={t("common.editNamed", { name: job.name })}
             >
               <div>
                 <div className="text-sm font-medium">{job.name}</div>

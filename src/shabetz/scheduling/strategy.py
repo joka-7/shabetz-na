@@ -9,7 +9,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 
-from ..domain.models import Job, Person, ScheduleParams
+from ..domain.models import Assignment, Job, Person, ScheduleParams
 from .result import ScheduleResult
 
 
@@ -20,6 +20,11 @@ class SchedulingStrategy(ABC):
         people: Sequence[Person],
         jobs: Sequence[Job],
         params: ScheduleParams,
+        locked: Sequence[Assignment] = (),
     ) -> ScheduleResult:
-        """Produce assignments for every shift in the parameter window."""
+        """Produce assignments for every shift in the parameter window.
+
+        ``locked`` are assignments a person pinned; they are kept as they are
+        and the rest of the schedule is built around them.
+        """
         raise NotImplementedError
