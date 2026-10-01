@@ -187,20 +187,20 @@ export function App() {
 
       <footer className="mx-auto flex max-w-7xl flex-col print:hidden items-center gap-1.5 px-4 py-4 text-slate-400">
         <span className="text-xs">{t("footer.credit")}</span>
-        <div className="flex items-center justify-center gap-4">
-          <a href="https://github.com/joka-7" target="_blank" rel="noreferrer" aria-label="GitHub" className="hover:text-slate-600 dark:hover:text-slate-300">
+        <div className="flex items-center justify-center gap-1">
+          <a href="https://github.com/joka-7" target="_blank" rel="noreferrer" aria-label="GitHub" title="GitHub" className="hover:text-slate-600 dark:hover:text-slate-300 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 active:bg-slate-200 dark:active:bg-slate-700 active:scale-90 transition-all">
             <Github className="h-4 w-4" aria-hidden />
           </a>
-          <a href="https://jk-dev-7.vercel.app" target="_blank" rel="noreferrer" aria-label="jk.dev portfolio" className="hover:text-slate-600 dark:hover:text-slate-300">
+          <a href="https://jk-dev-7.vercel.app" target="_blank" rel="noreferrer" aria-label="jk.dev portfolio" title="jk.dev portfolio" className="hover:text-slate-600 dark:hover:text-slate-300 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 active:bg-slate-200 dark:active:bg-slate-700 active:scale-90 transition-all">
             <Globe className="h-4 w-4" aria-hidden />
           </a>
-          <a href="https://github.com/joka-7/shabetz-na" target="_blank" rel="noreferrer" aria-label="View repository" className="hover:text-slate-600 dark:hover:text-slate-300">
+          <a href="https://github.com/joka-7/shabetz-na" target="_blank" rel="noreferrer" aria-label="View repository" title="View repository" className="hover:text-slate-600 dark:hover:text-slate-300 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 active:bg-slate-200 dark:active:bg-slate-700 active:scale-90 transition-all">
             <FolderGit2 className="h-4 w-4" aria-hidden />
           </a>
-          <a href="mailto:joka.dev.7@gmail.com" rel="noreferrer" aria-label="Send feedback by email" className="hover:text-slate-600 dark:hover:text-slate-300">
+          <a href="mailto:joka.dev.7@gmail.com" rel="noreferrer" aria-label="Send feedback by email" title="Send feedback by email" className="hover:text-slate-600 dark:hover:text-slate-300 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 active:bg-slate-200 dark:active:bg-slate-700 active:scale-90 transition-all">
             <Mail className="h-4 w-4" aria-hidden />
           </a>
-          <a href="https://github.com/joka-7/shabetz-na/issues/new" target="_blank" rel="noreferrer" aria-label="Report an issue" className="hover:text-slate-600 dark:hover:text-slate-300">
+          <a href="https://github.com/joka-7/shabetz-na/issues/new" target="_blank" rel="noreferrer" aria-label="Report an issue" title="Report an issue" className="hover:text-slate-600 dark:hover:text-slate-300 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 active:bg-slate-200 dark:active:bg-slate-700 active:scale-90 transition-all">
             <MessageSquare className="h-4 w-4" aria-hidden />
           </a>
         </div>
