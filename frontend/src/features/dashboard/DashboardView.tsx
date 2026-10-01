@@ -205,11 +205,7 @@ export function DashboardView() {
                 key={option}
                 onClick={() => setView(option)}
                 aria-current={view === option ? "true" : undefined}
-                className={`btn text-sm ${
-                  view === option
-                    ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
-                    : "border border-slate-300 dark:border-slate-700"
-                }`}
+                className={view === option ? "pill-active" : "pill"}
               >
                 {option === "table"
                   ? t("dashboard.table")

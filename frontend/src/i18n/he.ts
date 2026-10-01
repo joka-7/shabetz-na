@@ -540,6 +540,7 @@ export const he: Record<keyof typeof en, string> = {
   "invite.continue": "המשך",
 
   // -------------------------------------------------------------------- login
+  "login.tagline": "שיבוץ משמרות סביב השעון",
   "login.signIn": "כניסה",
   "login.createAdmin": "יצירת מנהל המערכת הראשון",
   "login.createAdminButton": "יצירת מנהל מערכת",

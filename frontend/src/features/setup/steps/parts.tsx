@@ -255,7 +255,7 @@ export function WeekdayPicker({
               key={day}
               className={`btn cursor-pointer text-xs ${
                 checked
-                  ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+                  ? "bg-indigo-600 text-white dark:bg-indigo-500"
                   : "border border-slate-300 dark:border-slate-700"
               }`}
             >

@@ -362,7 +362,7 @@ function Preview({
           <button
             key={status}
             onClick={() => setFilter(status)}
-            className={`badge ${filter === status ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900" : STATUS_TONES[status]}`}
+            className={`badge ${filter === status ? "bg-indigo-600 text-white dark:bg-indigo-500" : STATUS_TONES[status]}`}
           >
             {status === "all"
               ? t("import.filter.all", { count: result.rows.length })

@@ -121,7 +121,7 @@ export function TimelineGantt({
                         {first.template_name}
                       </span>
                       <div
-                        className="relative h-6 flex-1 rounded bg-slate-100 dark:bg-slate-800"
+                        className="relative h-7 flex-1 rounded-lg bg-slate-100 dark:bg-slate-900"
                         dir="ltr"
                       >
                         <div
@@ -149,7 +149,7 @@ export function TimelineGantt({
                                 }
                                 setDragging(null);
                               }}
-                              className={`h-4 min-w-1.5 flex-1 rounded-sm ${jobTone.get(assignment.job_id)} ${
+                              className={`flex h-5 min-w-1.5 flex-1 items-center overflow-hidden rounded-md ${jobTone.get(assignment.job_id)} ${
                                 assignment.is_division_fallback
                                   ? "ring-1 ring-amber-500"
                                   : ""
@@ -169,7 +169,11 @@ export function TimelineGantt({
                               ]
                                 .filter(Boolean)
                                 .join(" · ")}
-                            />
+                            >
+                              <span className="truncate px-1 text-[10px] font-medium text-white">
+                                {assignment.person_name.split(" ")[0]}
+                              </span>
+                            </span>
                           ))}
                         </div>
                       </div>

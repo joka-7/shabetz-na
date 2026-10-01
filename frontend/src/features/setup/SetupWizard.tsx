@@ -100,7 +100,7 @@ export function SetupWizard({
                 aria-current={state === "current" ? "step" : undefined}
                 className={`btn text-xs ${
                   state === "current"
-                    ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+                    ? "bg-indigo-600 text-white dark:bg-indigo-500"
                     : state === "done"
                       ? "text-emerald-700 hover:bg-slate-100 dark:text-emerald-400 dark:hover:bg-slate-800"
                       : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
