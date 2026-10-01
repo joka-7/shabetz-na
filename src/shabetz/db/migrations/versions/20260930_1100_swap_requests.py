@@ -81,6 +81,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("ix_swap_project_status", table_name="swap_requests")
-    op.drop_index("ix_swap_requests_project_id", table_name="swap_requests")
+    # The indexes go with the table; dropping them first fails on MySQL, where a
+    # foreign key still depends on one of them.
     op.drop_table("swap_requests")
