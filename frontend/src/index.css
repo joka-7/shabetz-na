@@ -39,3 +39,8 @@
   .pill { @apply btn text-sm text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700; }
   .pill-active { @apply btn bg-indigo-600 text-sm text-white shadow-sm dark:bg-indigo-500; }
 }
+
+.tap-fx {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(128, 128, 128, 0.35);
+}
