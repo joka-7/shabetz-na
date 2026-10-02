@@ -142,7 +142,7 @@ export function PeopleStep() {
           <WeekdayPicker legend={t("people.worksOn")} value={weekdays} onChange={setWeekdays} />
 
           {Boolean(skills?.length && levels?.length) && (
-            <fieldset className="rounded-md border border-slate-200 p-3 dark:border-slate-800">
+            <fieldset className="rounded-md border border-slate-200 p-3 dark:border-slate-700">
               <legend className="label">{t("section.skills")}</legend>
               <div className="grid gap-2 sm:grid-cols-2">
                 {skills!.map((skill) => (

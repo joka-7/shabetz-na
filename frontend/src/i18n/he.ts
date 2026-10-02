@@ -16,6 +16,7 @@ export const he: Record<keyof typeof en, string> = {
   "common.cancel": "ביטול",
   "common.close": "סגירה",
   "common.loading": "טוען…",
+  "common.waking": "מעירים את השרת — הטעינה הראשונה עשויה להימשך עד דקה…",
   "common.name": "שם",
   "common.removeNamed": "הסרת {name}",
   "common.save": "שמירה",

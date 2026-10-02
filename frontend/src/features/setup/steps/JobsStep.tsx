@@ -295,7 +295,7 @@ function RequirementBuilder({
   const levelOf = (id: number) => levels.find((l) => l.id === id)?.name ?? "?";
 
   return (
-    <fieldset className="rounded-md border border-slate-200 p-3 dark:border-slate-800">
+    <fieldset className="rounded-md border border-slate-200 p-3 dark:border-slate-700">
       <legend className="label">{t("jobs.requirements")}</legend>
 
       <div className="flex flex-wrap items-end gap-2">

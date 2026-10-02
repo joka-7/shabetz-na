@@ -77,7 +77,7 @@ export function VerdictBadge({ verdict }: { verdict: FeasibilityVerdict }) {
   const config = {
     OK: { icon: CheckCircle2, cls: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300", text: t("verdict.ok") },
     TIGHT: { icon: AlertTriangle, cls: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300", text: t("verdict.tight") },
-    INFEASIBLE: { icon: XCircle, cls: "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300", text: t("verdict.infeasible") },
+    INFEASIBLE: { icon: XCircle, cls: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300", text: t("verdict.infeasible") },
   }[verdict];
   const Icon = config.icon;
   return (
@@ -91,7 +91,7 @@ export function VerdictBadge({ verdict }: { verdict: FeasibilityVerdict }) {
 export function SeverityBadge({ severity }: { severity: WarningSeverity }) {
   const { t } = useI18n();
   const config = {
-    ERROR: { icon: XCircle, cls: "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300" },
+    ERROR: { icon: XCircle, cls: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300" },
     WARNING: { icon: AlertTriangle, cls: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300" },
     INFO: { icon: Info, cls: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },
   }[severity];
@@ -159,7 +159,7 @@ export function DivisionBadge({ id, name }: { id: number; name: string }) {
 
 export function ErrorNotice({ message }: { message: string }) {
   return (
-    <div className="rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300">
+    <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
       {message}
     </div>
   );

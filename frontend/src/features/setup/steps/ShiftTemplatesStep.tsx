@@ -73,7 +73,7 @@ export function ShiftTemplatesStep() {
 
   return (
     <StepShell title={t("section.templates")} intro={t("templates.intro")}>
-      <div className="rounded-md border border-slate-200 p-3 dark:border-slate-800">
+      <div className="rounded-md border border-slate-200 p-3 dark:border-slate-700">
         <div className="label">{t("templates.quickStart")}</div>
         <div className="flex flex-wrap items-end gap-2">
           <div>
@@ -222,7 +222,7 @@ function DayStrip({ templates }: { templates: ShiftTemplate[] }) {
   const { t } = useI18n();
   // Time runs left to right in both languages, like a clock face's numbers.
   return (
-    <div className="rounded-md border border-slate-200 p-3 dark:border-slate-800" dir="ltr">
+    <div className="rounded-md border border-slate-200 p-3 dark:border-slate-700" dir="ltr">
       <div className="label" dir="auto">{t("templates.dayAtAGlance")}</div>
 
       <div className="relative mb-1 h-4">

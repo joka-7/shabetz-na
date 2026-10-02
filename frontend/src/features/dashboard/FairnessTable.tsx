@@ -41,7 +41,7 @@ export function FairnessTable({ run }: { run: ScheduleRun }) {
       <div className="max-h-[32rem] overflow-auto">
         <table className="w-full">
           <thead className="sticky top-0 bg-white dark:bg-slate-900">
-            <tr className="border-b border-slate-200 dark:border-slate-800">
+            <tr className="border-b border-slate-200 dark:border-slate-700">
               <th className="th">{t("table.person")}</th>
               <th className="th">{t("table.division")}</th>
               <th className="th">{t("fairness.hours")}</th>
@@ -53,7 +53,7 @@ export function FairnessTable({ run }: { run: ScheduleRun }) {
           </thead>
           <tbody>
             {rows.map((row) => (
-              <tr key={row.personId} className="border-b border-slate-100 last:border-0 dark:border-slate-800/60">
+              <tr key={row.personId} className="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
                 <td className="td">
                   <span className="flex items-center gap-2 font-medium">
                     <Avatar name={row.name} id={row.divisionId} size="sm" />

@@ -336,7 +336,7 @@ export function AssignmentsTable({
           <table className="w-full">
             <thead className="sticky top-0 bg-white dark:bg-slate-800">
               {table.getHeaderGroups().map((group) => (
-                <tr key={group.id} className="border-b border-slate-200 dark:border-slate-800">
+                <tr key={group.id} className="border-b border-slate-200 dark:border-slate-700">
                   {group.headers.map((header) => {
                     const sorted = header.column.getIsSorted();
                     return (

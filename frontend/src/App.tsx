@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarDays,
@@ -32,6 +32,22 @@ import type { Settings } from "@/types/api";
 
 type Tab = "dashboard" | "config" | "timeoff" | "swaps";
 
+/** Free hosting sleeps when idle; say so instead of leaving a blank skeleton. */
+function WakeNotice() {
+  const { t } = useI18n();
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    const id = setTimeout(() => setShow(true), 4000);
+    return () => clearTimeout(id);
+  }, []);
+  if (!show) return null;
+  return (
+    <p role="status" className="text-sm text-slate-500 dark:text-slate-400">
+      {t("common.waking")}
+    </p>
+  );
+}
+
 export function App() {
   const { user, capabilities, loading, signOut, refreshProjects, project, projects, selectProject } =
     useSession();
@@ -55,6 +71,7 @@ export function App() {
       <div className="mx-auto max-w-5xl space-y-3 p-8">
         <Skeleton className="h-8 w-52" />
         <Skeleton className="h-32 w-full" />
+        <WakeNotice />
       </div>
     );
   }

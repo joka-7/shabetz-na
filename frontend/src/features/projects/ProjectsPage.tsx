@@ -47,7 +47,7 @@ export function ProjectsPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+      <header className="border-b border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
         <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-3">
           <div className="flex items-center gap-2 font-semibold">
             <CalendarClock className="h-5 w-5" aria-hidden />
@@ -72,7 +72,7 @@ export function ProjectsPage() {
           {projects.length === 0 ? (
             <EmptyState title={t("projects.empty")} hint={t("projects.emptyHint")} />
           ) : (
-            <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+            <ul className="divide-y divide-slate-100 dark:divide-slate-700">
               {projects.map((project) => (
                 <li key={project.id} className="flex items-center gap-2 py-1">
                   <button

@@ -138,7 +138,7 @@ export function PeopleImport({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="space-y-4 rounded-md border border-slate-200 p-3 dark:border-slate-800">
+    <div className="space-y-4 rounded-md border border-slate-200 p-3 dark:border-slate-700">
       <div className="flex items-center gap-2">
         <FileSpreadsheet className="h-4 w-4" aria-hidden />
         <h3 className="text-sm font-medium">{t("import.title")}</h3>
@@ -208,7 +208,7 @@ export function PeopleImport({ onClose }: { onClose: () => void }) {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800">
+                <tr className="border-b border-slate-200 dark:border-slate-700">
                   {Array.from({ length: width }, (_, index) => {
                     const title = header[index]?.trim() ?? "";
                     const choice = columns[index] ?? { role: "ignore" };
@@ -254,7 +254,7 @@ export function PeopleImport({ onClose }: { onClose: () => void }) {
               </thead>
               <tbody>
                 {body.slice(0, 5).map((row, r) => (
-                  <tr key={r} className="border-b border-slate-100 dark:border-slate-800/60">
+                  <tr key={r} className="border-b border-slate-100 dark:border-slate-700/60">
                     {Array.from({ length: width }, (_, c) => (
                       <td
                         key={c}
@@ -383,7 +383,7 @@ function Preview({
       <div className="max-h-80 overflow-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-200 dark:border-slate-800">
+            <tr className="border-b border-slate-200 dark:border-slate-700">
               <th className="th">{t("import.col.line")}</th>
               <th className="th">{t("common.name")}</th>
               <th className="th">{t("import.role.division")}</th>
@@ -392,7 +392,7 @@ function Preview({
           </thead>
           <tbody>
             {shown.map((row) => (
-              <tr key={row.line} className="border-b border-slate-100 align-top dark:border-slate-800/60">
+              <tr key={row.line} className="border-b border-slate-100 align-top dark:border-slate-700/60">
                 <td className="td tabular-nums text-xs text-slate-400">{row.line}</td>
                 <td className="td">{row.full_name || "—"}</td>
                 <td className="td text-xs">{row.division ?? "—"}</td>
@@ -401,7 +401,7 @@ function Preview({
                     {t(`import.rowStatus.${row.status}`)}
                   </span>
                   {row.problems.map((problem, index) => (
-                    <div key={index} className="mt-1 text-rose-700 dark:text-rose-400">
+                    <div key={index} className="mt-1 text-red-700 dark:text-red-400">
                       <ProblemText problem={problem} />
                     </div>
                   ))}
@@ -424,7 +424,7 @@ const STATUS_TONES: Record<"all" | ImportRow["status"], string> = {
   all: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
   create: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
   exists: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
-  error: "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300",
+  error: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
 };
 
 function ProblemText({ problem }: { problem: ImportProblem }) {

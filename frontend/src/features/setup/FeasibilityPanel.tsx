@@ -121,7 +121,7 @@ export function FeasibilityPanel({ compact = false }: { compact?: boolean }) {
           <div className={`overflow-x-auto ${compact ? "hidden" : ""}`}>
             <table className="w-full">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800">
+                <tr className="border-b border-slate-200 dark:border-slate-700">
                   <th className="th">{t("table.division")}</th>
                   <th className="th">{t("section.people")}</th>
                   <th className="th">{t("feasibility.availablePerDay")}</th>
@@ -133,7 +133,7 @@ export function FeasibilityPanel({ compact = false }: { compact?: boolean }) {
                 {data.divisions.map((division) => (
                   <tr
                     key={division.division_id}
-                    className="border-b border-slate-100 dark:border-slate-800/60"
+                    className="border-b border-slate-100 dark:border-slate-700/60"
                   >
                     <td className="td">{division.division_name}</td>
                     <td className="td tabular-nums">{division.headcount}</td>
