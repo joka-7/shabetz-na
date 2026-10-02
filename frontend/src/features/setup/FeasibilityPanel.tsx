@@ -1,4 +1,5 @@
 import { useFeasibility, useLevels } from "@/api/queries";
+import { AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
 import { EmptyState, Spinner, VerdictBadge } from "@/components/ui";
 import { useI18n } from "@/i18n";
 import { clockTime } from "@/lib/schedule";
@@ -12,7 +13,7 @@ import type { DivisionFeasibility, Feasibility } from "@/types/api";
  * counts add rather than overlap -- so a configuration can need far more people
  * than the busiest single moment suggests.
  */
-export function FeasibilityPanel() {
+export function FeasibilityPanel({ compact = false }: { compact?: boolean }) {
   const { t } = useI18n();
   const { data, isLoading, error } = useFeasibility();
   const { data: levels } = useLevels();
@@ -60,12 +61,9 @@ export function FeasibilityPanel() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <VerdictBadge verdict={data.verdict} />
-        {overall && <p className="text-sm text-slate-600 dark:text-slate-400">{overall}</p>}
-      </div>
+      <VerdictBanner verdict={data.verdict} message={overall} />
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className={`grid gap-3 ${compact ? "grid-cols-3" : "sm:grid-cols-3"}`}>
         <Figure label={t("feasibility.personShifts")} value={data.person_shifts_per_day} />
         <Figure
           label={t("feasibility.peak")}
@@ -103,7 +101,7 @@ export function FeasibilityPanel() {
               </span>
               <div className="h-4 flex-1 rounded bg-slate-100 dark:bg-slate-800">
                 <div
-                  className="h-4 rounded bg-slate-400 dark:bg-slate-600"
+                  className="h-4 rounded bg-indigo-500 dark:bg-indigo-400"
                   style={{
                     width: `${Math.min(100, (window.concurrent_people / Math.max(1, data.peak_concurrent_people)) * 100)}%`,
                   }}
@@ -120,7 +118,7 @@ export function FeasibilityPanel() {
       {data.divisions.length > 0 && (
         <div>
           <h3 className="label">{t("feasibility.byDivision")}</h3>
-          <div className="overflow-x-auto">
+          <div className={`overflow-x-auto ${compact ? "hidden" : ""}`}>
             <table className="w-full">
               <thead>
                 <tr className="border-b border-slate-200 dark:border-slate-800">
@@ -158,7 +156,7 @@ export function FeasibilityPanel() {
                 divisionMessages(division).map((message) => (
                   <li
                     key={`${division.division_id}-${message}`}
-                    className="rounded-md border-s-2 border-amber-400 bg-amber-50 px-3 py-1.5 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
+                    className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300"
                   >
                     {message}
                   </li>
@@ -185,15 +183,40 @@ function Figure({
 }) {
   return (
     <div
-      className={`rounded-md border p-3 ${
+      className={`rounded-lg border p-3 ${
         emphasis
-          ? "border-slate-400 dark:border-slate-600"
-          : "border-slate-200 dark:border-slate-800"
+          ? "border-indigo-300 bg-indigo-50 dark:border-indigo-800 dark:bg-indigo-950"
+          : "border-slate-200 dark:border-slate-700"
       }`}
     >
       <div className="label">{label}</div>
       <div className="text-2xl font-semibold tabular-nums">{value}</div>
       {hint && <div className="text-xs text-slate-500">{hint}</div>}
+    </div>
+  );
+}
+
+function VerdictBanner({
+  verdict,
+  message,
+}: {
+  verdict: Feasibility["verdict"];
+  message: string | null;
+}) {
+  const { t } = useI18n();
+  const tone = {
+    OK: { icon: CheckCircle2, box: "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200", text: t("verdict.ok") },
+    TIGHT: { icon: AlertTriangle, box: "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200", text: t("verdict.tight") },
+    INFEASIBLE: { icon: XCircle, box: "border-red-200 bg-red-50 text-red-900 dark:border-red-900 dark:bg-red-950 dark:text-red-200", text: t("verdict.infeasible") },
+  }[verdict];
+  const Icon = tone.icon;
+  return (
+    <div className={`flex items-start gap-3 rounded-xl border p-4 ${tone.box}`}>
+      <Icon className="mt-0.5 h-6 w-6 shrink-0" aria-hidden />
+      <div>
+        <div className="text-lg font-bold">{tone.text}</div>
+        {message && <p className="mt-0.5 text-sm">{message}</p>}
+      </div>
     </div>
   );
 }

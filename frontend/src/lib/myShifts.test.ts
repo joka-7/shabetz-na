@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupByDate, nextShift } from "./myShifts";
+import { groupByDate, nextShift, startsIn } from "./myShifts";
 import type { Assignment } from "@/types/api";
 
 const shift = (date: string, start: number, end: number): Assignment => ({
@@ -33,5 +33,12 @@ describe("my shifts", () => {
     expect(nextShift(list, at(23.5))).toBe(list[1]);
     expect(nextShift(list, new Date(2026, 9, 6, 1, 0))).toBe(list[2]);
     expect(nextShift(list, new Date(2026, 9, 7, 1, 0))).toBeNull();
+  });
+
+  it("says how soon a shift starts", () => {
+    const evening = shift("2026-10-05", 15, 23);
+    expect(startsIn(evening, new Date(2026, 9, 5, 11, 45))).toEqual({ kind: "later", hours: 3, minutes: 15 });
+    expect(startsIn(evening, new Date(2026, 9, 5, 16, 0))).toEqual({ kind: "running" });
+    expect(startsIn(evening, new Date(2026, 9, 4, 9, 0))).toEqual({ kind: "day", days: 1 });
   });
 });

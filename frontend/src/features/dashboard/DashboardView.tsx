@@ -199,68 +199,77 @@ export function DashboardView() {
 
           <RotationStrip run={run} divisions={divisions ?? []} />
 
-          <div className="flex flex-wrap items-center gap-1">
-            {(["table", "timeline", "fairness"] as const).map((option) => (
-              <button
-                key={option}
-                onClick={() => setView(option)}
-                aria-current={view === option ? "true" : undefined}
-                className={view === option ? "pill-active" : "pill"}
-              >
-                {option === "table"
-                  ? t("dashboard.table")
-                  : option === "timeline"
-                    ? t("timeline.title")
-                    : t("fairness.title")}
-              </button>
-            ))}
-            <button className="btn-ghost ms-auto text-sm" onClick={() => window.print()}>
-              <Printer className="h-4 w-4" aria-hidden />
-              {t("dashboard.print")}
-            </button>
-            {canEdit && (
-              <button className="btn-ghost text-sm" onClick={() => setEditing({ kind: "add" })}>
-                <UserPlus className="h-4 w-4" aria-hidden />
-                {t("edit.add")}
-              </button>
-            )}
+          {/* Wide screens: the schedule on the left, what needs attention and what changed on the right. */}
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_21rem]">
+            <div className="min-w-0 space-y-4">
+              <div className="flex flex-wrap items-center gap-1">
+                <div className="flex gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1 dark:border-slate-700 dark:bg-slate-900">
+                  {(["table", "timeline", "fairness"] as const).map((option) => (
+                    <button
+                      key={option}
+                      onClick={() => setView(option)}
+                      aria-current={view === option ? "true" : undefined}
+                      className={view === option ? "pill-active" : "pill"}
+                    >
+                      {option === "table"
+                        ? t("dashboard.table")
+                        : option === "timeline"
+                          ? t("timeline.title")
+                          : t("fairness.title")}
+                    </button>
+                  ))}
+                </div>
+                <button className="btn-ghost ms-auto text-sm" onClick={() => window.print()}>
+                  <Printer className="h-4 w-4" aria-hidden />
+                  {t("dashboard.print")}
+                </button>
+                {canEdit && (
+                  <button className="btn-primary text-sm" onClick={() => setEditing({ kind: "add" })}>
+                    <UserPlus className="h-4 w-4" aria-hidden />
+                    {t("edit.add")}
+                  </button>
+                )}
+              </div>
+
+              {view === "table" ? (
+                <AssignmentsTable
+                  run={run}
+                  divisions={divisions ?? []}
+                  onEdit={canEdit ? (assignment) => setEditing({ kind: "reassign", assignment }) : undefined}
+                  onToggleLock={canEdit ? (assignment) => toggleLock.mutate(assignment) : undefined}
+                />
+              ) : view === "timeline" ? (
+                <TimelineGantt
+                  run={run}
+                  divisions={divisions ?? []}
+                  onChanged={canEdit ? onSaved : undefined}
+                  onFix={canEdit ? (slot) => setEditing({ kind: "add", slot }) : undefined}
+                />
+              ) : (
+                <FairnessTable run={run} />
+              )}
+            </div>
+
+            <aside className="min-w-0 space-y-4 xl:sticky xl:top-4 xl:self-start">
+              <WarningsPanel
+                warnings={run.warnings}
+                onFix={
+                  canEdit
+                    ? (warning) =>
+                        setEditing({
+                          kind: "add",
+                          slot: {
+                            job_id: warning.job_id!,
+                            template_id: warning.template_id!,
+                            calendar_date: warning.calendar_date!,
+                          },
+                        })
+                    : undefined
+                }
+              />
+              {canEdit && <HistoryPanel run={run} />}
+            </aside>
           </div>
-
-          {view === "table" ? (
-            <AssignmentsTable
-              run={run}
-              divisions={divisions ?? []}
-              onEdit={canEdit ? (assignment) => setEditing({ kind: "reassign", assignment }) : undefined}
-              onToggleLock={canEdit ? (assignment) => toggleLock.mutate(assignment) : undefined}
-            />
-          ) : view === "timeline" ? (
-            <TimelineGantt
-              run={run}
-              divisions={divisions ?? []}
-              onChanged={canEdit ? onSaved : undefined}
-            />
-          ) : (
-            <FairnessTable run={run} />
-          )}
-
-          <WarningsPanel
-            warnings={run.warnings}
-            onFix={
-              canEdit
-                ? (warning) =>
-                    setEditing({
-                      kind: "add",
-                      slot: {
-                        job_id: warning.job_id!,
-                        template_id: warning.template_id!,
-                        calendar_date: warning.calendar_date!,
-                      },
-                    })
-                : undefined
-            }
-          />
-
-          {canEdit && <HistoryPanel run={run} />}
 
           {editing && (
             <EditShiftDialog

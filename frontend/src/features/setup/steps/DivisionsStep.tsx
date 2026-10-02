@@ -1,15 +1,16 @@
 import { useState } from "react";
 import { ChevronDown, ChevronUp, Plus } from "lucide-react";
 import { api } from "@/api/client";
-import { keys, useConfigMutation, useDivisions } from "@/api/queries";
+import { keys, useConfigMutation, useDivisions, usePeople } from "@/api/queries";
 import { DivisionBadge, EmptyState, Spinner } from "@/components/ui";
 import { useI18n } from "@/i18n";
 import type { BulkResult, Division } from "@/types/api";
 import { EditableName, MutationError, PasteList, Row, RowList, StepShell } from "./parts";
 
 export function DivisionsStep() {
-  const { t, dir } = useI18n();
+  const { t, tn, dir } = useI18n();
   const { data: divisions, isLoading } = useDivisions();
+  const { data: people } = usePeople();
   const [name, setName] = useState("");
 
   // Adding goes through the bulk route even for one name: it appends to the
@@ -96,7 +97,10 @@ export function DivisionsStep() {
                   >
                     <DivisionBadge id={division.id} name={division.name} />
                   </EditableName>
-                  <div className="ms-auto flex gap-1">
+                  <span className="ms-auto text-xs tabular-nums text-slate-500">
+                    {tn("people.count", people?.filter((p) => p.division_id === division.id).length ?? 0)}
+                  </span>
+                  <div className="flex gap-1">
                     <button
                       className="btn-ghost px-1.5 py-1"
                       onClick={() => move(index, -1)}

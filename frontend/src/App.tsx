@@ -98,7 +98,7 @@ export function App() {
   }
 
   const tabs: { id: Tab; label: string; icon: typeof LayoutDashboard; show: boolean }[] = [
-    { id: "dashboard", label: t("nav.schedule"), icon: LayoutDashboard, show: true },
+    { id: "dashboard", label: editor ? t("nav.schedule") : t("nav.myShifts"), icon: LayoutDashboard, show: true },
     { id: "timeoff", label: t("nav.timeOff"), icon: CalendarDays, show: true },
     { id: "swaps", label: t("nav.swaps"), icon: Repeat, show: true },
     { id: "config", label: t("nav.configuration"), icon: Settings2, show: editor },

@@ -12,7 +12,7 @@ import {
   usePeople,
   useTemplates,
 } from "@/api/queries";
-import { ErrorNotice } from "@/components/ui";
+import { Avatar, ErrorNotice } from "@/components/ui";
 import { useI18n } from "@/i18n";
 import { errorText } from "@/i18n/errors";
 import { shiftWindow } from "@/lib/schedule";
@@ -162,7 +162,7 @@ export function EditShiftDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="edit-shift-title"
-        className="card max-h-full w-full max-w-lg space-y-4 overflow-auto"
+        className="card max-h-full w-full max-w-xl space-y-4 overflow-auto rounded-2xl p-5 shadow-2xl"
       >
         <div className="flex items-start justify-between gap-2">
           <h2 id="edit-shift-title" className="text-base font-semibold">
@@ -174,19 +174,29 @@ export function EditShiftDialog({
         </div>
 
         {current ? (
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-            <dt className="text-slate-500">{t("table.job")}</dt>
-            <dd>{current.job_name}</dd>
-            <dt className="text-slate-500">{t("table.date")}</dt>
-            <dd>{formatDate(current.calendar_date, { weekday: "short", day: "numeric", month: "short" })}</dd>
-            <dt className="text-slate-500">{t("table.window")}</dt>
-            <dd>
-              {current.template_name}{" "}
-              <span dir="ltr" className="tabular-nums text-slate-500">{shiftWindow(current)}</span>
-            </dd>
-            <dt className="text-slate-500">{t("edit.current")}</dt>
-            <dd className="font-medium">{current.person_name}</dd>
-          </dl>
+          <div className="grid grid-cols-2 gap-3 rounded-xl bg-indigo-50 p-3 dark:bg-slate-900 sm:grid-cols-[1fr_1fr_1.5fr_1fr]">
+            <div>
+              <div className="label">{t("table.job")}</div>
+              <div className="text-sm font-semibold">{current.job_name}</div>
+            </div>
+            <div>
+              <div className="label">{t("table.date")}</div>
+              <div className="text-sm font-semibold">
+                {formatDate(current.calendar_date, { weekday: "short", day: "numeric", month: "short" })}
+              </div>
+            </div>
+            <div>
+              <div className="label">{t("table.window")}</div>
+              <div className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">
+                {current.template_name}{" "}
+                <span dir="ltr" className="tabular-nums">{shiftWindow(current)}</span>
+              </div>
+            </div>
+            <div>
+              <div className="label">{t("edit.current")}</div>
+              <div className="text-sm font-semibold text-red-700 dark:text-red-400">{current.person_name}</div>
+            </div>
+          </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-3">
             <div>
@@ -245,7 +255,13 @@ export function EditShiftDialog({
 
         {slot !== null && !suggestions.isLoading && (
           <div>
-            <div className="label">{t("edit.suggested")}</div>
+            <div className="mb-1 flex items-center justify-between">
+              <div className="label mb-0 flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" aria-hidden />
+                {t("edit.suggested")}
+              </div>
+              <span className="text-[11px] text-slate-500">{t("edit.suggestedHint")}</span>
+            </div>
             {clean.length === 0 ? (
               <p className="text-xs text-slate-500">{t("edit.noneFree")}</p>
             ) : (
@@ -295,6 +311,16 @@ export function EditShiftDialog({
           </select>
         </div>
 
+        {person && (
+          <div className="flex items-center gap-3 rounded-xl border border-indigo-200 bg-indigo-50 p-3 dark:border-indigo-900 dark:bg-slate-900">
+            <Avatar name={person.full_name} id={person.id} size="lg" />
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-semibold">{person.full_name}</div>
+              <div className="truncate text-xs text-slate-500">{divisionName.get(person.division_id) ?? ""}</div>
+            </div>
+          </div>
+        )}
+
         {personId !== null && slot !== null && (
           <div aria-live="polite">
             {check.isFetching ? (
@@ -302,7 +328,7 @@ export function EditShiftDialog({
             ) : conflicts.length === 0 ? (
               <p className="text-sm text-emerald-700 dark:text-emerald-400">{t("edit.noConflicts")}</p>
             ) : (
-              <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950">
+              <div className="space-y-2 rounded-xl border border-amber-300 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950">
                 <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
                   {t("edit.conflictsTitle")}
                 </p>
@@ -340,7 +366,7 @@ export function EditShiftDialog({
                 <>
                   <span className="text-sm">{t("edit.confirmRemove", { name: current.person_name })}</span>
                   <button
-                    className="btn bg-rose-600 text-white hover:bg-rose-700"
+                    className="btn bg-red-600 text-white hover:bg-red-700"
                     disabled={remove.isPending}
                     onClick={() => remove.mutate()}
                   >
@@ -349,7 +375,7 @@ export function EditShiftDialog({
                 </>
               ) : (
                 <button
-                  className="btn-ghost text-rose-700 dark:text-rose-400"
+                  className="btn border border-transparent text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
                   onClick={() => setConfirmingRemove(true)}
                 >
                   {t("edit.remove")}
