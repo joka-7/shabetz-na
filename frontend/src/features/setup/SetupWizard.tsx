@@ -70,13 +70,14 @@ export function SetupWizard({
 
   return (
     <div className="mx-auto max-w-7xl p-4 pb-28">
-      <header className="mb-6 flex flex-wrap items-start gap-3">
+      {/* On a phone the title gets its own full-width row under the logo and buttons. */}
+      <header className="mb-6 flex flex-wrap items-center gap-3">
         <Logo className="h-10 w-10 shrink-0" />
-        <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-bold tracking-tight">{t("wizard.title")}</h1>
+        <div className="order-last w-full sm:order-none sm:w-auto sm:min-w-0 sm:flex-1">
+          <h1 className="text-xl font-bold tracking-tight sm:text-2xl">{t("wizard.title")}</h1>
           <p className="mt-1 text-sm text-slate-500">{t("wizard.intro")}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="ms-auto flex items-center gap-2 sm:ms-0">
           <LanguageSwitch />
           <button className="btn-ghost text-xs" onClick={() => void close()} disabled={closing}>
             <X className="h-3.5 w-3.5" aria-hidden />

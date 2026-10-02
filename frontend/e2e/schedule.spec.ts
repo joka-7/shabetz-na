@@ -34,12 +34,12 @@ test.describe("editing a generated schedule", () => {
     await dialog.getByRole("button", { name: "Save change" }).click();
 
     await expect(page.getByText("Change saved")).toBeVisible();
-    await expect(page.getByText("edited").first()).toBeVisible();
+    await expect(page.locator("section tbody").getByText("edited").first()).toBeVisible();
     await expect(personOf(firstRow)).not.toHaveText(original);
 
     // The change survives a reload: the schedule lives on the server.
     await page.reload();
-    await expect(page.getByText("edited").first()).toBeVisible();
+    await expect(page.locator("section tbody").getByText("edited").first()).toBeVisible();
 
     // And it can be taken back.
     // The history sits beside the schedule, so there is nothing to open first.

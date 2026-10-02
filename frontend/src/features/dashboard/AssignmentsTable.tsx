@@ -272,7 +272,67 @@ export function AssignmentsTable({
       {rows.length === 0 ? (
         <EmptyState title={t("table.noMatch")} />
       ) : (
-        <div className="max-h-[32rem] overflow-auto">
+        <>
+          {/* A phone cannot show six columns, so each shift is a card there. */}
+          <ul className="space-y-2 md:hidden">
+            {table.getRowModel().rows.map(({ original: a }) => (
+              <li
+                key={`${a.job_id}-${a.template_id}-${a.calendar_date}-${a.person_id}`}
+                className="rounded-xl border border-slate-200 p-3 dark:border-slate-700"
+              >
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-sm font-semibold">
+                    {formatDate(a.calendar_date, { weekday: "short", day: "numeric", month: "short" })}
+                  </span>
+                  <span className="text-lg font-bold tabular-nums text-indigo-700 dark:text-indigo-300" dir="ltr">
+                    {shiftWindow(a)}
+                    {crossesMidnight(a) && <span className="ms-1 text-xs text-slate-400">+1</span>}
+                  </span>
+                </div>
+                <div className="mt-0.5 text-xs text-slate-500">
+                  {a.job_name} · {a.template_name}
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <Avatar name={a.person_name} id={a.division_id} size="sm" />
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{a.person_name}</span>
+                  <DivisionBadge id={a.division_id} name={divisionName.get(a.division_id) ?? `#${a.division_id}`} />
+                </div>
+                {(a.role === "ROLE" || a.is_manual || a.is_division_fallback) && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {a.role === "ROLE" && (
+                      <span className="badge bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">{t("table.role")}</span>
+                    )}
+                    {a.is_manual && (
+                      <span className="badge bg-sky-100 text-sky-900 dark:bg-sky-950 dark:text-sky-300">{t("edit.manual")}</span>
+                    )}
+                    {a.is_division_fallback && (
+                      <span className="badge bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300">{t("table.borrowed")}</span>
+                    )}
+                  </div>
+                )}
+                {onEdit && (
+                  <div className="mt-2 flex gap-2">
+                    <button className="btn-ghost min-h-10 flex-1 justify-center" onClick={() => onEdit(a)}>
+                      <Pencil className="h-4 w-4" aria-hidden />
+                      {t("edit.change")}
+                    </button>
+                    {onToggleLock && (
+                      <button
+                        className="btn-ghost min-h-10 justify-center px-3"
+                        onClick={() => onToggleLock(a)}
+                        aria-pressed={Boolean(a.is_locked)}
+                        aria-label={a.is_locked ? t("edit.unlockNamed", { name: a.person_name }) : t("edit.lockNamed", { name: a.person_name })}
+                      >
+                        {a.is_locked ? <Lock className="h-4 w-4" aria-hidden /> : <Unlock className="h-4 w-4 text-slate-400" aria-hidden />}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+
+        <div className="hidden max-h-[32rem] overflow-auto md:block">
           <table className="w-full">
             <thead className="sticky top-0 bg-white dark:bg-slate-800">
               {table.getHeaderGroups().map((group) => (
@@ -315,6 +375,7 @@ export function AssignmentsTable({
             </tbody>
           </table>
         </div>
+        </>
       )}
     </section>
   );

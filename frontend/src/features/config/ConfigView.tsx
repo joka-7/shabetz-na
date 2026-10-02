@@ -44,7 +44,7 @@ export function ConfigView() {
   const section = sections.find((entry) => entry.id === active) ?? sections[0]!;
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[12rem_1fr]">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[12rem_minmax(0,1fr)]">
       <nav className="flex flex-wrap gap-1 lg:flex-col" aria-label={t("nav.configuration")}>
         {sections.map((entry) => (
           <button
