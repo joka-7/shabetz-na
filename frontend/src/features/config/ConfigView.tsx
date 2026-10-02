@@ -45,13 +45,17 @@ export function ConfigView() {
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[12rem_minmax(0,1fr)]">
-      <nav className="flex flex-wrap gap-1 lg:flex-col" aria-label={t("nav.configuration")}>
+      {/* One swipeable row on a phone; a column down the side on a wide screen. */}
+      <nav
+        className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-1 lg:mx-0 lg:flex-col lg:overflow-visible lg:px-0 lg:pb-0"
+        aria-label={t("nav.configuration")}
+      >
         {sections.map((entry) => (
           <button
             key={entry.id}
             onClick={() => setActive(entry.id)}
             aria-current={active === entry.id ? "page" : undefined}
-            className={`btn justify-start text-sm ${
+            className={`btn shrink-0 justify-start text-sm ${
               active === entry.id
                 ? "bg-indigo-600 text-white dark:bg-indigo-500"
                 : "hover:bg-slate-100 dark:hover:bg-slate-800"

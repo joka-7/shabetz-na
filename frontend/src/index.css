@@ -28,7 +28,8 @@
          disabled:cursor-not-allowed disabled:opacity-50; }
   .btn-primary { @apply btn bg-indigo-600 text-white shadow-sm hover:bg-indigo-700 active:bg-indigo-800 dark:bg-indigo-500 dark:hover:bg-indigo-400; }
   .btn-ghost { @apply btn border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-transparent dark:text-slate-200 dark:hover:bg-slate-700; }
-  .input { @apply w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm
+  /* 16px on a phone: below that, iOS zooms the page in whenever a field is focused. */
+  .input { @apply w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-base sm:text-sm
            placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:outline-none
            dark:border-slate-700 dark:bg-slate-900 dark:focus:bg-slate-900; }
   .label { @apply mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400; }
@@ -44,3 +45,20 @@
   touch-action: manipulation;
   -webkit-tap-highlight-color: rgba(128, 128, 128, 0.35);
 }
+
+/*
+ * Touch screens: a finger needs about 44px, and the page should not bounce or
+ * hide controls behind the notch or the home bar.
+ */
+@media (pointer: coarse) {
+  .btn, .btn-ghost, .btn-primary, .pill, .pill-active { min-height: 2.5rem; }
+  select.input, input.input { min-height: 2.75rem; }
+  /* Small icon-only buttons (edit, remove, move) get a bigger hit area. */
+  button.px-1\.5, button.px-2.py-1, button.p-1, button.p-1\.5 { min-width: 2.5rem; min-height: 2.5rem; justify-content: center; }
+}
+
+html { -webkit-text-size-adjust: 100%; }
+body { overscroll-behavior-y: none; }
+.safe-bottom { padding-bottom: max(0.5rem, env(safe-area-inset-bottom)); }
+.sheet-bottom { padding-bottom: max(1.25rem, env(safe-area-inset-bottom)); }
+.safe-top { padding-top: env(safe-area-inset-top); }

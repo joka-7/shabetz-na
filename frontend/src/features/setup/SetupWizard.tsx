@@ -161,7 +161,7 @@ export function SetupWizard({
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur dark:border-slate-700 dark:bg-slate-800/95">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 p-3">
+        <div className="safe-bottom mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-3 pt-3">
           {index === 0 ? (
             <button className="btn-ghost" onClick={() => void close()} disabled={closing}>
               <X className="h-4 w-4" aria-hidden />
