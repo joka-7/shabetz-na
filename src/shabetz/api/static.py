@@ -7,6 +7,7 @@ hosted server.
 
 from __future__ import annotations
 
+import mimetypes
 import sys
 from pathlib import Path
 
@@ -16,6 +17,10 @@ from fastapi.staticfiles import StaticFiles
 
 # Paths the frontend must never shadow. An unknown API route should be a JSON
 # 404, not the app's index page with a 200.
+# Python does not know this extension, and a phone installing the app reads the
+# manifest by its type.
+mimetypes.add_type("application/manifest+json", ".webmanifest")
+
 RESERVED_PREFIXES = ("api/", "docs", "redoc", "openapi.json")
 
 

@@ -20,7 +20,7 @@ export function ExportBar({ scheduleId }: { scheduleId: string }) {
   if (formats.length === 0) return null;
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       <span className="label mb-0">{t("export.download")}</span>
       {formats.map((format) => (
         <button

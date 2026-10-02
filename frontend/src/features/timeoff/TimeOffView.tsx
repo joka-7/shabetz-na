@@ -204,7 +204,60 @@ export function TimeOffView() {
               hint={project?.person_id === null && !reviewer ? t("error.notLinked") : undefined}
             />
           ) : (
-            <div className="overflow-x-auto">
+            <>
+            <ul className="space-y-2 md:hidden">
+              {[...pending, ...settled].map((request) => (
+                <li key={request.id} className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+                  <div className="flex items-center justify-between gap-2">
+                    {reviewer ? (
+                      <span className="flex min-w-0 items-center gap-2">
+                        <Avatar name={personName(request.person_id)} id={request.person_id} size="sm" />
+                        <span className="truncate text-sm font-semibold">{personName(request.person_id)}</span>
+                      </span>
+                    ) : (
+                      <span className="text-sm font-semibold">{tn("timeoff.days", daysInRequest(request))}</span>
+                    )}
+                    <span className={`badge shrink-0 px-2 py-1 ${STATUS_TONES[request.status]}`}>
+                      {t(`timeoffStatus.${request.status}`)}
+                    </span>
+                  </div>
+                  <div className="mt-1 text-sm tabular-nums">{range(request)}</div>
+                  <div className="text-xs text-slate-500">
+                    {reviewer ? `${tn("timeoff.days", daysInRequest(request))} · ` : ""}
+                    {request.reason ?? "—"}
+                  </div>
+                  <div className="mt-2 flex gap-2">
+                    {reviewer && request.status === "PENDING" && (
+                      <>
+                        <button
+                          className="btn min-h-10 flex-1 justify-center rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300"
+                          onClick={() => review.mutate({ id: request.id, action: "approve" })}
+                        >
+                          <Check className="h-4 w-4" aria-hidden />
+                          {t("timeoff.approve")}
+                        </button>
+                        <button
+                          className="btn min-h-10 flex-1 justify-center rounded-lg bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-950 dark:text-red-300"
+                          onClick={() => review.mutate({ id: request.id, action: "deny" })}
+                        >
+                          <X className="h-4 w-4" aria-hidden />
+                          {t("timeoff.deny")}
+                        </button>
+                      </>
+                    )}
+                    {(request.status === "PENDING" || request.status === "APPROVED") && (
+                      <button
+                        className="btn-ghost min-h-10 flex-1 justify-center"
+                        onClick={() => review.mutate({ id: request.id, action: "cancel" })}
+                      >
+                        {t("common.cancel")}
+                      </button>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-slate-200 dark:border-slate-700">
@@ -272,6 +325,7 @@ export function TimeOffView() {
                 </tbody>
               </table>
             </div>
+            </>
           )}
           {reviewer && <p className="text-xs text-slate-500">{t("timeoff.approveHint")}</p>}
         </section>

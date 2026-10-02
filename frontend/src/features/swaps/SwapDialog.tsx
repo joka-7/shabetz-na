@@ -47,10 +47,10 @@ export function SwapDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 sm:items-center sm:p-4"
       onMouseDown={(event) => event.target === event.currentTarget && onClose()}
     >
-      <div role="dialog" aria-modal="true" aria-labelledby="swap-title" className="card w-full max-w-md space-y-4">
+      <div role="dialog" aria-modal="true" aria-labelledby="swap-title" className="card sheet-bottom max-h-[92dvh] w-full max-w-md space-y-4 overflow-auto rounded-b-none rounded-t-2xl p-5 shadow-2xl sm:rounded-2xl">
         <div className="flex items-start justify-between gap-2">
           <h2 id="swap-title" className="text-base font-semibold">{t("swap.dialogTitle")}</h2>
           <button className="btn-ghost p-1" onClick={onClose} aria-label={t("common.close")}>

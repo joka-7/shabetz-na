@@ -18,6 +18,7 @@ def build(tmp_path: Path) -> Path:
     (dist / "index.html").write_text("<html>app</html>")
     (dist / "assets" / "app.js").write_text("console.log('app')")
     (dist / "favicon.svg").write_text("<svg/>")
+    (dist / "manifest.webmanifest").write_text('{"name": "Shabetz"}')
     (tmp_path / "secret.txt").write_text("do not serve")
     return dist
 
@@ -68,3 +69,11 @@ def test_ignores_a_directory_without_an_index(tmp_path: Path) -> None:
     empty = tmp_path / "empty"
     empty.mkdir()
     assert find_static_dir(str(empty)) != empty
+
+
+def test_the_app_manifest_is_served_with_its_own_type(client: TestClient) -> None:
+    """A phone adding the site to its home screen reads this by its content type."""
+    response = client.get("/manifest.webmanifest")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/manifest+json")
+    assert response.json()["name"] == "Shabetz"
