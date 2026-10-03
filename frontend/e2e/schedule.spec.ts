@@ -15,7 +15,7 @@ test.describe("editing a generated schedule", () => {
 
   test("a manager generates a schedule, changes a shift, and undoes it", async ({ page }) => {
     await page.goto("/");
-    await page.getByLabel("Email").fill(EMAIL);
+    await page.getByRole("textbox", { name: "Email" }).fill(EMAIL);
     await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
     await page.getByRole("button", { name: "Sign in" }).click();
 
@@ -50,7 +50,7 @@ test.describe("editing a generated schedule", () => {
 
   test("a change that breaks a rule must be acknowledged", async ({ page }) => {
     await page.goto("/");
-    await page.getByLabel("Email").fill(EMAIL);
+    await page.getByRole("textbox", { name: "Email" }).fill(EMAIL);
     await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
     await page.getByRole("button", { name: "Sign in" }).click();
 
