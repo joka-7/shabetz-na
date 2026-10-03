@@ -8,8 +8,8 @@ sees one origin and cookies and CSRF keep working unchanged.
 
 1. Import the repo in Vercel. Set **Root Directory** to `frontend`,
    **Build Command** `npm run build`, **Output Directory** `dist`.
-2. Edit `frontend/vercel.json` and replace `YOUR-SERVICE` with the Render
-   service name.
+2. Edit `frontend/vercel.json` and set the Render
+   service host (already set to `shabetz.onrender.com`).
 3. In the Firebase console, add the Vercel domain under
    Authentication → Settings → Authorized domains (Google sign-in).
 4. Deploy.
