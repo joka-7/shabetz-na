@@ -17,6 +17,7 @@ export const en = {
   "common.cancel": "Cancel",
   "common.close": "Close",
   "common.loading": "Loading…",
+  "common.waking": "Waking up the server — the first load can take up to a minute…",
   "common.name": "Name",
   "common.removeNamed": "Remove {name}",
   "common.save": "Save",

@@ -51,7 +51,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             {tone === "success" ? (
               <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden />
             ) : (
-              <XCircle className="h-4 w-4 shrink-0 text-rose-600" aria-hidden />
+              <XCircle className="h-4 w-4 shrink-0 text-red-600" aria-hidden />
             )}
             {message}
           </div>

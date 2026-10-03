@@ -309,7 +309,7 @@ function RotationStrip({
           return (
           <div
             key={day.date}
-            className="rounded border border-slate-200 px-2 py-1 text-xs dark:border-slate-800"
+            className="rounded border border-slate-200 px-2 py-1 text-xs dark:border-slate-700"
             title={`${day.date}: ${name}`}
           >
             <div className="tabular-nums text-slate-400">

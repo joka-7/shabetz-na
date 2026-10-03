@@ -108,7 +108,7 @@ function ProjectSettings({ project }: { project: Project }) {
         {capabilities?.deployment !== "desktop" && (
           <button
             type="button"
-            className="btn-ghost text-rose-700 dark:text-rose-400"
+            className="btn-ghost text-red-700 dark:text-red-400"
             onClick={() => {
               const typed = window.prompt(t("members.deleteConfirm", { name: project.name }));
               if (typed === null) return;
@@ -246,7 +246,7 @@ function InviteLinks() {
       <MutationError error={create.error ?? revoke.error} />
 
       {Boolean(invites?.length) && (
-        <ul className="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+        <ul className="divide-y divide-slate-100 text-sm dark:divide-slate-700">
           {invites!.map((invite) => (
             <li key={invite.id} className="flex flex-wrap items-center gap-2 py-2">
               <span className="badge bg-slate-100 dark:bg-slate-800">{t(`role.${invite.role}`)}</span>
@@ -396,7 +396,7 @@ export function MembersAdmin() {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800">
+                <tr className="border-b border-slate-200 dark:border-slate-700">
                   <th className="th">{t("members.col.account")}</th>
                   <th className="th">{t("members.role")}</th>
                   <th className="th">{t("members.linkedPerson")}</th>
@@ -409,7 +409,7 @@ export function MembersAdmin() {
                   const isMe = member.user_id === me?.id;
                   const lastAdmin = member.role === "ADMIN" && admins === 1;
                   return (
-                    <tr key={member.id} className="border-b border-slate-100 dark:border-slate-800/60">
+                    <tr key={member.id} className="border-b border-slate-100 dark:border-slate-700/60">
                       <td className="td">
                         <div className="font-medium">
                           {member.full_name}
@@ -424,7 +424,7 @@ export function MembersAdmin() {
                             <span className="badge bg-slate-100 dark:bg-slate-800">{t("members.password")}</span>
                           )}
                           {member.is_locked && (
-                            <span className="badge gap-1 bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">
+                            <span className="badge gap-1 bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300">
                               <ShieldAlert className="h-3 w-3" aria-hidden />
                               {t("members.locked")}
                             </span>

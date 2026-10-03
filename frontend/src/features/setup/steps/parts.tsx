@@ -27,7 +27,7 @@ export function StepShell({
 }
 
 export function RowList({ children }: { children: ReactNode }) {
-  return <ul className="divide-y divide-slate-100 dark:divide-slate-800">{children}</ul>;
+  return <ul className="divide-y divide-slate-100 dark:divide-slate-700">{children}</ul>;
 }
 
 export function Row({
@@ -209,7 +209,7 @@ export function PasteList({
   }
 
   return (
-    <div className="space-y-2 rounded-md border border-slate-200 p-3 dark:border-slate-800">
+    <div className="space-y-2 rounded-md border border-slate-200 p-3 dark:border-slate-700">
       <label className="label" htmlFor="paste-list">
         {t("paste.label")}
       </label>
