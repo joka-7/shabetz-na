@@ -207,20 +207,25 @@ export function App() {
       <footer className="mx-auto flex max-w-7xl flex-col print:hidden items-center gap-1.5 px-4 py-4 text-slate-400">
         <span className="text-xs">{t("footer.credit")}</span>
         <div className="flex items-center justify-center gap-1">
-          <a href="https://github.com/joka-7" target="_blank" rel="noreferrer" aria-label="GitHub" title="GitHub" className="tap-fx hover:text-slate-600 dark:hover:text-slate-300 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 active:bg-slate-200 dark:active:bg-slate-700 active:scale-90 transition-all">
+          <a href="https://github.com/joka-7" target="_blank" rel="noreferrer" aria-label="GitHub" title="GitHub" className="tap-fx hover:text-slate-600 dark:hover:text-slate-300 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 active:bg-slate-200 dark:active:bg-slate-700 active:scale-90 transition-all inline-flex flex-col items-center justify-center gap-0.5">
             <Github className="h-4 w-4" aria-hidden />
+            <span className="text-[9px] leading-none">GitHub</span>
           </a>
-          <a href="https://jk-dev-7.vercel.app" target="_blank" rel="noreferrer" aria-label="jk.dev portfolio" title="jk.dev portfolio" className="tap-fx hover:text-slate-600 dark:hover:text-slate-300 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 active:bg-slate-200 dark:active:bg-slate-700 active:scale-90 transition-all">
+          <a href="https://jk-dev-7.vercel.app" target="_blank" rel="noreferrer" aria-label="jk.dev portfolio" title="jk.dev portfolio" className="tap-fx hover:text-slate-600 dark:hover:text-slate-300 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 active:bg-slate-200 dark:active:bg-slate-700 active:scale-90 transition-all inline-flex flex-col items-center justify-center gap-0.5">
             <Globe className="h-4 w-4" aria-hidden />
+            <span className="text-[9px] leading-none">Site</span>
           </a>
-          <a href="https://github.com/joka-7/shabetz-na" target="_blank" rel="noreferrer" aria-label="View repository" title="View repository" className="tap-fx hover:text-slate-600 dark:hover:text-slate-300 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 active:bg-slate-200 dark:active:bg-slate-700 active:scale-90 transition-all">
+          <a href="https://github.com/joka-7/shabetz-na" target="_blank" rel="noreferrer" aria-label="View repository" title="View repository" className="tap-fx hover:text-slate-600 dark:hover:text-slate-300 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 active:bg-slate-200 dark:active:bg-slate-700 active:scale-90 transition-all inline-flex flex-col items-center justify-center gap-0.5">
             <FolderGit2 className="h-4 w-4" aria-hidden />
+            <span className="text-[9px] leading-none">Code</span>
           </a>
-          <a href="mailto:joka.dev.7@gmail.com" rel="noreferrer" aria-label="Send feedback by email" title="Send feedback by email" className="tap-fx hover:text-slate-600 dark:hover:text-slate-300 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 active:bg-slate-200 dark:active:bg-slate-700 active:scale-90 transition-all">
+          <a href="mailto:joka.dev.7@gmail.com" rel="noreferrer" aria-label="Send feedback by email" title="Send feedback by email" className="tap-fx hover:text-slate-600 dark:hover:text-slate-300 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 active:bg-slate-200 dark:active:bg-slate-700 active:scale-90 transition-all inline-flex flex-col items-center justify-center gap-0.5">
             <Mail className="h-4 w-4" aria-hidden />
+            <span className="text-[9px] leading-none">Email</span>
           </a>
-          <a href="https://github.com/joka-7/shabetz-na/issues/new" target="_blank" rel="noreferrer" aria-label="Report an issue" title="Report an issue" className="tap-fx hover:text-slate-600 dark:hover:text-slate-300 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 active:bg-slate-200 dark:active:bg-slate-700 active:scale-90 transition-all">
+          <a href="https://github.com/joka-7/shabetz-na/issues/new" target="_blank" rel="noreferrer" aria-label="Report an issue" title="Report an issue" className="tap-fx hover:text-slate-600 dark:hover:text-slate-300 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 active:bg-slate-200 dark:active:bg-slate-700 active:scale-90 transition-all inline-flex flex-col items-center justify-center gap-0.5">
             <MessageSquare className="h-4 w-4" aria-hidden />
+            <span className="text-[9px] leading-none">Feedback</span>
           </a>
         </div>
       </footer>
