@@ -6,7 +6,7 @@ import {
   LayoutDashboard,
   Repeat,
   LogOut,
-  Settings,
+  Settings as SettingsIcon,
   Settings2,
   Wand2,
 } from "lucide-react";
@@ -182,7 +182,7 @@ export function App() {
               aria-label={t("nav.settings")}
               title={t("nav.settings")}
             >
-              <Settings className="h-4 w-4" aria-hidden />
+              <SettingsIcon className="h-4 w-4" aria-hidden />
             </button>
             {editor && (
               <button className="btn-ghost text-xs" onClick={() => setWizardReopened(true)}>
