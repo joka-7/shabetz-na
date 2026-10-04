@@ -2,15 +2,11 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarDays,
-  FolderGit2,
   FolderOpen,
-  Github,
-  Globe,
   LayoutDashboard,
   Repeat,
   LogOut,
-  Mail,
-  MessageSquare,
+  Settings as SettingsIcon,
   Settings2,
   Wand2,
 } from "lucide-react";
@@ -19,12 +15,13 @@ import { LoginPage } from "@/features/auth/LoginPage";
 import { SetupWizard } from "@/features/setup/SetupWizard";
 import { ConfigView } from "@/features/config/ConfigView";
 import { DashboardView } from "@/features/dashboard/DashboardView";
+import { SettingsDialog } from "@/features/settings/SettingsDialog";
 import { SwapsView } from "@/features/swaps/SwapsView";
 import { TimeOffView } from "@/features/timeoff/TimeOffView";
 import { InvitePage, inviteTokenFromPath } from "@/features/projects/InvitePage";
 import { ProjectsPage } from "@/features/projects/ProjectsPage";
 import { Logo } from "@/components/Logo";
-import { LanguageSwitch, Skeleton } from "@/components/ui";
+import { Skeleton } from "@/components/ui";
 import { useI18n } from "@/i18n";
 import { api } from "@/api/client";
 import { keys } from "@/api/queries";
@@ -58,6 +55,7 @@ export function App() {
   // Reopened on request from the header; whether it shows by default comes
   // from the server, so finishing it once is remembered across reloads.
   const [wizardReopened, setWizardReopened] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   const editor = can.editConfig(project);
   const settings = useQuery({
@@ -178,7 +176,14 @@ export function App() {
           </nav>
 
           <div className="ms-auto flex items-center gap-3 text-sm">
-            <LanguageSwitch />
+            <button
+              className="btn-ghost p-1"
+              onClick={() => setShowSettings(true)}
+              aria-label={t("nav.settings")}
+              title={t("nav.settings")}
+            >
+              <SettingsIcon className="h-4 w-4" aria-hidden />
+            </button>
             {editor && (
               <button className="btn-ghost text-xs" onClick={() => setWizardReopened(true)}>
                 <Wand2 className="h-3.5 w-3.5" aria-hidden />
@@ -206,29 +211,9 @@ export function App() {
 
       <footer className="mx-auto flex max-w-7xl flex-col print:hidden items-center gap-1.5 px-4 py-4 pb-24 sm:pb-4 text-slate-400">
         <span className="text-xs">{t("footer.credit")}</span>
-        <div className="flex items-center justify-center gap-1">
-          <a href="https://github.com/joka-7" target="_blank" rel="noreferrer" aria-label="GitHub" title="GitHub" className="tap-fx hover:text-slate-600 dark:hover:text-slate-300 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 active:bg-slate-200 dark:active:bg-slate-700 active:scale-90 transition-all inline-flex flex-col items-center justify-center gap-0.5">
-            <Github className="h-4 w-4" aria-hidden />
-            <span className="text-[9px] leading-none">GitHub</span>
-          </a>
-          <a href="https://jk-dev-7.vercel.app" target="_blank" rel="noreferrer" aria-label="jk.dev portfolio" title="jk.dev portfolio" className="tap-fx hover:text-slate-600 dark:hover:text-slate-300 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 active:bg-slate-200 dark:active:bg-slate-700 active:scale-90 transition-all inline-flex flex-col items-center justify-center gap-0.5">
-            <Globe className="h-4 w-4" aria-hidden />
-            <span className="text-[9px] leading-none">Site</span>
-          </a>
-          <a href="https://github.com/joka-7/shabetz-na" target="_blank" rel="noreferrer" aria-label="View repository" title="View repository" className="tap-fx hover:text-slate-600 dark:hover:text-slate-300 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 active:bg-slate-200 dark:active:bg-slate-700 active:scale-90 transition-all inline-flex flex-col items-center justify-center gap-0.5">
-            <FolderGit2 className="h-4 w-4" aria-hidden />
-            <span className="text-[9px] leading-none">Code</span>
-          </a>
-          <a href="mailto:joka.dev.7@gmail.com" rel="noreferrer" aria-label="Send feedback by email" title="Send feedback by email" className="tap-fx hover:text-slate-600 dark:hover:text-slate-300 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 active:bg-slate-200 dark:active:bg-slate-700 active:scale-90 transition-all inline-flex flex-col items-center justify-center gap-0.5">
-            <Mail className="h-4 w-4" aria-hidden />
-            <span className="text-[9px] leading-none">Email</span>
-          </a>
-          <a href="https://github.com/joka-7/shabetz-na/issues/new" target="_blank" rel="noreferrer" aria-label="Report an issue" title="Report an issue" className="tap-fx hover:text-slate-600 dark:hover:text-slate-300 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 active:bg-slate-200 dark:active:bg-slate-700 active:scale-90 transition-all inline-flex flex-col items-center justify-center gap-0.5">
-            <MessageSquare className="h-4 w-4" aria-hidden />
-            <span className="text-[9px] leading-none">Feedback</span>
-          </a>
-        </div>
       </footer>
+
+      {showSettings && <SettingsDialog onClose={() => setShowSettings(false)} />}
     </div>
   );
 }

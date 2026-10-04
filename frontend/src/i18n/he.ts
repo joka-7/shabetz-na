@@ -68,6 +68,7 @@ export const he: Record<keyof typeof en, string> = {
   "nav.sections": "אזורים",
   "nav.setup": "אשף הגדרה",
   "nav.signOut": "יציאה",
+  "nav.settings": "הגדרות",
 
   "role.ADMIN": "מנהל",
   "role.COLLABORATOR": "שותף",
@@ -649,4 +650,9 @@ export const he: Record<keyof typeof en, string> = {
 
   // -------------------------------------------------------------------- footer
   "footer.credit": "נבנה על ידי joka-7",
+
+  // -------------------------------------------------------------------- settings
+  "settings.heading": "הגדרות",
+  "settings.languageHeading": "שפה",
+  "settings.linksHeading": "קישורים",
 };
