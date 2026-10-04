@@ -69,6 +69,7 @@ export const en = {
   "nav.sections": "Sections",
   "nav.setup": "Setup",
   "nav.signOut": "Sign out",
+  "nav.settings": "Settings",
 
   "role.ADMIN": "Administrator",
   "role.COLLABORATOR": "Collaborator",
@@ -665,4 +666,9 @@ export const en = {
 
   // -------------------------------------------------------------------- footer
   "footer.credit": "Built by joka-7",
+
+  // -------------------------------------------------------------------- settings
+  "settings.heading": "Settings",
+  "settings.languageHeading": "Language",
+  "settings.linksHeading": "Links",
 } as const;
