@@ -204,7 +204,7 @@ export function App() {
         {tab === "config" && editor && <ConfigView />}
       </main>
 
-      <footer className="mx-auto flex max-w-7xl flex-col print:hidden items-center gap-1.5 px-4 py-4 text-slate-400">
+      <footer className="mx-auto flex max-w-7xl flex-col print:hidden items-center gap-1.5 px-4 py-4 pb-24 sm:pb-4 text-slate-400">
         <span className="text-xs">{t("footer.credit")}</span>
         <div className="flex items-center justify-center gap-1">
           <a href="https://github.com/joka-7" target="_blank" rel="noreferrer" aria-label="GitHub" title="GitHub" className="tap-fx hover:text-slate-600 dark:hover:text-slate-300 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 active:bg-slate-200 dark:active:bg-slate-700 active:scale-90 transition-all inline-flex flex-col items-center justify-center gap-0.5">
