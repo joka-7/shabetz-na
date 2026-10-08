@@ -57,8 +57,8 @@ export function App() {
   // from the server, so finishing it once is remembered across reloads.
   const [wizardReopened, setWizardReopened] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  // Opens by itself the first time someone lands here, and on request from Settings.
-  const [showGuide, setShowGuide] = useState(() => !guideSeen());
+  // Opens by itself on a first-time setup, and on request from Settings.
+  const [showGuide, setShowGuide] = useState(false);
 
   const editor = can.editConfig(project);
   const settings = useQuery({
@@ -66,6 +66,11 @@ export function App() {
     queryFn: () => api.get<Settings>("/api/config/settings"),
     enabled: editor,
   });
+
+  const firstSetup = editor && settings.data?.setup_completed === false;
+  useEffect(() => {
+    if (firstSetup && !guideSeen()) setShowGuide(true);
+  }, [firstSetup]);
 
   if (loading || !capabilities || (editor && settings.isLoading)) {
     return (
