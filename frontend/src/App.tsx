@@ -72,7 +72,9 @@ export function App() {
     if (firstSetup && !guideSeen()) setShowGuide(true);
   }, [firstSetup]);
 
-  if (loading || !capabilities || (editor && settings.isLoading)) {
+  // The sign-in page does not wait for the server (it may be asleep); only a
+  // signed-in session needs the server's answers before anything can show.
+  if (loading || (user && !capabilities) || (editor && settings.isLoading)) {
     return (
       <div className="mx-auto max-w-5xl space-y-3 p-8">
         <Skeleton className="h-8 w-52" />
@@ -84,7 +86,7 @@ export function App() {
 
   // No account exists yet: the only thing anyone can do is create the first
   // administrator, and that route closes permanently once they have.
-  if (!capabilities.setup_complete) {
+  if (capabilities && !capabilities.setup_complete) {
     return <LoginPage needsSetup />;
   }
 
@@ -101,6 +103,7 @@ export function App() {
   }
 
   if (!user) return <LoginPage needsSetup={false} />;
+  if (!capabilities) return null; // unreachable: handled by the loading state above
 
   if (!project) return <ProjectsPage />;
 

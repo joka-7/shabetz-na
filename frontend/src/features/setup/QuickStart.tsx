@@ -69,7 +69,7 @@ export function QuickStart({ onClose, onDone }: { onClose: () => void; onDone: (
     async () => {
       // The ladder first, because people's skills refer to its levels.
       const needsLevels = summary.skills.length > 0 && !known.levels.length && !orderedLevels.length;
-      const newLevels = needsLevels ? t("ladder.suggested").split("|") : orderedLevels;
+      const newLevels = needsLevels ? [t("ladder.yesName")] : orderedLevels;
       if (newLevels.length) {
         await api.post<BulkResult>("/api/config/proficiency-levels/bulk", { names: newLevels });
       }

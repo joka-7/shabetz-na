@@ -23,6 +23,11 @@
       rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%234F46E5'/%3E%3Cpath d='M11 14a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-6a2 2 0 0 1-2-2z' fill='white'/%3E%3Cpath d='M21 20a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2z' fill='%23A5B4FC'/%3E%3Ccircle cx='15.5' cy='27.5' r='2.5' fill='%2338BDF8'/%3E%3C/svg%3E"
     />
+    <!-- Starts waking a sleeping free-tier server now, in parallel with the
+         app bundle, instead of after it. Harmless when it answers at once. -->
+    <script>
+      fetch("/api/meta/health", { cache: "no-store" }).catch(function () {});
+    </script>
     <title>Shabetz scheduling</title>
   </head>
   <body>

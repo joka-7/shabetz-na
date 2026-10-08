@@ -13,6 +13,7 @@ import { DivisionBadge, EmptyState, Spinner } from "@/components/ui";
 import { useI18n } from "@/i18n";
 import type { Person } from "@/types/api";
 import { PeopleImport } from "./PeopleImport";
+import { useSkillMode } from "./yesNo";
 import {
   MutationError,
   Row,
@@ -30,6 +31,7 @@ export function PeopleStep() {
   const { data: divisions } = useDivisions();
   const { data: skills } = useSkills();
   const { data: levels } = useLevels();
+  const { simple } = useSkillMode();
   const defaultWeek = useDefaultWeek();
 
   const [fullName, setFullName] = useState("");
@@ -145,7 +147,25 @@ export function PeopleStep() {
             <fieldset className="rounded-md border border-slate-200 p-3 dark:border-slate-700">
               <legend className="label">{t("section.skills")}</legend>
               <div className="grid gap-2 sm:grid-cols-2">
-                {skills!.map((skill) => (
+                {skills!.map((skill) =>
+                  simple ? (
+                    <label key={skill.id} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        aria-label={t("people.hasSkill", { skill: skill.name })}
+                        checked={personSkills[skill.id] !== undefined}
+                        onChange={(event) =>
+                          setPersonSkills((current) => {
+                            const next = { ...current };
+                            if (event.target.checked) next[skill.id] = levels![0]!.id;
+                            else delete next[skill.id];
+                            return next;
+                          })
+                        }
+                      />
+                      <span className="truncate">{skill.name}</span>
+                    </label>
+                  ) : (
                   <div key={skill.id} className="flex items-center gap-2">
                     <span className="flex-1 truncate text-sm">{skill.name}</span>
                     <select
@@ -167,7 +187,8 @@ export function PeopleStep() {
                       ))}
                     </select>
                   </div>
-                ))}
+                  ),
+                )}
               </div>
             </fieldset>
           )}
