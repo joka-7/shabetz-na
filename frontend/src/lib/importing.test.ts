@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { guessColumns, looksLikeHeader, namesFrom, parseTable, parseWindowLine } from "./importing";
+import { analyzeRoster, guessColumns, looksLikeHeader, namesFrom, parseTable, parseWindowLine } from "./importing";
 
 describe("parseWindowLine", () => {
   it("reads a start and end", () => {
@@ -109,5 +109,32 @@ describe("guessColumns", () => {
   it("detects a header row", () => {
     expect(looksLikeHeader(["Name", "Team"])).toBe(true);
     expect(looksLikeHeader(["Dana Cohen", "North"])).toBe(false);
+  });
+});
+
+describe("analyzeRoster", () => {
+  const known = { skills: [], levels: [] };
+  const header = ["Name", "Division", "Days", "Driving", "Phone"];
+  const body = [
+    ["Dana", "North", "Sun-Thu", "Expert", "050-1"],
+    ["Avi", "South", "Sun-Thu", "Beginner", "050-2"],
+    ["Lee", "north", "", "x", "050-3"],
+  ];
+
+  it("reads columns, divisions, skills and levels from the cells", () => {
+    const result = analyzeRoster(header, body, known);
+    expect(result.columns.map((c) => c.role)).toEqual(["name", "division", "days", "skill", "ignore"]);
+    expect(result.divisions).toEqual(["North", "South"]);
+    expect(result.skills).toEqual(["Driving"]);
+    expect(result.levels).toEqual(["Expert", "Beginner"]);
+  });
+
+  it("does not propose levels the ladder already has", () => {
+    const result = analyzeRoster(header, body, { skills: [], levels: ["expert"] });
+    expect(result.levels).toEqual(["Beginner"]);
+  });
+
+  it("falls back to the first column for names", () => {
+    expect(analyzeRoster(["Who", "Team"], [["a", "b"]], known).columns[0]).toEqual({ role: "name" });
   });
 });

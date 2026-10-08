@@ -204,3 +204,113 @@ export function looksLikeHeader(firstRow: string[]): boolean {
     return Object.values(HEADER_WORDS).some((words) => words.includes(title));
   });
 }
+
+const MARKS = new Set(["x", "v", "✓", "✔", "✅", "+", "*", "yes", "y", "true", "כן", "יש"]);
+const NO_SKILL = new Set(["", "-", "–", "no", "n", "false", "0", "לא", "אין"]);
+const NOT_A_SKILL = new Set([
+  "phone", "mobile", "email", "e-mail", "id", "notes", "note", "comment", "comments", "address",
+  "טלפון", "נייד", "מייל", "אימייל", "דוא״ל", "הערות", "הערה", "כתובת", "תעודת זהות", "מספר",
+]);
+
+export interface RosterAnalysis {
+  columns: ColumnChoice[];
+  /** Divisions named in the file, in order of first appearance. */
+  divisions: string[];
+  /** Skill columns, in column order. */
+  skills: string[];
+  /** Level names the file uses that the ladder does not have yet. */
+  levels: string[];
+}
+
+/**
+ * Everything a roster file implies about the setup: which columns mean what,
+ * and which divisions, skills and levels it mentions. A column with an unknown
+ * title counts as a skill only when its few distinct cells look like levels or
+ * ticks, so a "Phone" column is left alone.
+ */
+export function analyzeRoster(
+  header: string[],
+  body: string[][],
+  known: { skills: string[]; levels: string[] },
+): RosterAnalysis {
+  const knownSkills = new Map(known.skills.map((name) => [normalise(name), name]));
+  const used = new Set<ColumnRole>();
+  const cells = (index: number) => body.map((row) => (row[index] ?? "").trim()).filter(Boolean);
+
+  const columns: ColumnChoice[] = header.map((raw, index) => {
+    const title = normalise(raw);
+    for (const role of ["name", "division", "days"] as const) {
+      if (!used.has(role) && HEADER_WORDS[role].includes(title)) {
+        used.add(role);
+        return { role };
+      }
+    }
+    if (!title || NOT_A_SKILL.has(title)) return { role: "ignore" };
+    const existing = knownSkills.get(title);
+    if (existing) return { role: "skill", skill_name: existing };
+    const distinct = new Set(cells(index).map(normalise));
+    const short = [...distinct].every((v) => MARKS.has(v) || NO_SKILL.has(v) || (v.length <= 24 && v.split(" ").length <= 2));
+    return distinct.size > 0 && distinct.size <= 8 && short
+      ? { role: "skill", skill_name: raw.trim() }
+      : { role: "ignore" };
+  });
+  if (!columns.some((c) => c.role === "name")) columns[0] = { role: "name" };
+
+  return summarizeRoster(columns, body, known);
+}
+
+/** What the chosen column meanings imply: divisions, skills and new levels. */
+export function summarizeRoster(
+  columns: ColumnChoice[],
+  body: string[][],
+  known: { levels: string[] },
+): RosterAnalysis {
+  const knownLevels = new Set(known.levels.map(normalise));
+  const cells = (index: number) => body.map((row) => (row[index] ?? "").trim()).filter(Boolean);
+  const seen = new Set<string>();
+  const divisions: string[] = [];
+  const levels: string[] = [];
+  const levelSeen = new Set<string>();
+  columns.forEach((column, index) => {
+    for (const value of cells(index)) {
+      const key = normalise(value);
+      if (column.role === "division" && !seen.has(key)) {
+        seen.add(key);
+        divisions.push(value.replace(/\s+/g, " "));
+      }
+      if (
+        column.role === "skill" &&
+        !MARKS.has(key) &&
+        !NO_SKILL.has(key) &&
+        !knownLevels.has(key) &&
+        !levelSeen.has(key)
+      ) {
+        levelSeen.add(key);
+        levels.push(value.replace(/\s+/g, " "));
+      }
+    }
+  });
+  return {
+    columns,
+    divisions,
+    skills: columns.flatMap((c) => (c.role === "skill" && c.skill_name ? [c.skill_name] : [])),
+    levels,
+  };
+}
+
+/** A starter file people can fill in, with the column titles the importer knows. */
+export function rosterTemplate(lang: "en" | "he"): string {
+  const rows =
+    lang === "he"
+      ? [
+          ["שם", "מחלקה", "ימי עבודה", "נהיגה", "עזרה ראשונה"],
+          ["דנה כהן", "צפון", "א-ה", "מומחה", ""],
+          ["אבי לוי", "דרום", "א-ה", "מתחיל", "בינוני"],
+        ]
+      : [
+          ["Name", "Division", "Days", "Driving", "First aid"],
+          ["Dana Cohen", "North", "Sun-Thu", "Expert", ""],
+          ["Avi Levi", "South", "Sun-Thu", "Beginner", "Intermediate"],
+        ];
+  return "﻿" + rows.map((r) => r.map((c) => `"${c}"`).join(",")).join("\r\n") + "\r\n";
+}

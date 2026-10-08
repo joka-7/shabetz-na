@@ -15,6 +15,7 @@ import { LoginPage } from "@/features/auth/LoginPage";
 import { SetupWizard } from "@/features/setup/SetupWizard";
 import { ConfigView } from "@/features/config/ConfigView";
 import { DashboardView } from "@/features/dashboard/DashboardView";
+import { GuideDialog, guideSeen } from "@/features/guide/GuideDialog";
 import { SettingsDialog } from "@/features/settings/SettingsDialog";
 import { SwapsView } from "@/features/swaps/SwapsView";
 import { TimeOffView } from "@/features/timeoff/TimeOffView";
@@ -56,6 +57,8 @@ export function App() {
   // from the server, so finishing it once is remembered across reloads.
   const [wizardReopened, setWizardReopened] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  // Opens by itself on a first-time setup, and on request from Settings.
+  const [showGuide, setShowGuide] = useState(false);
 
   const editor = can.editConfig(project);
   const settings = useQuery({
@@ -63,6 +66,11 @@ export function App() {
     queryFn: () => api.get<Settings>("/api/config/settings"),
     enabled: editor,
   });
+
+  const firstSetup = editor && settings.data?.setup_completed === false;
+  useEffect(() => {
+    if (firstSetup && !guideSeen()) setShowGuide(true);
+  }, [firstSetup]);
 
   if (loading || !capabilities || (editor && settings.isLoading)) {
     return (
@@ -99,8 +107,11 @@ export function App() {
   // A fresh project opens in the wizard rather than an empty dashboard.
   if (editor && (wizardReopened || settings.data?.setup_completed === false)) {
     return (
+      <>
+      {showGuide && <GuideDialog onClose={() => setShowGuide(false)} />}
       <SetupWizard
         firstRun={settings.data?.setup_completed === false}
+        onShowGuide={() => setShowGuide(true)}
         onFinished={async () => {
           await api.post("/api/setup/complete");
           await queryClient.invalidateQueries({ queryKey: keys.settings });
@@ -109,6 +120,7 @@ export function App() {
           void refreshProjects();
         }}
       />
+      </>
     );
   }
 
@@ -213,7 +225,10 @@ export function App() {
         <span className="text-xs">{t("footer.credit")}</span>
       </footer>
 
-      {showSettings && <SettingsDialog onClose={() => setShowSettings(false)} />}
+      {showSettings && (
+        <SettingsDialog onClose={() => setShowSettings(false)} onOpenGuide={() => setShowGuide(true)} />
+      )}
+      {showGuide && <GuideDialog onClose={() => setShowGuide(false)} />}
     </div>
   );
 }

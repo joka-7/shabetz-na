@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
+import { ArrowLeft, BookOpen, ArrowRight, Check, FileSpreadsheet, X } from "lucide-react";
 import { useSettings } from "@/api/queries";
 import { useI18n } from "@/i18n";
 import type { MessageKey } from "@/i18n";
+import { QuickStart } from "./QuickStart";
 import { FeasibilityPanel } from "./FeasibilityPanel";
 import { DivisionsStep } from "./steps/DivisionsStep";
 import { LadderStep } from "./steps/LadderStep";
@@ -35,13 +36,16 @@ const STEPS: { id: string; label: MessageKey; Component: (() => JSX.Element) | n
 export function SetupWizard({
   onFinished,
   firstRun,
+  onShowGuide,
 }: {
   onFinished: () => void | Promise<void>;
   firstRun: boolean;
+  onShowGuide: () => void;
 }) {
   const { t } = useI18n();
   const [index, setIndex] = useState(0);
   const [closing, setClosing] = useState(false);
+  const [quick, setQuick] = useState(false);
   const { isLoading } = useSettings();
 
   if (isLoading) {
@@ -79,6 +83,10 @@ export function SetupWizard({
         </div>
         <div className="ms-auto flex items-center gap-2 sm:ms-0">
           <LanguageSwitch />
+          <button className="btn-ghost text-xs" onClick={onShowGuide}>
+            <BookOpen className="h-3.5 w-3.5" aria-hidden />
+            {t("settings.showGuide")}
+          </button>
           <button className="btn-ghost text-xs" onClick={() => void close()} disabled={closing}>
             <X className="h-3.5 w-3.5" aria-hidden />
             {t("wizard.saveAndClose")}
@@ -91,6 +99,28 @@ export function SetupWizard({
           {t("wizard.firstRunHint")}
         </p>
       )}
+
+      {index === 0 &&
+        (quick ? (
+          <div className="mb-4">
+            <QuickStart
+              onClose={() => setQuick(false)}
+              onDone={() => {
+                setQuick(false);
+                // Divisions, levels, skills and people are in; shift windows come next.
+                setIndex(STEPS.findIndex((s) => s.id === "templates"));
+              }}
+            />
+          </div>
+        ) : (
+          <button className="card mb-4 flex w-full items-center gap-3 text-start hover:border-indigo-400" onClick={() => setQuick(true)}>
+            <FileSpreadsheet className="h-5 w-5 shrink-0 text-indigo-600" aria-hidden />
+            <span>
+              <span className="block text-sm font-semibold">{t("quick.banner")}</span>
+              <span className="block text-xs text-slate-500">{t("quick.bannerHint")}</span>
+            </span>
+          </button>
+        ))}
 
       {/* Steps are addressable rather than strictly linear: each one saves on
           its own, so revisiting an earlier step never discards later work. */}
