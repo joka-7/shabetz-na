@@ -1,10 +1,16 @@
 import { useEffect } from "react";
-import { FolderGit2, Github, Globe, Mail, MessageSquare, X } from "lucide-react";
+import { BookOpen, FolderGit2, Github, Globe, Mail, MessageSquare, X } from "lucide-react";
 import { LanguageSwitch } from "@/components/ui";
 import { useI18n } from "@/i18n";
 
 /** Language switcher and the project's credit links, out of the header/footer and into one place. */
-export function SettingsDialog({ onClose }: { onClose: () => void }) {
+export function SettingsDialog({
+  onClose,
+  onOpenGuide,
+}: {
+  onClose: () => void;
+  onOpenGuide: () => void;
+}) {
   const { t } = useI18n();
 
   useEffect(() => {
@@ -34,6 +40,20 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         <div>
           <h3 className="mb-1.5 text-xs font-semibold text-slate-500">{t("settings.languageHeading")}</h3>
           <LanguageSwitch />
+        </div>
+
+        <div>
+          <h3 className="mb-1.5 text-xs font-semibold text-slate-500">{t("settings.helpHeading")}</h3>
+          <button
+            className="btn-ghost"
+            onClick={() => {
+              onClose();
+              onOpenGuide();
+            }}
+          >
+            <BookOpen className="h-4 w-4" aria-hidden />
+            {t("settings.showGuide")}
+          </button>
         </div>
 
         <div>
