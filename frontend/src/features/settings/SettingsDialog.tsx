@@ -2,6 +2,8 @@ import { useEffect } from "react";
 import { BookOpen, FolderGit2, Github, Globe, Mail, MessageSquare, X } from "lucide-react";
 import { LanguageSwitch } from "@/components/ui";
 import { useI18n } from "@/i18n";
+import { useSession } from "@/hooks/useSession";
+import { GetTheApp } from "./GetTheApp";
 
 /** Language switcher and the project's credit links, out of the header/footer and into one place. */
 export function SettingsDialog({
@@ -12,6 +14,7 @@ export function SettingsDialog({
   onOpenGuide: () => void;
 }) {
   const { t } = useI18n();
+  const { capabilities } = useSession();
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => event.key === "Escape" && onClose();
@@ -55,6 +58,14 @@ export function SettingsDialog({
             {t("settings.showGuide")}
           </button>
         </div>
+
+        {/* The desktop app is already installed; this is for the website. */}
+        {capabilities?.deployment !== "desktop" && (
+          <div>
+            <h3 className="mb-1.5 text-xs font-semibold text-slate-500">{t("getapp.heading")}</h3>
+            <GetTheApp />
+          </div>
+        )}
 
         <div>
           <h3 className="mb-1.5 text-xs font-semibold text-slate-500">{t("settings.linksHeading")}</h3>

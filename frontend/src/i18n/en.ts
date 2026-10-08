@@ -727,4 +727,10 @@ export const en = {
   "ladder.modeLevelsHint": "People have a skill at a level, such as Beginner, Intermediate or Expert, and jobs can ask for a minimum.",
   "ladder.simpleNote": "Skills are yes or no. Nothing more to set up here; you can skip to the next step.",
   "people.hasSkill": "Has {skill}",
+  "getapp.heading": "Get the app",
+  "getapp.windows": "Download for Windows",
+  "getapp.android": "Download for Android (APK)",
+  "getapp.install": "Install on this device",
+  "getapp.hintPhone": "On a phone, open this site in Chrome and choose Install app or Add to Home screen. It then opens full-screen like an app.",
+  "getapp.hintIphone": "On iPhone, open this site in Safari, tap Share, then Add to Home Screen.",
 } as const;
