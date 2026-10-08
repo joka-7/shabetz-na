@@ -711,4 +711,10 @@ export const he: Record<keyof typeof en, string> = {
   "ladder.modeLevelsHint": "לאדם יש כישור ברמה מסוימת, כמו מתחיל, בינוני או מומחה, ותפקיד יכול לדרוש רמה מינימלית.",
   "ladder.simpleNote": "הכישורים הם כן או לא. אין כאן עוד מה להגדיר, אפשר לעבור לשלב הבא.",
   "people.hasSkill": "יש {skill}",
+  "getapp.heading": "הורדת האפליקציה",
+  "getapp.windows": "הורדה ל־Windows",
+  "getapp.android": "הורדה לאנדרואיד (APK)",
+  "getapp.install": "התקנה במכשיר הזה",
+  "getapp.hintPhone": "בטלפון, פתחו את האתר ב־Chrome ובחרו „התקנת אפליקציה” או „הוספה למסך הבית”. אז היא נפתחת במסך מלא כמו אפליקציה.",
+  "getapp.hintIphone": "באייפון, פתחו את האתר ב־Safari, לחצו על שיתוף ואז „הוספה למסך הבית”.",
 };
