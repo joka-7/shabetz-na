@@ -80,7 +80,7 @@ export const en = {
   "roleHint.STAFF": "See own shifts and request own time off",
 
   "section.divisions": "Divisions",
-  "section.ladder": "Proficiency",
+  "section.ladder": "Skill levels (optional)",
   "section.skills": "Skills",
   "section.templates": "Shift windows",
   "section.jobs": "Jobs",
@@ -130,8 +130,7 @@ export const en = {
   "divisions.order": "Duty passes in this order: {order}",
 
   // ------------------------------------------------------------------- ladder
-  "ladder.intro":
-    "Define the rungs of skill, weakest first. Requirements are compared by position, so you can name them anything and use as many as you need.",
+  "ladder.intro": "Most skills are simply yes or no. Only choose levels if some skills come in degrees, such as Beginner and Expert.",
   "ladder.placeholder": "Level name",
   "ladder.newLabel": "New level name",
   "ladder.pastePlaceholder": "Beginner\nIntermediate\nExpert",
@@ -690,7 +689,7 @@ export const en = {
   "quick.levelsHint": "Put them from weakest to strongest; this becomes your proficiency ladder.",
   "quick.levelWeaker": "Make {name} weaker",
   "quick.levelStronger": "Make {name} stronger",
-  "quick.skipNote": "Nothing is saved until you press the button. Shift windows, jobs and rules are set up in the next steps.",
+  "quick.skipNote": "Nothing is saved until you press the button. Skills with only ticks stay plain yes or no. Shift windows, jobs and rules are set up in the next steps.",
   "quick.apply": "Set everything up",
   "quick.done_one": "Set up: {count} person added.",
   "quick.done_other": "Set up: {count} people added.",
@@ -702,7 +701,7 @@ export const en = {
   "guide.1.title": "1. Describe your organization",
   "guide.1.body": "The setup wizard walks you through what the schedule is built from. Everything is saved as you go.",
   "guide.1.a": "Have a spreadsheet? Upload it on the first step and divisions, skills, levels and people are filled in for you.",
-  "guide.1.b": "Otherwise add divisions, skill levels, skills, shift windows, jobs and people one step at a time.",
+  "guide.1.b": "Otherwise add divisions, skills, shift windows, jobs and people one step at a time. Skill levels are optional.",
   "guide.1.c": "Reopen the wizard any time with the Setup button at the top.",
   "guide.2.title": "2. Set the rules",
   "guide.2.body": "Jobs say who is needed on a shift and how skilled they must be. Rules say how fairly the work is spread.",
@@ -719,4 +718,13 @@ export const en = {
   "guide.4.a": "Time off is respected the next time you generate.",
   "guide.4.b": "Swaps are requested from a shift and confirmed by an administrator.",
   "guide.4.c": "Export or print the schedule from the Schedule tab. This guide is always under Settings → How it works.",
+  "ladder.yesName": "Yes",
+  "ladder.modeHeading": "How are skills recorded?",
+  "ladder.modeYesNo": "Yes or no",
+  "ladder.modeYesNoHint": "A person either has the skill or not. This is the simplest and fits most skills.",
+  "ladder.modeNeedRemove": "Remove the extra levels below first to switch back.",
+  "ladder.modeLevels": "Levels",
+  "ladder.modeLevelsHint": "People have a skill at a level, such as Beginner, Intermediate or Expert, and jobs can ask for a minimum.",
+  "ladder.simpleNote": "Skills are yes or no. Nothing more to set up here; you can skip to the next step.",
+  "people.hasSkill": "Has {skill}",
 } as const;

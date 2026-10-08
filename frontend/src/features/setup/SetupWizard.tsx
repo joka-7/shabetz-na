@@ -24,8 +24,8 @@ import { LanguageSwitch, Spinner } from "@/components/ui";
  */
 const STEPS: { id: string; label: MessageKey; Component: (() => JSX.Element) | null }[] = [
   { id: "divisions", label: "section.divisions", Component: DivisionsStep },
-  { id: "ladder", label: "section.ladder", Component: LadderStep },
   { id: "skills", label: "section.skills", Component: SkillsStep },
+  { id: "ladder", label: "section.ladder", Component: LadderStep },
   { id: "templates", label: "section.templates", Component: ShiftTemplatesStep },
   { id: "jobs", label: "section.jobs", Component: JobsStep },
   { id: "people", label: "section.people", Component: PeopleStep },

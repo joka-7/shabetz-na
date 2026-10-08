@@ -9,6 +9,8 @@ interface SessionState {
   user: User | null;
   capabilities: Capabilities | null;
   loading: boolean;
+  /** The server has answered; until then it may still be waking up. */
+  serverReady: boolean;
   /** Every project the account belongs to, with its role in each. */
   projects: Project[];
   /** The project being worked in; null while choosing one. */
@@ -34,6 +36,39 @@ interface SessionState {
 const SessionContext = createContext<SessionState | null>(null);
 
 const PROJECT_KEY = "shabetz.project";
+const CAPS_KEY = "shabetz.capabilities";
+const SIGNED_IN_KEY = "shabetz.signedIn";
+
+/**
+ * The server's last answer, kept so the sign-in page can appear at once while
+ * a sleeping server wakes up. It is only a first draft: the live answer
+ * replaces it as soon as it arrives.
+ */
+function cachedCapabilities(): Capabilities | null {
+  try {
+    const raw = localStorage.getItem(CAPS_KEY);
+    return raw ? (JSON.parse(raw) as Capabilities) : null;
+  } catch {
+    return null;
+  }
+}
+
+function remember(key: string, value: string | null): void {
+  try {
+    if (value === null) localStorage.removeItem(key);
+    else localStorage.setItem(key, value);
+  } catch {
+    // Only a speed-up; without storage the page just waits for the server.
+  }
+}
+
+function wasSignedIn(): boolean {
+  try {
+    return localStorage.getItem(SIGNED_IN_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
 
 function rememberedProject(): number | null {
   try {
@@ -56,8 +91,12 @@ function rememberProject(id: number | null): void {
 export function SessionProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
-  const [capabilities, setCapabilities] = useState<Capabilities | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [capabilities, setCapabilities] = useState<Capabilities | null>(cachedCapabilities);
+  // Someone who was signed in last time sees a skeleton until the server says
+  // so; anyone else sees the sign-in page straight away, never a blank wait.
+  const [loading, setLoading] = useState(wasSignedIn);
+  // False until the server has answered the first requests (it may be asleep).
+  const [serverReady, setServerReady] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectId, setCurrentProjectId] = useState<number | null>(null);
 
@@ -89,7 +128,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [refreshProjects, selectProject]);
 
   const loadCapabilities = useCallback(async () => {
-    setCapabilities(await api.get<Capabilities>("/api/meta/capabilities"));
+    const fresh = await api.get<Capabilities>("/api/meta/capabilities");
+    setCapabilities(fresh);
+    remember(CAPS_KEY, JSON.stringify(fresh));
   }, []);
 
   const refresh = useCallback(async () => {
@@ -97,10 +138,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const me = await api.get<User>("/api/auth/me");
       adoptCsrfTokenFromCookie();
       setUser(me);
+      remember(SIGNED_IN_KEY, "1");
       await loadProjects();
     } catch (error) {
       // A 401 here is the normal signed-out state, not a failure to report.
       if (!(error instanceof ApiError) || error.status !== 401) throw error;
+      remember(SIGNED_IN_KEY, null);
       setUser(null);
       setProjects([]);
     }
@@ -108,7 +151,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void (async () => {
-      await Promise.all([loadCapabilities(), refresh()]);
+      // Either may fail while the server is down; the page must still leave
+      // its loading state rather than wait for ever.
+      await Promise.allSettled([loadCapabilities(), refresh()]);
+      setServerReady(true);
       setLoading(false);
     })();
   }, [loadCapabilities, refresh]);
@@ -117,6 +163,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     async (session: SessionResponse) => {
       setCsrfToken(session.csrf_token);
       setUser(session.user);
+      remember(SIGNED_IN_KEY, "1");
       await loadProjects();
       await loadCapabilities();
     },
@@ -179,6 +226,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     await api.post("/api/auth/logout");
     setCsrfToken(null);
+    remember(SIGNED_IN_KEY, null);
     setUser(null);
     setProjects([]);
     selectProject(null);
@@ -191,6 +239,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       user,
       capabilities,
       loading,
+      serverReady,
       projects,
       project,
       selectProject,
@@ -207,6 +256,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       user,
       capabilities,
       loading,
+      serverReady,
       projects,
       project,
       selectProject,

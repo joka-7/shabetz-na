@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { useSession } from "@/hooks/useSession";
 import { Eye, EyeOff, FolderGit2, Github, Globe, Mail, MessageSquare } from "lucide-react";
@@ -22,7 +22,14 @@ function GoogleMark() {
 
 export function LoginPage({ needsSetup, banner }: { needsSetup: boolean; banner?: ReactNode }) {
   const { t } = useI18n();
-  const { signIn, signInWithGoogle, bootstrap, capabilities } = useSession();
+  const { signIn, signInWithGoogle, bootstrap, capabilities, serverReady } = useSession();
+  // A sleeping free-tier server can take up to a minute; say so, don't just spin.
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    if (serverReady) return setSlow(false);
+    const id = setTimeout(() => setSlow(true), 3000);
+    return () => clearTimeout(id);
+  }, [serverReady]);
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
   const [organization, setOrganization] = useState("");
@@ -38,6 +45,11 @@ export function LoginPage({ needsSetup, banner }: { needsSetup: boolean; banner?
   // it was, so it waits behind a link.
   const [showPassword, setShowPassword] = useState(!google);
   const [reveal, setReveal] = useState(false);
+  // Capabilities may arrive after the page is already up (a sleeping server),
+  // and then Google sign-in takes the place of the password form.
+  useEffect(() => {
+    if (google && !email) setShowPassword(false);
+  }, [google, email]);
   // A password that "stopped working" is very often typed with the keyboard
   // switched to Hebrew, or with Caps Lock on; both are invisible in a
   // password field, so they are pointed out.
@@ -89,6 +101,9 @@ export function LoginPage({ needsSetup, banner }: { needsSetup: boolean; banner?
         </div>
 
         {banner}
+        {slow && (
+          <p role="status" className="mb-4 text-sm text-slate-500">{t("common.waking")}</p>
+        )}
         {needsSetup && <p className="mb-4 text-sm text-slate-500">{t("login.setupIntro")}</p>}
         {google && <p className="mb-4 text-sm text-slate-500">{t("login.googleIntro")}</p>}
 
