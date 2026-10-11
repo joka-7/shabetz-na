@@ -86,7 +86,7 @@ def _person(db: DbSession, ctx: ProjectContext, person_id: int) -> orm.Person:
 @router.get("", response_model=list[AttendanceRowOut])
 def day_attendance(
     day: date = Query(alias="date"),
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_viewer),
 ) -> list[AttendanceRowOut]:
     return _rows(db, ctx, day)
@@ -95,7 +95,7 @@ def day_attendance(
 @router.put("", response_model=list[AttendanceRowOut])
 def mark(
     payload: AttendanceMarkIn,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> list[AttendanceRowOut]:
     """Mark one person; no status clears the mark. Returns the day, refreshed."""
@@ -131,7 +131,7 @@ def mark(
 @router.post("/bulk", response_model=list[AttendanceRowOut])
 def mark_many(
     payload: AttendanceBulkIn,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> list[AttendanceRowOut]:
     """Mark many at once, such as everyone present; people already marked are left alone."""

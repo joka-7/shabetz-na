@@ -85,7 +85,9 @@ def _check_person(db: DbSession, ctx: ProjectContext, person_id: int | None) -> 
 
 
 @router.get("/projects", response_model=list[ProjectOut])
-def my_projects(db: DbSession = Depends(get_db), user: User = Depends(current_user)) -> list:
+def my_projects(
+    db: DbSession = Depends(get_db, scope="function"), user: User = Depends(current_user)
+) -> list:
     members = db.scalars(
         select(ProjectMember)
         .join(Project)
@@ -99,7 +101,7 @@ def my_projects(db: DbSession = Depends(get_db), user: User = Depends(current_us
 @router.post("/projects", response_model=ProjectOut, status_code=status.HTTP_201_CREATED)
 def create_project(
     payload: ProjectIn,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     user: User = Depends(current_user),
     settings: Settings = Depends(settings_dep),
 ) -> ProjectOut:
@@ -113,7 +115,7 @@ def create_project(
 @router.put("/project", response_model=ProjectOut)
 def rename_project(
     payload: ProjectIn,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_project_admin),
 ) -> ProjectOut:
     ctx.project.name = payload.name.strip()
@@ -123,7 +125,7 @@ def rename_project(
 
 @router.delete("/project", status_code=status.HTTP_204_NO_CONTENT)
 def delete_project(
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_project_admin),
     settings: Settings = Depends(settings_dep),
 ) -> None:
@@ -138,7 +140,7 @@ def delete_project(
 
 @router.post("/project/leave", status_code=status.HTTP_204_NO_CONTENT)
 def leave_project(
-    db: DbSession = Depends(get_db), ctx: ProjectContext = Depends(project_member)
+    db: DbSession = Depends(get_db, scope="function"), ctx: ProjectContext = Depends(project_member)
 ) -> None:
     try:
         auth_service.assert_not_last_admin(db, ctx.member)
@@ -175,7 +177,8 @@ def _load_member(db: DbSession, ctx: ProjectContext, member_id: int) -> ProjectM
 
 @router.get("/project/members", response_model=list[MemberOut])
 def list_members(
-    db: DbSession = Depends(get_db), ctx: ProjectContext = Depends(require_project_admin)
+    db: DbSession = Depends(get_db, scope="function"),
+    ctx: ProjectContext = Depends(require_project_admin),
 ) -> list[MemberOut]:
     members = db.scalars(
         select(ProjectMember)
@@ -190,7 +193,7 @@ def list_members(
 @router.post("/project/members", response_model=MemberOut, status_code=status.HTTP_201_CREATED)
 def add_local_member(
     payload: LocalMemberCreate,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_project_admin),
     settings: Settings = Depends(settings_dep),
 ) -> MemberOut:
@@ -224,7 +227,7 @@ def add_local_member(
 def update_member(
     member_id: int,
     payload: MemberUpdate,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_project_admin),
 ) -> MemberOut:
     member = _load_member(db, ctx, member_id)
@@ -248,7 +251,7 @@ def update_member(
 @router.delete("/project/members/{member_id}", status_code=status.HTTP_204_NO_CONTENT)
 def remove_member(
     member_id: int,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_project_admin),
 ) -> None:
     """Take someone out of the project. Their account, and other projects, stay."""
@@ -265,7 +268,7 @@ def remove_member(
 def set_member_password(
     member_id: int,
     payload: PasswordSet,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_project_admin),
     settings: Settings = Depends(settings_dep),
 ) -> MemberOut:
@@ -314,7 +317,8 @@ def _usable(invite: ProjectInvite) -> bool:
 
 @router.get("/project/invites", response_model=list[InviteOut])
 def list_invites(
-    db: DbSession = Depends(get_db), ctx: ProjectContext = Depends(require_project_admin)
+    db: DbSession = Depends(get_db, scope="function"),
+    ctx: ProjectContext = Depends(require_project_admin),
 ) -> list[InviteOut]:
     invites = db.scalars(
         select(ProjectInvite)
@@ -327,7 +331,7 @@ def list_invites(
 @router.post("/project/invites", response_model=InviteCreatedOut, status_code=201)
 def create_invite(
     payload: InviteIn,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_project_admin),
 ) -> InviteCreatedOut:
     _check_person(db, ctx, payload.person_id)
@@ -353,7 +357,7 @@ def create_invite(
 @router.delete("/project/invites/{invite_id}", status_code=status.HTTP_204_NO_CONTENT)
 def revoke_invite(
     invite_id: int,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_project_admin),
 ) -> None:
     invite = db.get(ProjectInvite, invite_id)
@@ -372,7 +376,9 @@ def _find_invite(db: DbSession, token: str) -> ProjectInvite:
 
 
 @router.get("/invites/{token}", response_model=InvitePreviewOut)
-def preview_invite(token: str, db: DbSession = Depends(get_db)) -> InvitePreviewOut:
+def preview_invite(
+    token: str, db: DbSession = Depends(get_db, scope="function")
+) -> InvitePreviewOut:
     """What the link is for, shown before signing in to accept it."""
     invite = _find_invite(db, token)
     project = db.get(Project, invite.project_id)
@@ -382,7 +388,9 @@ def preview_invite(token: str, db: DbSession = Depends(get_db)) -> InvitePreview
 
 @router.post("/invites/{token}/accept", response_model=ProjectOut)
 def accept_invite(
-    token: str, db: DbSession = Depends(get_db), user: User = Depends(current_user)
+    token: str,
+    db: DbSession = Depends(get_db, scope="function"),
+    user: User = Depends(current_user),
 ) -> ProjectOut:
     invite = _find_invite(db, token)
     # Counted with a conditional update, so two people opening a single-use

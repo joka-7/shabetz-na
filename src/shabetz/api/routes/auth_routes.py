@@ -94,7 +94,7 @@ def bootstrap_is_open(db: DbSession, settings: Settings) -> bool:
 
 @router.post("/setup/complete")
 def complete_wizard(
-    db: DbSession = Depends(get_db), ctx: ProjectContext = Depends(require_editor)
+    db: DbSession = Depends(get_db, scope="function"), ctx: ProjectContext = Depends(require_editor)
 ) -> dict:
     """Remember that the project's wizard is done.
 
@@ -112,7 +112,7 @@ def bootstrap_admin(
     payload: BootstrapAdminRequest,
     request: Request,
     response: Response,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     settings: Settings = Depends(settings_dep),
     throttle: FailureThrottle = Depends(login_throttle),
 ) -> SessionOut:
@@ -164,7 +164,7 @@ def login(
     payload: LoginRequest,
     request: Request,
     response: Response,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     settings: Settings = Depends(settings_dep),
     throttle: FailureThrottle = Depends(login_throttle),
 ) -> SessionOut:
@@ -199,7 +199,7 @@ def login(
 
 @router.post("/auth/recovery/start", response_model=RecoveryStartOut)
 def start_recovery(
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     settings: Settings = Depends(settings_dep),
     codes: RecoveryCodes = Depends(recovery_codes),
 ) -> RecoveryStartOut:
@@ -229,7 +229,7 @@ def complete_recovery(
     payload: RecoveryCompleteRequest,
     request: Request,
     response: Response,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     settings: Settings = Depends(settings_dep),
     codes: RecoveryCodes = Depends(recovery_codes),
 ) -> SessionOut:
@@ -265,7 +265,7 @@ def complete_recovery(
 def logout(
     request: Request,
     response: Response,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     settings: Settings = Depends(settings_dep),
     user: User = Depends(current_user),
 ) -> dict:
@@ -304,7 +304,7 @@ def firebase_sign_in(
     payload: FirebaseSignIn,
     request: Request,
     response: Response,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     settings: Settings = Depends(settings_dep),
     verifier: FirebaseVerifier = Depends(firebase_verifier),
     throttle: FailureThrottle = Depends(login_throttle),

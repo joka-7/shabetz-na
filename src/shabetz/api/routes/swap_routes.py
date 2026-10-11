@@ -87,7 +87,7 @@ def _render(db: DbSession, rows: list[orm.SwapRequest], ctx: ProjectContext) -> 
 
 @router.get("/colleagues", response_model=list[ColleagueOut])
 def colleagues(
-    db: DbSession = Depends(get_db), ctx: ProjectContext = Depends(project_member)
+    db: DbSession = Depends(get_db, scope="function"), ctx: ProjectContext = Depends(project_member)
 ) -> list[ColleagueOut]:
     """People a shift can be handed to: those who have an account to answer with."""
     rows = db.execute(
@@ -105,7 +105,7 @@ def colleagues(
 
 @router.get("", response_model=list[SwapOut])
 def list_swaps(
-    db: DbSession = Depends(get_db), ctx: ProjectContext = Depends(project_member)
+    db: DbSession = Depends(get_db, scope="function"), ctx: ProjectContext = Depends(project_member)
 ) -> list[SwapOut]:
     query = select(orm.SwapRequest).where(orm.SwapRequest.project_id == ctx.project_id)
     if not can_edit_configuration(ctx.role):
@@ -120,7 +120,7 @@ def list_swaps(
 @router.post("", response_model=SwapOut, status_code=status.HTTP_201_CREATED)
 def request_swap(
     payload: SwapIn,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(project_member),
 ) -> SwapOut:
     me = _own_person(ctx)
@@ -190,7 +190,9 @@ def _answer(row: orm.SwapRequest, ctx: ProjectContext, accept: bool) -> None:
 
 @router.post("/{swap_id}/accept", response_model=SwapOut)
 def accept(
-    swap_id: int, db: DbSession = Depends(get_db), ctx: ProjectContext = Depends(project_member)
+    swap_id: int,
+    db: DbSession = Depends(get_db, scope="function"),
+    ctx: ProjectContext = Depends(project_member),
 ) -> SwapOut:
     row = _load(db, swap_id, ctx)
     _answer(row, ctx, True)
@@ -199,7 +201,9 @@ def accept(
 
 @router.post("/{swap_id}/decline", response_model=SwapOut)
 def decline(
-    swap_id: int, db: DbSession = Depends(get_db), ctx: ProjectContext = Depends(project_member)
+    swap_id: int,
+    db: DbSession = Depends(get_db, scope="function"),
+    ctx: ProjectContext = Depends(project_member),
 ) -> SwapOut:
     row = _load(db, swap_id, ctx)
     _answer(row, ctx, False)
@@ -208,7 +212,9 @@ def decline(
 
 @router.post("/{swap_id}/cancel", response_model=SwapOut)
 def cancel(
-    swap_id: int, db: DbSession = Depends(get_db), ctx: ProjectContext = Depends(project_member)
+    swap_id: int,
+    db: DbSession = Depends(get_db, scope="function"),
+    ctx: ProjectContext = Depends(project_member),
 ) -> SwapOut:
     row = _load(db, swap_id, ctx)
     if row.requested_by != ctx.user.id:
@@ -229,7 +235,7 @@ def _editor_for(db: DbSession, row: orm.SwapRequest, ctx: ProjectContext) -> Sch
 @router.get("/{swap_id}/conflicts", response_model=list[ConflictOut])
 def swap_conflicts(
     swap_id: int,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> list[ConflictOut]:
     """Rules the swap would break if approved, so a manager can decide knowingly."""
@@ -253,7 +259,7 @@ def swap_conflicts(
 def approve(
     swap_id: int,
     payload: SwapDecision,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> SwapOut:
     row = _load(db, swap_id, ctx)
@@ -283,7 +289,7 @@ def approve(
 def deny(
     swap_id: int,
     payload: SwapDecision,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> SwapOut:
     row = _load(db, swap_id, ctx)
