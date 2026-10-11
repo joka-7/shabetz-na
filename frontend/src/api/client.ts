@@ -121,6 +121,12 @@ export const api = {
   },
 };
 
+/** The whole project as a JSON file, through a navigation so the cookie is sent. */
+export function downloadBackup(): void {
+  const project = projectId === null ? "" : `?project=${projectId}`;
+  window.location.href = `/api/config/backup${project}`;
+}
+
 /**
  * Trigger a download through a normal navigation so the cookie is sent. A
  * navigation cannot carry headers, so the project rides in the query string.

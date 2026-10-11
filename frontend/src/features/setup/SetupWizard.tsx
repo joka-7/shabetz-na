@@ -3,6 +3,7 @@ import { ArrowLeft, BookOpen, ArrowRight, Check, FileSpreadsheet, X } from "luci
 import { useSettings } from "@/api/queries";
 import { useI18n } from "@/i18n";
 import type { MessageKey } from "@/i18n";
+import { BackupPanel } from "@/features/config/BackupPanel";
 import { QuickStart } from "./QuickStart";
 import { FeasibilityPanel } from "./FeasibilityPanel";
 import { DivisionsStep } from "./steps/DivisionsStep";
@@ -46,6 +47,7 @@ export function SetupWizard({
   const [index, setIndex] = useState(0);
   const [closing, setClosing] = useState(false);
   const [quick, setQuick] = useState(false);
+  const [restore, setRestore] = useState(false);
   const { isLoading } = useSettings();
 
   if (isLoading) {
@@ -119,6 +121,20 @@ export function SetupWizard({
               <span className="block text-sm font-semibold">{t("quick.banner")}</span>
               <span className="block text-xs text-slate-500">{t("quick.bannerHint")}</span>
             </span>
+          </button>
+        ))}
+
+      {index === 0 &&
+        (restore ? (
+          <div className="card mb-4 space-y-2">
+            <BackupPanel />
+            <button className="btn-ghost text-xs" onClick={() => setRestore(false)}>
+              {t("common.close")}
+            </button>
+          </div>
+        ) : (
+          <button className="btn-ghost mb-4 text-xs" onClick={() => setRestore(true)}>
+            {t("backup.wizardLink")}
           </button>
         ))}
 

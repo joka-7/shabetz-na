@@ -625,3 +625,28 @@ class SwapOut(BaseModel):
     can_accept: bool = False
     can_cancel: bool = False
     can_decide: bool = False
+
+
+# -------------------------------------------------------------------- backup
+
+
+class BackupImportIn(BaseModel):
+    backup: dict
+    apply: bool = False
+
+
+class BackupCountsOut(BaseModel):
+    created: int
+    updated: int
+    unchanged: int
+
+
+class BackupProblemOut(BaseModel):
+    code: str
+    value: str
+
+
+class BackupImportOut(BaseModel):
+    applied: bool
+    counts: dict[str, BackupCountsOut]
+    problems: list[BackupProblemOut]

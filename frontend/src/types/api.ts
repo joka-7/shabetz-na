@@ -387,3 +387,15 @@ export interface PeopleImport {
   new_divisions: string[];
   new_skills: string[];
 }
+
+export interface BackupCounts {
+  created: number;
+  updated: number;
+  unchanged: number;
+}
+
+export interface BackupImportResult {
+  applied: boolean;
+  counts: Record<string, BackupCounts>;
+  problems: { code: string; value: string }[];
+}

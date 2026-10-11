@@ -18,6 +18,7 @@ const BY_CODE: Record<string, MessageKey> = {
   TOO_MANY_ROWS: "error.tooManyRows",
   FILE_TOO_LARGE: "error.fileTooLarge",
   SCHEDULE_CONFLICT: "error.scheduleConflict",
+  BAD_BACKUP: "error.badBackup",
 };
 
 const BY_MESSAGE: Record<string, MessageKey> = {
