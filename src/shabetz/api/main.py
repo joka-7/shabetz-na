@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from ..config import get_settings
 from .errors import install_handlers
 from .routes import (
+    attendance_routes,
     auth_routes,
     config_routes,
     import_routes,
@@ -46,6 +47,7 @@ def create_app() -> FastAPI:
     for module in (
         meta_routes,
         auth_routes,
+        attendance_routes,
         config_routes,
         import_routes,
         schedule_routes,

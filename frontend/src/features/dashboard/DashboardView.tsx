@@ -26,6 +26,7 @@ import { FairnessTable } from "./FairnessTable";
 import { HistoryPanel } from "./HistoryPanel";
 import { useToast } from "@/components/Toasts";
 import { MyShiftsView } from "./MyShiftsView";
+import { ShiftBoardView } from "./ShiftBoardView";
 import { PrintGrid } from "./PrintGrid";
 import { PublishBar } from "./PublishBar";
 import { TimelineGantt } from "./TimelineGantt";
@@ -49,7 +50,7 @@ export function DashboardView() {
   const { data: divisions } = useDivisions();
   const [start, setStart] = useState(isoDaysFromToday(0));
   const [end, setEnd] = useState(isoDaysFromToday(13));
-  const [view, setView] = useState<"table" | "timeline" | "fairness">("table");
+  const [view, setView] = useState<"table" | "byShift" | "timeline" | "fairness">("table");
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -206,7 +207,7 @@ export function DashboardView() {
             <div className="min-w-0 space-y-4">
               <div className="flex flex-wrap items-center gap-1">
                 <div className="flex gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1 dark:border-slate-700 dark:bg-slate-900">
-                  {(["table", "timeline", "fairness"] as const).map((option) => (
+                  {(["table", "byShift", "timeline", "fairness"] as const).map((option) => (
                     <button
                       key={option}
                       onClick={() => setView(option)}
@@ -215,7 +216,9 @@ export function DashboardView() {
                     >
                       {option === "table"
                         ? t("dashboard.table")
-                        : option === "timeline"
+                        : option === "byShift"
+                          ? t("dashboard.byShift")
+                          : option === "timeline"
                           ? t("timeline.title")
                           : t("fairness.title")}
                     </button>
@@ -242,6 +245,8 @@ export function DashboardView() {
                   onEdit={canEdit ? (assignment) => setEditing({ kind: "reassign", assignment }) : undefined}
                   onToggleLock={canEdit ? (assignment) => toggleLock.mutate(assignment) : undefined}
                 />
+              ) : view === "byShift" ? (
+                <ShiftBoardView run={run} />
               ) : view === "timeline" ? (
                 <TimelineGantt
                   run={run}

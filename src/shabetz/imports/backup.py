@@ -66,6 +66,7 @@ class _Job(BaseModel):
     required_people_per_shift: int = Field(default=1, ge=1)
     division_policy: DivisionPolicy = DivisionPolicy.ACTIVE_DIVISION_PREFERRED
     priority: int | None = None
+    notes: str | None = Field(default=None, max_length=2000)
     shift_templates: list[Name] = Field(default_factory=list, max_length=200)
     requirements: list[_Requirement] = Field(default_factory=list, max_length=200)
 
@@ -179,6 +180,7 @@ def export_project(db: Session, project_id: int) -> dict:
                 "required_people_per_shift": j.required_people_per_shift,
                 "division_policy": j.division_policy.value,
                 "priority": j.priority,
+                "notes": j.notes,
                 "shift_templates": [link.shift_template.name for link in j.shift_links],
                 "requirements": [
                     {
@@ -373,6 +375,9 @@ def merge_backup(db: Session, project_id: int, backup: Backup) -> BackupPlan:
             priority=job_item.priority,
             is_active=True,
         )
+        # A backup from before notes existed must not wipe the ones already here.
+        if "notes" in job_item.model_fields_set:
+            changed = _set(job_row, notes=(job_item.notes or "").strip() or None) or changed
         want_templates = sorted(templates[name_key(n)].id for n in set(job_item.shift_templates))
         have_templates = sorted(link.shift_template_id for link in job_row.shift_links)
         want_reqs = sorted(

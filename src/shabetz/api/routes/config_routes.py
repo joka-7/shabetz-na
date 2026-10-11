@@ -385,6 +385,7 @@ def _job_out(row: orm.Job) -> JobOut:
         required_people_per_shift=row.required_people_per_shift,
         division_policy=row.division_policy,
         priority=row.priority,
+        notes=row.notes,
         is_active=row.is_active,
         shift_template_ids=[link.shift_template_id for link in row.shift_links],
         requirements=[
@@ -432,6 +433,7 @@ def _apply_job(db: DbSession, row: orm.Job, payload: JobIn, ctx: ProjectContext)
     row.required_people_per_shift = payload.required_people_per_shift
     row.division_policy = payload.division_policy
     row.priority = payload.priority
+    row.notes = (payload.notes or "").strip() or None
 
     for template_id in payload.shift_template_ids:
         if owned(db, orm.ShiftTemplate, template_id, ctx) is None:

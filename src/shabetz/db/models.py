@@ -25,7 +25,13 @@ from sqlalchemy import (
 from sqlalchemy.dialects.mysql import LONGBLOB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from ..domain.enums import DivisionPolicy, ProjectRole, SwapStatus, TimeOffStatus
+from ..domain.enums import (
+    AttendanceStatus,
+    DivisionPolicy,
+    ProjectRole,
+    SwapStatus,
+    TimeOffStatus,
+)
 from .base import TABLE_ARGS, Base, StrEnumType, UtcDateTime, utcnow
 
 # MySQL gets LONGBLOB so a long horizon across a large roster is not capped at
@@ -251,6 +257,8 @@ class Job(Base):
         default=DivisionPolicy.ACTIVE_DIVISION_PREFERRED,
     )
     priority: Mapped[int | None] = mapped_column(Integer, default=None)
+    # Free-text instructions for whoever works the task.
+    notes: Mapped[str | None] = mapped_column(Text, default=None)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     shift_links: Mapped[list[JobShiftTemplate]] = relationship(
@@ -427,6 +435,30 @@ class ScheduleRun(Base):
     published_by: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), default=None
     )
+
+
+class Attendance(Base):
+    """Whether a person is there on a day: marked by hand, one row per person per day."""
+
+    __tablename__ = "attendance"
+    __table_args__ = (
+        UniqueConstraint("person_id", "calendar_date", name="uq_attendance_person_id"),
+        Index("ix_attendance_project_date", "project_id", "calendar_date"),
+        TABLE_ARGS,
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True
+    )
+    person_id: Mapped[int] = mapped_column(ForeignKey("people.id", ondelete="CASCADE"))
+    calendar_date: Mapped[date] = mapped_column(Date)
+    status: Mapped[AttendanceStatus] = mapped_column(StrEnumType(AttendanceStatus, length=16))
+    note: Mapped[str | None] = mapped_column(Text, default=None)
+    marked_by: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), default=None
+    )
+    marked_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
 
 
 class SwapRequest(Base):
