@@ -51,7 +51,7 @@ router = APIRouter(prefix="/api/config", tags=["configuration"])
 @router.post("/divisions/bulk", response_model=BulkResultOut)
 def bulk_divisions(
     payload: BulkNamesIn,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> BulkResultOut:
     """Add divisions to the end of the rotation, in the order given."""
@@ -64,7 +64,7 @@ def bulk_divisions(
 @router.post("/skills/bulk", response_model=BulkResultOut)
 def bulk_skills(
     payload: BulkNamesIn,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> BulkResultOut:
     result = ensure_skills(db, ctx.project_id, payload.names)
@@ -76,7 +76,7 @@ def bulk_skills(
 @router.post("/proficiency-levels/bulk", response_model=BulkResultOut)
 def bulk_levels(
     payload: BulkNamesIn,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> BulkResultOut:
     """Add rungs above the current top of the ladder, weakest first."""
@@ -89,7 +89,7 @@ def bulk_levels(
 @router.post("/shift-templates/bulk", response_model=BulkResultOut)
 def bulk_templates(
     payload: BulkTemplatesIn,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> BulkResultOut:
     """Add shift windows, skipping any whose name is already in use."""
@@ -162,7 +162,7 @@ def _plan_out(plan: ImportPlan) -> PeopleImportOut:
 @router.post("/import/people", response_model=PeopleImportOut)
 def import_people(
     payload: PeopleImportIn,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> PeopleImportOut:
     """Preview a roster import, or with ``apply`` perform it.
@@ -189,7 +189,7 @@ def import_people(
 
 @router.get("/backup")
 def download_backup(
-    db: DbSession = Depends(get_db), ctx: ProjectContext = Depends(require_editor)
+    db: DbSession = Depends(get_db, scope="function"), ctx: ProjectContext = Depends(require_editor)
 ) -> JSONResponse:
     """The whole project as one file: configuration, people and time off."""
     slug = re.sub(r"[^A-Za-z0-9]+", "-", ctx.project.name).strip("-") or "project"
@@ -203,7 +203,7 @@ def download_backup(
 @router.post("/backup/import", response_model=BackupImportOut)
 def import_backup(
     payload: BackupImportIn,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> BackupImportOut:
     """Preview, or with ``apply`` perform, bringing this project in line with a backup.

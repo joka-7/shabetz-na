@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarDays,
+  ListChecks,
+  UserCheck,
   FolderOpen,
   LayoutDashboard,
   Repeat,
@@ -17,6 +19,8 @@ import { ConfigView } from "@/features/config/ConfigView";
 import { DashboardView } from "@/features/dashboard/DashboardView";
 import { GuideDialog, guideSeen } from "@/features/guide/GuideDialog";
 import { SettingsDialog } from "@/features/settings/SettingsDialog";
+import { TasksView } from "@/features/tasks/TasksView";
+import { AttendanceView } from "@/features/attendance/AttendanceView";
 import { SwapsView } from "@/features/swaps/SwapsView";
 import { TimeOffView } from "@/features/timeoff/TimeOffView";
 import { InvitePage, inviteTokenFromPath } from "@/features/projects/InvitePage";
@@ -28,7 +32,7 @@ import { api } from "@/api/client";
 import { keys } from "@/api/queries";
 import type { Settings } from "@/types/api";
 
-type Tab = "dashboard" | "config" | "timeoff" | "swaps";
+type Tab = "dashboard" | "attendance" | "tasks" | "config" | "timeoff" | "swaps";
 
 /** Free hosting sleeps when idle; say so instead of leaving a blank skeleton. */
 function WakeNotice() {
@@ -129,6 +133,8 @@ export function App() {
 
   const tabs: { id: Tab; label: string; icon: typeof LayoutDashboard; show: boolean }[] = [
     { id: "dashboard", label: can.viewSchedule(project) ? t("nav.schedule") : t("nav.myShifts"), icon: LayoutDashboard, show: true },
+    { id: "attendance", label: t("nav.attendance"), icon: UserCheck, show: can.viewSchedule(project) },
+    { id: "tasks", label: t("nav.tasks"), icon: ListChecks, show: editor },
     { id: "timeoff", label: t("nav.timeOff"), icon: CalendarDays, show: true },
     { id: "swaps", label: t("nav.swaps"), icon: Repeat, show: true },
     { id: "config", label: t("nav.configuration"), icon: Settings2, show: editor },
@@ -219,6 +225,8 @@ export function App() {
       {/* Keyed on the project so nothing typed in one shows up in another. */}
       <main key={project.id} className="mx-auto max-w-7xl p-4 pb-28 sm:pb-4">
         {tab === "dashboard" && <DashboardView />}
+        {tab === "attendance" && <AttendanceView />}
+        {tab === "tasks" && editor && <TasksView />}
         {tab === "timeoff" && <TimeOffView />}
         {tab === "swaps" && <SwapsView />}
         {tab === "config" && editor && <ConfigView />}

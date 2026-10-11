@@ -5,6 +5,18 @@
  * from the live OpenAPI schema; CI fails on a diff.
  */
 
+export type AttendanceStatus = "PRESENT" | "ABSENT";
+
+export interface AttendanceRow {
+  person_id: number;
+  full_name: string;
+  division_id: number;
+  status: AttendanceStatus | null;
+  note: string | null;
+  on_leave: boolean;
+  leave_reason: string | null;
+}
+
 export type ProjectRole = "ADMIN" | "COLLABORATOR" | "VIEWER" | "STAFF";
 export type DivisionPolicy =
   | "ACTIVE_DIVISION_ONLY"
@@ -121,6 +133,7 @@ export interface Job {
   required_people_per_shift: number;
   division_policy: DivisionPolicy;
   priority: number | null;
+  notes?: string | null;
   is_active: boolean;
   shift_template_ids: number[];
   requirements: Requirement[];

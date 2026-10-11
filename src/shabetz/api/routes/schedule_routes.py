@@ -74,7 +74,7 @@ def _load_run(db: DbSession, schedule_id: str, ctx: ProjectContext) -> orm.Sched
 @router.post("/generate", response_model=ScheduleRunOut, status_code=status.HTTP_201_CREATED)
 def generate(
     payload: GenerateRequest,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> ScheduleRunOut:
     if payload.end_date < payload.start_date:
@@ -91,7 +91,7 @@ def generate(
 
 @router.get("/runs", response_model=list[ScheduleRunSummaryOut])
 def list_runs(
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_viewer),
     limit: int = Query(default=25, ge=1, le=100),
 ) -> list[ScheduleRunSummaryOut]:
@@ -116,7 +116,7 @@ def list_runs(
 @router.get("/runs/{schedule_id}", response_model=ScheduleRunOut)
 def get_run(
     schedule_id: str,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_viewer),
 ) -> ScheduleRunOut:
     return _run_out(_load_run(db, schedule_id, ctx))
@@ -181,7 +181,7 @@ def _audit_edit(
 def check_assignment(
     schedule_id: str,
     payload: AssignmentCheckIn,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> AssignmentCheckOut:
     """What would go wrong if this person worked this shift. Changes nothing."""
@@ -208,7 +208,7 @@ def suggestions(
     template_id: int = Query(...),
     calendar_date: date = Query(...),
     replaces_person_id: int | None = Query(default=None),
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> list[SuggestionOut]:
     """People who could cover this shift, fewest rule conflicts first."""
@@ -235,7 +235,7 @@ def suggestions(
 def swap_assignments(
     schedule_id: str,
     payload: AssignmentSwapIn,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> ScheduleRunOut:
     """Trade two people's shifts in one step, e.g. by dragging one onto the other."""
@@ -264,7 +264,7 @@ def swap_assignments(
 def set_lock(
     schedule_id: str,
     payload: AssignmentLockIn,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> ScheduleRunOut:
     """Pin a shift so regenerating the schedule keeps it, or release it."""
@@ -285,7 +285,7 @@ def set_lock(
 def reassign(
     schedule_id: str,
     payload: AssignmentReassignIn,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> ScheduleRunOut:
     editor = _editor(db, schedule_id, ctx)
@@ -310,7 +310,7 @@ def reassign(
 def add_assignment(
     schedule_id: str,
     payload: AssignmentAddIn,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> ScheduleRunOut:
     editor = _editor(db, schedule_id, ctx)
@@ -333,7 +333,7 @@ def remove_assignment(
     template_id: int = Query(...),
     calendar_date: date = Query(...),
     person_id: int = Query(...),
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> ScheduleRunOut:
     editor = _editor(db, schedule_id, ctx)
@@ -391,7 +391,7 @@ def _undone_ids(entries: list[orm.AuditLog]) -> set[int]:
 @router.get("/runs/{schedule_id}/history", response_model=list[HistoryEntryOut])
 def history(
     schedule_id: str,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> list[HistoryEntryOut]:
     _load_run(db, schedule_id, ctx)
@@ -433,7 +433,7 @@ def history(
 def undo(
     schedule_id: str,
     entry_id: int,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> ScheduleRunOut:
     """Take back the newest edit still standing; older ones can then be undone in turn."""
@@ -460,7 +460,7 @@ def publish(
     schedule_id: str,
     payload: PublishIn,
     background: BackgroundTasks,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
     settings: Settings = Depends(settings_dep),
 ) -> PublishOut:
@@ -516,7 +516,7 @@ def publish(
 @router.post("/runs/{schedule_id}/unpublish", response_model=PublishOut)
 def unpublish(
     schedule_id: str,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
     settings: Settings = Depends(settings_dep),
 ) -> PublishOut:
@@ -529,7 +529,7 @@ def unpublish(
 
 @router.get("/my-shifts", response_model=MyShiftsOut)
 def my_shifts(
-    db: DbSession = Depends(get_db), ctx: ProjectContext = Depends(project_member)
+    db: DbSession = Depends(get_db, scope="function"), ctx: ProjectContext = Depends(project_member)
 ) -> MyShiftsOut:
     """The person's own shifts from the published schedule; nothing until one is."""
     run = db.scalar(
@@ -559,7 +559,7 @@ def my_shifts(
 def export_run(
     schedule_id: str,
     format: ExportFormat = Query(default=ExportFormat.CSV),
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(project_member),
 ) -> Response:
     run = _load_run(db, schedule_id, ctx)
@@ -593,7 +593,7 @@ def export_run(
 @router.get("/me", response_model=list[AssignmentOut])
 def my_assignments(
     schedule_id: str = Query(...),
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(project_member),
 ) -> list[AssignmentOut]:
     """A staff user's own shifts.
@@ -617,7 +617,7 @@ def my_assignments(
 
 @router.get("/divisions")
 def division_status(
-    db: DbSession = Depends(get_db), ctx: ProjectContext = Depends(project_member)
+    db: DbSession = Depends(get_db, scope="function"), ctx: ProjectContext = Depends(project_member)
 ) -> dict:
     repo = DbSchedulingRepository(db, ctx.project_id)
     divisions = repo.load_divisions()

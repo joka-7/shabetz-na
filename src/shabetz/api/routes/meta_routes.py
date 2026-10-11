@@ -20,7 +20,7 @@ router = APIRouter(prefix="/api/meta", tags=["meta"])
 
 @router.get("/capabilities", response_model=CapabilitiesOut)
 def capabilities(
-    db: DbSession = Depends(get_db), settings: Settings = Depends(settings_dep)
+    db: DbSession = Depends(get_db, scope="function"), settings: Settings = Depends(settings_dep)
 ) -> CapabilitiesOut:
     return CapabilitiesOut(
         deployment=settings.deployment,

@@ -69,7 +69,7 @@ def recovery_codes(request: Request) -> RecoveryCodes:
 
 def current_user(
     request: Request,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     settings: Settings = Depends(settings_dep),
 ) -> User:
     session_id = request.cookies.get(settings.cookie_name)
@@ -126,7 +126,7 @@ def _requested_project_id(request: Request) -> int:
 def project_member(
     request: Request,
     user: User = Depends(current_user),
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
 ) -> ProjectContext:
     project_id = _requested_project_id(request)
     member = db.scalar(

@@ -60,6 +60,13 @@ class TimeOffStatus(StrEnum):
     CANCELLED = "CANCELLED"
 
 
+class AttendanceStatus(StrEnum):
+    """Whether someone is actually there on a given day."""
+
+    PRESENT = "PRESENT"
+    ABSENT = "ABSENT"
+
+
 class SwapStatus(StrEnum):
     """A request to hand a shift to a colleague, and where it has got to."""
 

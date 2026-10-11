@@ -8,6 +8,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..domain.enums import (
+    AttendanceStatus,
     DivisionPolicy,
     FeasibilityVerdict,
     ProjectRole,
@@ -221,6 +222,7 @@ class JobIn(BaseModel):
     required_people_per_shift: int = Field(ge=1)
     division_policy: DivisionPolicy = DivisionPolicy.ACTIVE_DIVISION_PREFERRED
     priority: int | None = None
+    notes: str | None = Field(default=None, max_length=2000)
     shift_template_ids: list[int] = Field(default_factory=list)
     requirements: list[RequirementIn] = Field(default_factory=list)
 
@@ -232,6 +234,7 @@ class JobOut(BaseModel):
     required_people_per_shift: int
     division_policy: DivisionPolicy
     priority: int | None
+    notes: str | None = None
     is_active: bool
     shift_template_ids: list[int] = Field(default_factory=list)
     requirements: list[RequirementOut] = Field(default_factory=list)
@@ -650,3 +653,29 @@ class BackupImportOut(BaseModel):
     applied: bool
     counts: dict[str, BackupCountsOut]
     problems: list[BackupProblemOut]
+
+
+# ---------------------------------------------------------------- attendance
+
+
+class AttendanceMarkIn(BaseModel):
+    person_id: int
+    calendar_date: date
+    status: AttendanceStatus | None = None
+    note: str | None = Field(default=None, max_length=500)
+
+
+class AttendanceBulkIn(BaseModel):
+    calendar_date: date
+    status: AttendanceStatus = AttendanceStatus.PRESENT
+    person_ids: list[int] | None = Field(default=None, max_length=10000)
+
+
+class AttendanceRowOut(BaseModel):
+    person_id: int
+    full_name: str
+    division_id: int
+    status: AttendanceStatus | None = None
+    note: str | None = None
+    on_leave: bool = False
+    leave_reason: str | None = None

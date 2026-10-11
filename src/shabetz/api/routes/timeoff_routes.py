@@ -20,7 +20,7 @@ router = APIRouter(prefix="/api/time-off", tags=["time off"])
 @router.post("", response_model=TimeOffOut, status_code=status.HTTP_201_CREATED)
 def submit(
     payload: TimeOffIn,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(project_member),
 ) -> orm.TimeOff:
     if payload.end_date < payload.start_date:
@@ -64,7 +64,7 @@ def submit(
 
 @router.get("", response_model=list[TimeOffOut])
 def list_requests(
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(project_member),
     status_filter: TimeOffStatus | None = Query(default=None, alias="status"),
     person_id: int | None = Query(default=None),
@@ -115,7 +115,7 @@ def _review(
 def approve(
     request_id: int,
     payload: TimeOffReview | None = None,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> orm.TimeOff:
     return _review(db, request_id, ctx, TimeOffStatus.APPROVED, payload.note if payload else None)
@@ -125,7 +125,7 @@ def approve(
 def deny(
     request_id: int,
     payload: TimeOffReview | None = None,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> orm.TimeOff:
     return _review(db, request_id, ctx, TimeOffStatus.DENIED, payload.note if payload else None)
@@ -134,7 +134,7 @@ def deny(
 @router.post("/{request_id}/cancel", response_model=TimeOffOut)
 def cancel(
     request_id: int,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(project_member),
 ) -> orm.TimeOff:
     row = _load(db, request_id, ctx)
