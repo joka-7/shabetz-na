@@ -56,10 +56,12 @@ export function DashboardView() {
   const [editing, setEditing] = useState<EditTarget | null>(null);
   const [keepLocked, setKeepLocked] = useState(true);
   const canEdit = can.generate(project);
+  // A viewer sees the same schedule but cannot change, generate or publish.
+  const canView = can.viewSchedule(project);
 
   // The schedule lives on the server, so a reload shows the latest one --
   // including any changes made to it by hand.
-  const latest = useLatestRun(canEdit);
+  const latest = useLatestRun(canView);
   const generate = useMutation<ScheduleRun, unknown, void>({
     mutationFn: () => generateSchedule(start, end, keepLocked),
     onSuccess: (created) => queryClient.setQueryData(runKeys.latest, created),
@@ -86,7 +88,7 @@ export function DashboardView() {
   };
 
   // Staff do not plan; they see their own shifts once a schedule is published.
-  if (!canEdit) return <MyShiftsView />;
+  if (!canView) return <MyShiftsView />;
 
   return (
     <>
@@ -144,7 +146,7 @@ export function DashboardView() {
         </section>
       )}
 
-      {canEdit && latest.isLoading && !run && <Skeleton className="h-40" />}
+      {canView && latest.isLoading && !run && <Skeleton className="h-40" />}
 
       {generate.isPending && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -163,7 +165,7 @@ export function DashboardView() {
 
       {run && (
         <>
-          <PublishBar run={run} />
+          {canEdit && <PublishBar run={run} />}
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <StatCard label={t("stat.shifts")} value={run.summary.total_assignments} />
@@ -219,6 +221,8 @@ export function DashboardView() {
                     </button>
                   ))}
                 </div>
+                {/* Editors export from the generate card above. */}
+                {!canEdit && <ExportBar scheduleId={run.schedule_id} />}
                 <button className="btn-ghost ms-auto text-sm" onClick={() => window.print()}>
                   <Printer className="h-4 w-4" aria-hidden />
                   {t("dashboard.print")}

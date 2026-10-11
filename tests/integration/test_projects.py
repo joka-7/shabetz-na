@@ -410,3 +410,38 @@ def test_the_desktop_app_keeps_one_project_and_local_accounts(app, settings: Set
             "/api/auth/login", json={"email": "helper@example.com", "password": "z" * 20}
         )
         assert signed_in.status_code == 200
+
+
+def test_a_viewer_sees_every_schedule_but_changes_nothing(
+    client: TestClient, admin: Actor, session_factory
+) -> None:
+    run = admin.post(
+        "/api/schedule/generate", json={"start_date": "2026-10-01", "end_date": "2026-10-01"}
+    ).json()
+    make_member(session_factory, admin.project_id, "v@example.com", ProjectRole.VIEWER)
+    viewer = sign_in(TestClient(client.app), "v@example.com").in_project(admin.project_id)
+    sid = run["schedule_id"]
+
+    # Reads: the whole schedule, drafts included, and the export.
+    assert [r["schedule_id"] for r in viewer.get("/api/schedule/runs").json()] == [sid]
+    assert viewer.get(f"/api/schedule/runs/{sid}").status_code == 200
+    export = viewer.get(f"/api/schedule/runs/{sid}/export?format=csv&project={admin.project_id}")
+    assert export.status_code == 200
+
+    # Writes and editor-only reads are refused.
+    assert (
+        viewer.post(
+            "/api/schedule/generate", json={"start_date": "2026-10-01", "end_date": "2026-10-01"}
+        ).status_code
+        == 403
+    )
+    assert viewer.post(f"/api/schedule/runs/{sid}/publish", json={}).status_code == 403
+    assert viewer.get(f"/api/schedule/runs/{sid}/history").status_code == 403
+    assert viewer.post("/api/config/divisions/bulk", json={"names": ["X"]}).status_code == 403
+    assert viewer.get("/api/project/members").status_code == 403
+
+
+def test_an_invite_can_make_someone_a_viewer(admin: Actor) -> None:
+    response = admin.post("/api/project/invites", json={"role": "VIEWER"})
+    assert response.status_code == 201, response.text
+    assert response.json()["role"] == "VIEWER"

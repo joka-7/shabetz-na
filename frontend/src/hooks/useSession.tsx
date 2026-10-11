@@ -280,7 +280,7 @@ export function useSession(): SessionState {
   return context;
 }
 
-const RANK: Record<ProjectRole, number> = { STAFF: 0, COLLABORATOR: 1, ADMIN: 2 };
+const RANK: Record<ProjectRole, number> = { STAFF: 0, VIEWER: 1, COLLABORATOR: 2, ADMIN: 3 };
 const atLeast = (project: Project | null, role: ProjectRole) =>
   project !== null && RANK[project.role] >= RANK[role];
 
@@ -289,6 +289,8 @@ const atLeast = (project: Project | null, role: ProjectRole) =>
  * rules so the interface hides what would only be refused.
  */
 export const can = {
+  /** The whole schedule, read-only for a viewer. */
+  viewSchedule: (project: Project | null) => atLeast(project, "VIEWER"),
   editConfig: (project: Project | null) => atLeast(project, "COLLABORATOR"),
   manageMembers: (project: Project | null) => atLeast(project, "ADMIN"),
   generate: (project: Project | null) => atLeast(project, "COLLABORATOR"),

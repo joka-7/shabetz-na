@@ -717,4 +717,6 @@ export const he: Record<keyof typeof en, string> = {
   "getapp.install": "התקנה במכשיר הזה",
   "getapp.hintPhone": "בטלפון, פתחו את האתר ב־Chrome ובחרו „התקנת אפליקציה” או „הוספה למסך הבית”. אז היא נפתחת במסך מלא כמו אפליקציה.",
   "getapp.hintIphone": "באייפון, פתחו את האתר ב־Safari, לחצו על שיתוף ואז „הוספה למסך הבית”.",
+  "role.VIEWER": "צופה",
+  "roleHint.VIEWER": "רואה את כל השיבוץ לקריאה בלבד; לא יכול לשנות דבר",
 };

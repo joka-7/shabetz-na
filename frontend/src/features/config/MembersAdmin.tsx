@@ -8,7 +8,7 @@ import { useI18n } from "@/i18n";
 import type { InviteCreated, Member, Project, ProjectRole } from "@/types/api";
 import { MutationError, StepShell } from "@/features/setup/steps/parts";
 
-const ROLES: ProjectRole[] = ["ADMIN", "COLLABORATOR", "STAFF"];
+const ROLES: ProjectRole[] = ["ADMIN", "COLLABORATOR", "VIEWER", "STAFF"];
 
 function RoleSelect({
   id,
