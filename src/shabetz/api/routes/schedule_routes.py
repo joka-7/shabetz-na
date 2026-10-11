@@ -18,7 +18,14 @@ from ...repositories.db_repo import DbSchedulingRepository
 from ...services.notifications import send_email
 from ...services.orchestration import JobOrchestrationService
 from ...services.schedule_edit import Conflict, EditError, ScheduleEditor, SlotKey
-from ..deps import ProjectContext, get_db, project_member, require_editor, settings_dep
+from ..deps import (
+    ProjectContext,
+    get_db,
+    project_member,
+    require_editor,
+    require_viewer,
+    settings_dep,
+)
 from ..errors import ApiError, FeatureUnavailable, NotFound, UnprocessableConfig
 from ..schemas import (
     AssignmentAddIn,
@@ -85,7 +92,7 @@ def generate(
 @router.get("/runs", response_model=list[ScheduleRunSummaryOut])
 def list_runs(
     db: DbSession = Depends(get_db),
-    ctx: ProjectContext = Depends(require_editor),
+    ctx: ProjectContext = Depends(require_viewer),
     limit: int = Query(default=25, ge=1, le=100),
 ) -> list[ScheduleRunSummaryOut]:
     rows = db.scalars(
@@ -110,7 +117,7 @@ def list_runs(
 def get_run(
     schedule_id: str,
     db: DbSession = Depends(get_db),
-    ctx: ProjectContext = Depends(require_editor),
+    ctx: ProjectContext = Depends(require_viewer),
 ) -> ScheduleRunOut:
     return _run_out(_load_run(db, schedule_id, ctx))
 

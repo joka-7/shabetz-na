@@ -8,7 +8,12 @@ from __future__ import annotations
 
 from ..domain.enums import ProjectRole
 
-_RANK = {ProjectRole.STAFF: 0, ProjectRole.COLLABORATOR: 1, ProjectRole.ADMIN: 2}
+_RANK = {
+    ProjectRole.STAFF: 0,
+    ProjectRole.VIEWER: 1,
+    ProjectRole.COLLABORATOR: 2,
+    ProjectRole.ADMIN: 3,
+}
 
 
 def at_least(role: ProjectRole, minimum: ProjectRole) -> bool:
@@ -28,7 +33,8 @@ def can_generate_schedule(role: ProjectRole) -> bool:
 
 
 def can_view_all_assignments(role: ProjectRole) -> bool:
-    return at_least(role, ProjectRole.COLLABORATOR)
+    """Everyone's shifts, drafts included. Viewers get this read-only."""
+    return at_least(role, ProjectRole.VIEWER)
 
 
 def can_review_time_off(role: ProjectRole) -> bool:

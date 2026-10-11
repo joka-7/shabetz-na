@@ -5,7 +5,7 @@
  * from the live OpenAPI schema; CI fails on a diff.
  */
 
-export type ProjectRole = "ADMIN" | "COLLABORATOR" | "STAFF";
+export type ProjectRole = "ADMIN" | "COLLABORATOR" | "VIEWER" | "STAFF";
 export type DivisionPolicy =
   | "ACTIVE_DIVISION_ONLY"
   | "ACTIVE_DIVISION_PREFERRED"

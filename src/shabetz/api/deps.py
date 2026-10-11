@@ -158,3 +158,4 @@ def require_project_role(minimum: ProjectRole):  # type: ignore[no-untyped-def]
 
 require_project_admin = require_project_role(ProjectRole.ADMIN)
 require_editor = require_project_role(ProjectRole.COLLABORATOR)
+require_viewer = require_project_role(ProjectRole.VIEWER)

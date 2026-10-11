@@ -48,6 +48,7 @@ class ProjectRole(StrEnum):
     different role in each project it belongs to."""
 
     ADMIN = "ADMIN"  # everything, including members, invites and the project itself
+    VIEWER = "VIEWER"  # sees every schedule read-only; changes nothing
     COLLABORATOR = "COLLABORATOR"  # configuration, schedules and time-off review
     STAFF = "STAFF"  # own shifts and own time off
 

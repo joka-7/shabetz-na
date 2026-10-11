@@ -733,4 +733,6 @@ export const en = {
   "getapp.install": "Install on this device",
   "getapp.hintPhone": "On a phone, open this site in Chrome and choose Install app or Add to Home screen. It then opens full-screen like an app.",
   "getapp.hintIphone": "On iPhone, open this site in Safari, tap Share, then Add to Home Screen.",
+  "role.VIEWER": "Viewer",
+  "roleHint.VIEWER": "See the whole schedule, read-only; cannot change anything",
 } as const;
