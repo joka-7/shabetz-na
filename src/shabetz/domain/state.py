@@ -38,7 +38,7 @@ class SchedulerState:
         }
 
     def can_work(self, person: Person, slot: ShiftSlot) -> bool:
-        if not person.is_available_on(slot.calendar_date):
+        if not person.is_available_for(slot):
             return False
         state = self._availability.get(person.id)
         if state is None:

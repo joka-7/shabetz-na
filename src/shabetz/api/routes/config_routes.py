@@ -275,6 +275,30 @@ def update_skill(
     return row
 
 
+@router.delete("/skills/{skill_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_skill(
+    skill_id: int,
+    db: DbSession = Depends(get_db, scope="function"),
+    ctx: ProjectContext = Depends(require_editor),
+) -> None:
+    row = owned(db, orm.Skill, skill_id, ctx)
+    if row is None or not row.is_active:
+        raise NotFound("Skill not found")
+    required = db.scalar(
+        select(orm.JobSkillRequirement)
+        .join(orm.Job, orm.Job.id == orm.JobSkillRequirement.job_id)
+        .where(orm.JobSkillRequirement.skill_id == skill_id, orm.Job.is_active.is_(True))
+    )
+    if required is not None:
+        raise Conflict("Skill is still required by a job")
+    # People simply lose the skill; the row itself is kept (soft delete) so
+    # historical schedules stay renderable.
+    for held in db.scalars(select(orm.PersonSkill).where(orm.PersonSkill.skill_id == skill_id)):
+        db.delete(held)
+    row.is_active = False
+    _audit(db, ctx, "skill", skill_id, "delete")
+
+
 # ----------------------------------------------------------- shift templates
 
 
@@ -532,10 +556,26 @@ def _apply_person(db: DbSession, row: orm.Person, payload: PersonIn, ctx: Projec
     row.full_name = payload.full_name
     row.division_id = payload.division_id
     row.external_ref = payload.external_ref
-    row.working_days = [
-        orm.PersonWorkingDay(weekday=d) for d in sorted(set(payload.working_weekdays))
-    ]
-    row.skills = [orm.PersonSkill(skill_id=s.skill_id, level_id=s.level_id) for s in payload.skills]
+    # Changed in place rather than replaced: swapping whole collections makes
+    # the unit of work insert the new rows before it deletes the old ones, which
+    # trips the (person, weekday) and (person, skill) unique constraints.
+    wanted_days = set(payload.working_weekdays)
+    for day in [d for d in row.working_days if d.weekday not in wanted_days]:
+        row.working_days.remove(day)
+    have_days = {d.weekday for d in row.working_days}
+    for weekday in sorted(wanted_days - have_days):
+        row.working_days.append(orm.PersonWorkingDay(weekday=weekday))
+
+    wanted_skills = {s.skill_id: s.level_id for s in payload.skills}
+    for owned_skill in [s for s in row.skills if s.skill_id not in wanted_skills]:
+        row.skills.remove(owned_skill)
+    have_skills = {s.skill_id: s for s in row.skills}
+    for skill_id, level_id in wanted_skills.items():
+        existing = have_skills.get(skill_id)
+        if existing is None:
+            row.skills.append(orm.PersonSkill(skill_id=skill_id, level_id=level_id))
+        else:
+            existing.level_id = level_id
 
 
 @router.post("/people", response_model=PersonOut, status_code=status.HTTP_201_CREATED)

@@ -150,7 +150,7 @@ class ScheduleEditor:
 
         where = f"{job.name} on {key.calendar_date.isoformat()} ({slot.template_name})"
 
-        if not person.is_available_on(key.calendar_date):
+        if not person.is_available_for(slot):
             add(
                 WarningKind.UNAVAILABLE,
                 f"{name} is not available on {key.calendar_date.isoformat()}"
