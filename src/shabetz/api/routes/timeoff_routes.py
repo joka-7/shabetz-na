@@ -25,6 +25,10 @@ def submit(
 ) -> orm.TimeOff:
     if payload.end_date < payload.start_date:
         raise UnprocessableConfig("End date must not precede start date")
+    if (payload.start_hour is None) != (payload.end_hour is None):
+        raise UnprocessableConfig("Give both a start and an end time, or neither")
+    if payload.start_hour is not None and payload.end_hour <= payload.start_hour:  # type: ignore[operator]
+        raise UnprocessableConfig("End time must be after start time")
 
     own_person = ctx.member.person_id
     reviewer = can_review_time_off(ctx.role)
@@ -49,6 +53,8 @@ def submit(
         person_id=person_id,
         start_date=payload.start_date,
         end_date=payload.end_date,
+        start_hour=payload.start_hour,
+        end_hour=payload.end_hour,
         reason=payload.reason,
         # A reviewer recording an absence directly is already the decision;
         # a staff request must wait for one.

@@ -556,6 +556,9 @@ class TimeOffIn(BaseModel):
     person_id: int | None = None
     start_date: date
     end_date: date
+    # Clock hours of a part-day absence; leave both out for whole days.
+    start_hour: float | None = Field(default=None, ge=0, lt=24)
+    end_hour: float | None = Field(default=None, gt=0, le=24)
     reason: str | None = None
 
 
@@ -569,6 +572,8 @@ class TimeOffOut(BaseModel):
     person_id: int
     start_date: date
     end_date: date
+    start_hour: float | None = None
+    end_hour: float | None = None
     reason: str | None
     status: TimeOffStatus
     review_note: str | None = None

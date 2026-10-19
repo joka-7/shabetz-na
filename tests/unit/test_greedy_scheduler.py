@@ -8,7 +8,7 @@ from datetime import date, timedelta
 import pytest
 
 from shabetz.domain.enums import AssignmentRole, WarningKind, WarningSeverity
-from shabetz.domain.models import EPS, TimeOffPeriod
+from shabetz.domain.models import EPS, ShiftSlot, ShiftTemplate, TimeOffPeriod
 from shabetz.domain.state import SchedulerState
 from shabetz.scheduling.greedy import SimpleGreedyScheduler
 from tests.factories import (
@@ -402,3 +402,16 @@ def test_pinned_shift_is_kept_and_nobody_is_double_booked_around_it() -> None:
         for first, second in zip(shifts, shifts[1:], strict=False):
             assert second.start_abs >= first.end_abs  # never overlapping
     assert len(result.assignments) == len(baseline.assignments)
+
+
+def test_part_day_time_off_only_blocks_overlapping_shifts() -> None:
+    morning_off = person(
+        1, time_off=(TimeOffPeriod(D1, D1, start_hour=6.0, end_hour=12.0),)
+    )
+    morning = ShiftSlot.build(job(1, "Desk", 1, (template(9, "Day", 8.0),)), template(9, "Day", 8.0), D1, 0)
+    afternoon_template = ShiftTemplate(id=10, name="Pm", start_hour=14.0, duration_hours=4.0)
+    afternoon = ShiftSlot.build(
+        job(1, "Desk", 1, (afternoon_template,)), afternoon_template, D1, 0
+    )
+    assert not morning_off.is_available_for(morning)
+    assert morning_off.is_available_for(afternoon)

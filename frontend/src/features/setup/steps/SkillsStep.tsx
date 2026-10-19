@@ -23,6 +23,11 @@ export function SkillsStep() {
     [keys.skills, keys.jobs, keys.people],
   );
 
+  const remove = useConfigMutation(
+    (id: number) => api.del(`/api/config/skills/${id}`),
+    [keys.skills, keys.jobs, keys.people],
+  );
+
   const ensureYesNo = useEnsureYesNo();
   const addSkills = (names: string[]) => add.mutateAsync(names).then(async (result) => {
     await ensureYesNo();
@@ -58,7 +63,7 @@ export function SkillsStep() {
         onSubmit={addSkills}
       />
 
-      <MutationError error={add.error ?? update.error} />
+      <MutationError error={add.error ?? update.error ?? remove.error} />
 
       {isLoading ? (
         <Spinner />
@@ -67,7 +72,11 @@ export function SkillsStep() {
       ) : (
         <RowList>
           {skills.map((skill) => (
-            <Row key={skill.id} deleteLabel={t("common.removeNamed", { name: skill.name })}>
+            <Row
+              key={skill.id}
+              deleteLabel={t("common.removeNamed", { name: skill.name })}
+              onDelete={() => remove.mutate(skill.id)}
+            >
               <EditableName
                 value={skill.name}
                 label={t("common.editNamed", { name: skill.name })}

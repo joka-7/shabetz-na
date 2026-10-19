@@ -346,6 +346,9 @@ export interface TimeOff {
   person_id: number;
   start_date: string;
   end_date: string;
+  /** Clock hours (0–24) of a part-day absence; null for whole days. */
+  start_hour: number | null;
+  end_hour: number | null;
   reason: string | null;
   status: TimeOffStatus;
   review_note: string | null;

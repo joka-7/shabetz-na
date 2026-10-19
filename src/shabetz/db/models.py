@@ -391,6 +391,9 @@ class TimeOff(Base):
     person_id: Mapped[int] = mapped_column(ForeignKey("people.id", ondelete="CASCADE"))
     start_date: Mapped[date] = mapped_column(Date)
     end_date: Mapped[date] = mapped_column(Date)
+    # Clock hours of a part-day absence; both NULL means the whole day.
+    start_hour: Mapped[float | None] = mapped_column(Float, default=None)
+    end_hour: Mapped[float | None] = mapped_column(Float, default=None)
     reason: Mapped[str | None] = mapped_column(Text, default=None)
     status: Mapped[TimeOffStatus] = mapped_column(
         StrEnumType(TimeOffStatus, length=20), default=TimeOffStatus.PENDING

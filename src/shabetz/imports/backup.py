@@ -88,6 +88,8 @@ class _TimeOff(BaseModel):
     person: Name
     start_date: date
     end_date: date
+    start_hour: float | None = Field(default=None, ge=0, lt=24)
+    end_hour: float | None = Field(default=None, gt=0, le=24)
     reason: str | None = None
     status: TimeOffStatus = TimeOffStatus.APPROVED
 
@@ -209,6 +211,8 @@ def export_project(db: Session, project_id: int) -> dict:
                 "person": p.full_name,
                 "start_date": t.start_date.isoformat(),
                 "end_date": t.end_date.isoformat(),
+                "start_hour": t.start_hour,
+                "end_hour": t.end_hour,
                 "reason": t.reason,
                 "status": t.status.value,
             }
@@ -451,7 +455,7 @@ def merge_backup(db: Session, project_id: int, backup: Backup) -> BackupPlan:
     # ---- time off: a period already on file for the person is left alone
     counts = plan.count("time_off")
     existing = {
-        (t.person_id, t.start_date, t.end_date)
+        (t.person_id, t.start_date, t.end_date, t.start_hour, t.end_hour)
         for t in db.scalars(select(orm.TimeOff).where(orm.TimeOff.project_id == project_id))
     }
     for off in backup.time_off:
@@ -462,7 +466,12 @@ def merge_backup(db: Session, project_id: int, backup: Backup) -> BackupPlan:
         if off.end_date < off.start_date:
             plan.problems.append(Problem("bad_dates", off.person))
             continue
-        identity = (person.id, off.start_date, off.end_date)
+        if (off.start_hour is None) != (off.end_hour is None) or (
+            off.start_hour is not None and off.end_hour <= off.start_hour  # type: ignore[operator]
+        ):
+            plan.problems.append(Problem("bad_dates", off.person))
+            continue
+        identity = (person.id, off.start_date, off.end_date, off.start_hour, off.end_hour)
         if identity in existing:
             counts.unchanged += 1
             continue
@@ -472,6 +481,8 @@ def merge_backup(db: Session, project_id: int, backup: Backup) -> BackupPlan:
                 person_id=person.id,
                 start_date=off.start_date,
                 end_date=off.end_date,
+                start_hour=off.start_hour,
+                end_hour=off.end_hour,
                 reason=off.reason,
                 status=off.status,
             )
