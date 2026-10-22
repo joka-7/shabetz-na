@@ -7,6 +7,13 @@ import { useI18n } from "@/i18n";
 import type { Settings } from "@/types/api";
 import { MutationError, StepShell } from "./parts";
 
+/** Every zone the browser knows, with the saved one kept even if it does not. */
+function timeZones(current: string): string[] {
+  const intl = Intl as { supportedValuesOf?: (key: string) => string[] };
+  const known = intl.supportedValuesOf?.("timeZone") ?? [];
+  return Array.from(new Set(["UTC", current, ...known]));
+}
+
 export function RulesStep() {
   const { t, tn } = useI18n();
   const { data: settings, isLoading } = useSettings();
@@ -115,6 +122,37 @@ export function RulesStep() {
             value={draft.organization_name}
             onChange={(event) => setDraft({ ...draft, organization_name: event.target.value })}
           />
+        </div>
+
+        <div>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={draft.fairness_carry_over}
+              onChange={(event) =>
+                setDraft({ ...draft, fairness_carry_over: event.target.checked })
+              }
+            />
+            {t("rules.carryOver")}
+          </label>
+          <p className="mt-1 text-xs text-slate-500">{t("rules.carryOverHint")}</p>
+        </div>
+
+        <div>
+          <label className="label" htmlFor="timezone">{t("rules.timezone")}</label>
+          <select
+            id="timezone"
+            className="input"
+            value={draft.timezone}
+            onChange={(event) => setDraft({ ...draft, timezone: event.target.value })}
+          >
+            {timeZones(draft.timezone).map((zone) => (
+              <option key={zone} value={zone}>
+                {zone}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-slate-500">{t("rules.timezoneHint")}</p>
         </div>
 
         <MutationError error={save.error} />

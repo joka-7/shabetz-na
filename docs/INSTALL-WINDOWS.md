@@ -62,11 +62,16 @@ Everything is stored on this computer, in:
 | `shabetz.db` | All your data. **Back this file up.** |
 | `secret.key` | Keeps you signed in between starts. |
 | `shabetz.log` | A record of what happened — send it if you report a problem. |
+| `backups\` | A copy of `shabetz.db` made each time Shabetz starts; the newest 10 are kept. |
 
 Uninstalling or upgrading Shabetz never touches this folder.
 
-**To back up:** close Shabetz, then copy `shabetz.db` somewhere safe (a USB
-stick, a cloud folder). **To restore:** close Shabetz and put the copy back.
+Shabetz copies its data into `backups` every time it starts, so a mistake
+can be undone from the last ten starts. Those copies are on the same
+computer, though: **to be safe from a broken disk or a lost laptop**, also
+copy `shabetz.db` (with Shabetz closed) somewhere else — a USB stick, a cloud
+folder. **To restore:** close Shabetz, then put a copy (from `backups` or
+your own) in its place, named `shabetz.db`.
 
 ## If something goes wrong
 

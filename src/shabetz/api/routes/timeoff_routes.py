@@ -6,15 +6,48 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
-from ...auth.rbac import can_review_time_off
+from ...auth.rbac import can_review_time_off, can_view_all_assignments
 from ...db import models as orm
 from ...db.base import utcnow
 from ...domain.enums import TimeOffStatus
+from ...services.orchestration import JobOrchestrationService
 from ..deps import ProjectContext, get_db, project_member, require_editor
 from ..errors import Forbidden, NotFound, UnprocessableConfig
-from ..schemas import TimeOffIn, TimeOffOut, TimeOffReview
+from ..schemas import PublishedShiftOut, TimeOffIn, TimeOffOut, TimeOffReview
 
 router = APIRouter(prefix="/api/time-off", tags=["time off"])
+
+
+def _with_published_shifts(db: DbSession, ctx: ProjectContext, row: orm.TimeOff) -> TimeOffOut:
+    """The request, with any published shifts it now clashes with.
+
+    Approving an absence does not change a schedule already published; the
+    person stays on those shifts until someone moves them. Saying which shifts
+    those are is what keeps the gap from going unnoticed.
+    """
+    out = TimeOffOut.model_validate(row)
+    run = db.scalar(
+        select(orm.ScheduleRun)
+        .where(
+            orm.ScheduleRun.project_id == ctx.project_id,
+            orm.ScheduleRun.published_at.is_not(None),
+        )
+        .order_by(orm.ScheduleRun.published_at.desc())
+        .limit(1)
+    )
+    if run is None:
+        return out
+    start, end = row.start_date.isoformat(), row.end_date.isoformat()
+    clashes = [
+        PublishedShiftOut(
+            calendar_date=a["calendar_date"],
+            job_name=a["job_name"],
+            template_name=a["template_name"],
+        )
+        for a in JobOrchestrationService.load_payload(run)["assignments"]
+        if a["person_id"] == row.person_id and start <= a["calendar_date"] <= end
+    ]
+    return out.model_copy(update={"published_shifts": clashes})
 
 
 @router.post("", response_model=TimeOffOut, status_code=status.HTTP_201_CREATED)
@@ -22,7 +55,7 @@ def submit(
     payload: TimeOffIn,
     db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(project_member),
-) -> orm.TimeOff:
+) -> TimeOffOut:
     if payload.end_date < payload.start_date:
         raise UnprocessableConfig("End date must not precede start date")
     if (payload.start_hour is None) != (payload.end_hour is None):
@@ -65,7 +98,9 @@ def submit(
     )
     db.add(row)
     db.flush()
-    return row
+    if reviewer:
+        return _with_published_shifts(db, ctx, row)
+    return TimeOffOut.model_validate(row)
 
 
 @router.get("", response_model=list[TimeOffOut])
@@ -74,6 +109,7 @@ def list_requests(
     ctx: ProjectContext = Depends(project_member),
     status_filter: TimeOffStatus | None = Query(default=None, alias="status"),
     person_id: int | None = Query(default=None),
+    limit: int = Query(default=500, ge=1, le=2000),
 ) -> list[orm.TimeOff]:
     query = (
         select(orm.TimeOff)
@@ -81,7 +117,7 @@ def list_requests(
         .order_by(orm.TimeOff.start_date.desc())
     )
 
-    if can_review_time_off(ctx.role):
+    if can_view_all_assignments(ctx.role):
         if person_id is not None:
             query = query.where(orm.TimeOff.person_id == person_id)
     else:
@@ -94,7 +130,7 @@ def list_requests(
     if status_filter is not None:
         query = query.where(orm.TimeOff.status == status_filter)
 
-    return list(db.scalars(query))
+    return list(db.scalars(query.limit(limit)))
 
 
 def _load(db: DbSession, request_id: int, ctx: ProjectContext) -> orm.TimeOff:
@@ -123,8 +159,9 @@ def approve(
     payload: TimeOffReview | None = None,
     db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
-) -> orm.TimeOff:
-    return _review(db, request_id, ctx, TimeOffStatus.APPROVED, payload.note if payload else None)
+) -> TimeOffOut:
+    row = _review(db, request_id, ctx, TimeOffStatus.APPROVED, payload.note if payload else None)
+    return _with_published_shifts(db, ctx, row)
 
 
 @router.post("/{request_id}/deny", response_model=TimeOffOut)

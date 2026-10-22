@@ -12,9 +12,12 @@
     "e2e": "playwright test"
   },
   "dependencies": {
+    "@firebase/app": "^0.16.2",
+    "@firebase/auth": "^1.13.6",
+    "@fontsource/heebo": "^5.3.0",
+    "@fontsource/inter": "^5.3.0",
     "@tanstack/react-query": "^5.62.0",
     "@tanstack/react-table": "^8.20.5",
-    "firebase": "^12.19.0",
     "lucide-react": "^0.468.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"

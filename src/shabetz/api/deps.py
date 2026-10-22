@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import secrets
 from collections.abc import Iterator
 from dataclasses import dataclass
 
@@ -38,12 +39,25 @@ def settings_dep() -> Settings:
     return get_settings()
 
 
-def client_address(request: Request) -> str:
-    """The caller's address.
+def client_address(request: Request, settings: Settings) -> str:
+    """The caller's address, as the throttles key it.
 
-    Behind a reverse proxy this is only the real client when the server trusts
-    the proxy's forwarding headers; ``shabetz serve`` configures that.
+    Behind ``trusted_proxy_hops`` proxies the real address is that many entries
+    from the right of X-Forwarded-For. Reading it from the left -- what a
+    server told to trust every forwarder does -- takes a value the visitor
+    wrote themselves, so a fresh made-up address per guess would never be
+    throttled.
     """
+    hops = settings.trusted_proxy_hops
+    if hops:
+        forwarded = [
+            part.strip()
+            for header in request.headers.getlist("x-forwarded-for")
+            for part in header.split(",")
+            if part.strip()
+        ]
+        if len(forwarded) >= hops:
+            return forwarded[-hops]
     return request.client.host if request.client else "unknown"
 
 
@@ -56,6 +70,19 @@ def login_throttle(request: Request, settings: Settings = Depends(settings_dep))
             settings.login_ip_max_failures, settings.login_ip_window_minutes * 60
         )
         request.app.state.login_throttle = throttle
+    return throttle
+
+
+def link_throttle(request: Request) -> FailureThrottle:
+    """Failed lookups of secret links -- invites, calendar feeds -- per address.
+
+    Tokens are far too long to guess, so this is about someone hammering the
+    routes, not about guessing: a wrong link now and then is a typo.
+    """
+    throttle = getattr(request.app.state, "link_throttle", None)
+    if throttle is None:
+        throttle = FailureThrottle(30, 15 * 60)
+        request.app.state.link_throttle = throttle
     return throttle
 
 
@@ -79,13 +106,17 @@ def current_user(
     session_row = load_valid_session(db, session_id)
     if session_row is None:
         raise Unauthorized("Session expired or revoked")
+    # Checked on every request, not only at sign-in: taking an address off
+    # the list must end sessions it already has.
+    if not settings.email_is_allowed(session_row.user.email):
+        raise Unauthorized("This account is not allowed to use this site")
 
     # Authentication rides on a cookie, so state-changing requests must also
     # present the matching CSRF token from a header the browser will not attach
     # automatically on a cross-site request.
     if request.method not in SAFE_METHODS:
         supplied = request.headers.get("x-csrf-token")
-        if not supplied or supplied != session_row.csrf_token:
+        if not supplied or not secrets.compare_digest(supplied, session_row.csrf_token):
             raise Forbidden("Missing or invalid CSRF token")
 
     request.state.session_id = session_row.id
@@ -158,4 +189,6 @@ def require_project_role(minimum: ProjectRole):  # type: ignore[no-untyped-def]
 
 require_project_admin = require_project_role(ProjectRole.ADMIN)
 require_editor = require_project_role(ProjectRole.COLLABORATOR)
+# Reads an editor makes, open to a viewer too; every write stays behind
+# require_editor.
 require_viewer = require_project_role(ProjectRole.VIEWER)

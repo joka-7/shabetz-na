@@ -7,7 +7,7 @@ per-day counter and needs no day-boundary reset.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from typing import NamedTuple
 
 from .models import EPS, Person, ShiftSlot
@@ -22,7 +22,12 @@ class PersonAvailability(NamedTuple):
 
 
 class SchedulerState:
-    def __init__(self, people: Iterable[Person], rest_period_hours: float) -> None:
+    def __init__(
+        self,
+        people: Iterable[Person],
+        rest_period_hours: float,
+        prior_load: Mapping[int, int] | None = None,
+    ) -> None:
         self._rest = rest_period_hours
         # Cold-start fix: seeding availability at 0.0 would block a shift that
         # begins at hour zero on day one, because the rest check would compare
@@ -32,8 +37,13 @@ class SchedulerState:
         # intervals because they can lie ahead of the engine's position, where
         # the single "available from" mark cannot describe them.
         self._reserved: dict[int, list[tuple[float, float]]] = {}
+        # Shifts worked before the window count toward fairness only: they
+        # decide who goes first, never whether someone is rested.
+        prior = prior_load or {}
         self._availability: dict[int, PersonAvailability] = {
-            person.id: PersonAvailability(person.id, 0.0 - rest_period_hours, 0)
+            person.id: PersonAvailability(
+                person.id, 0.0 - rest_period_hours, prior.get(person.id, 0)
+            )
             for person in people
         }
 

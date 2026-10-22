@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
-from ...auth.rbac import can_edit_configuration
+from ...auth.rbac import can_edit_configuration, can_view_all_assignments
 from ...db import models as orm
 from ...db.base import utcnow
 from ...domain.enums import SwapStatus
@@ -108,7 +108,7 @@ def list_swaps(
     db: DbSession = Depends(get_db, scope="function"), ctx: ProjectContext = Depends(project_member)
 ) -> list[SwapOut]:
     query = select(orm.SwapRequest).where(orm.SwapRequest.project_id == ctx.project_id)
-    if not can_edit_configuration(ctx.role):
+    if not can_view_all_assignments(ctx.role):
         me = ctx.member.person_id or -1
         query = query.where(
             (orm.SwapRequest.from_person_id == me) | (orm.SwapRequest.to_person_id == me)
@@ -229,6 +229,10 @@ def _editor_for(db: DbSession, row: orm.SwapRequest, ctx: ProjectContext) -> Sch
     run = db.get(orm.ScheduleRun, row.schedule_id)
     if run is None or run.project_id != ctx.project_id:
         raise Conflict("The schedule this was asked against no longer exists")
+    # Approving against a schedule staff no longer see would change nothing
+    # they can see while reporting the swap as done.
+    if run.published_at is None:
+        raise Conflict("The schedule this was asked against is no longer published")
     return ScheduleEditor(db, ctx.project_id, run)
 
 

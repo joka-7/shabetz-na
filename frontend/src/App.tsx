@@ -29,10 +29,10 @@ import { Logo } from "@/components/Logo";
 import { Skeleton } from "@/components/ui";
 import { useI18n } from "@/i18n";
 import { api } from "@/api/client";
-import { keys } from "@/api/queries";
+import { keys, useInbox } from "@/api/queries";
 import type { Settings } from "@/types/api";
+import { type Tab, useTabRoute } from "@/lib/tabRoute";
 
-type Tab = "dashboard" | "attendance" | "tasks" | "config" | "timeoff" | "swaps";
 
 /** Free hosting sleeps when idle; say so instead of leaving a blank skeleton. */
 function WakeNotice() {
@@ -53,9 +53,9 @@ function WakeNotice() {
 export function App() {
   const { user, capabilities, loading, signOut, refreshProjects, project, projects, selectProject } =
     useSession();
-  const { t } = useI18n();
+  const { t, tn } = useI18n();
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<Tab>("dashboard");
+  const [tab, setTab] = useTabRoute();
   const [inviteToken, setInviteToken] = useState(() => inviteTokenFromPath());
   // Reopened on request from the header; whether it shows by default comes
   // from the server, so finishing it once is remembered across reloads.
@@ -70,6 +70,12 @@ export function App() {
     queryFn: () => api.get<Settings>("/api/config/settings"),
     enabled: editor,
   });
+
+  const inbox = useInbox(project !== null);
+  const waiting: Partial<Record<Tab, number>> = {
+    swaps: inbox.data?.swaps,
+    timeoff: inbox.data?.time_off,
+  };
 
   const firstSetup = editor && settings.data?.setup_completed === false;
   useEffect(() => {
@@ -190,8 +196,18 @@ export function App() {
                   tab === id ? "pill-active" : "pill"
                 }`}
               >
-                <Icon className="h-4 w-4" aria-hidden />
+                <span className="relative">
+                  <Icon className="h-4 w-4" aria-hidden />
+                  {(waiting[id] ?? 0) > 0 && (
+                    <span className="absolute -end-2 -top-1.5 min-w-4 rounded-full bg-red-600 px-1 text-center text-[10px] font-semibold leading-4 text-white">
+                      {waiting[id]}
+                    </span>
+                  )}
+                </span>
                 {label}
+                {(waiting[id] ?? 0) > 0 && (
+                  <span className="sr-only">{tn("nav.waiting", waiting[id] ?? 0)}</span>
+                )}
               </button>
             ))}
           </nav>
@@ -224,7 +240,8 @@ export function App() {
 
       {/* Keyed on the project so nothing typed in one shows up in another. */}
       <main key={project.id} className="mx-auto max-w-7xl p-4 pb-28 sm:pb-4">
-        {tab === "dashboard" && <DashboardView />}
+        {/* A staff member following a link to configuration lands on their shifts. */}
+        {(tab === "dashboard" || (tab === "config" && !editor)) && <DashboardView />}
         {tab === "attendance" && <AttendanceView />}
         {tab === "tasks" && editor && <TasksView />}
         {tab === "timeoff" && <TimeOffView />}

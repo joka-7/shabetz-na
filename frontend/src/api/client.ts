@@ -61,6 +61,22 @@ export function getProjectId(): number | null {
 
 const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
+/**
+ * The response as JSON, or undefined when it is not JSON at all.
+ *
+ * Not every answer comes from the API: a host waking a sleeping server, or a
+ * proxy timing out, answers with an HTML page. Parsing that as JSON threw a
+ * bare SyntaxError, so the page showed a crash instead of the status.
+ */
+export function parseBody(text: string): { code?: string; detail?: string } | undefined {
+  if (!text) return undefined;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+}
+
 export async function request<T>(
   path: string,
   options: RequestInit = {},
@@ -91,7 +107,7 @@ export async function request<T>(
   }
 
   const text = await response.text();
-  const body = text ? JSON.parse(text) : undefined;
+  const body = parseBody(text);
 
   if (!response.ok) {
     throw new ApiError(

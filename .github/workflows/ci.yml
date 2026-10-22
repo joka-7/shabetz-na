@@ -66,7 +66,7 @@ jobs:
           uv run --extra dev alembic upgrade head
 
       - name: Tests
-        run: uv run --extra dev pytest
+        run: uv run --extra dev pytest --cov=shabetz --cov-report=term-missing:skip-covered
 
       - name: Seed and generate end to end
         run: |
@@ -149,6 +149,10 @@ jobs:
         working-directory: frontend
 
       - run: npm run lint
+        working-directory: frontend
+
+      - name: No known high-severity advisories in shipped packages
+        run: npm audit --omit=dev --audit-level=high
         working-directory: frontend
 
       - run: npm run test
@@ -241,6 +245,7 @@ jobs:
           docker run -d --name shabetz -p 8000:8000 \
             -e SHABETZ_SECRET_KEY=ci-secret \
             -e SHABETZ_DATABASE_URL=sqlite:////tmp/shabetz.db \
+            -e SHABETZ_ALLOWED_EMAILS=owner@example.com \
             shabetz-server
           for i in $(seq 1 60); do
             curl -sf http://127.0.0.1:8000/api/meta/health && break

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Check, Clock, X } from "lucide-react";
-import { runKeys, swapAction, swapConflicts, swapKeys, useSwaps } from "@/api/queries";
+import { keys, runKeys, swapAction, swapConflicts, swapKeys, useSwaps } from "@/api/queries";
 import { Avatar, EmptyState, ErrorNotice, Skeleton } from "@/components/ui";
 import { useToast } from "@/components/Toasts";
 import { conflictText } from "@/features/dashboard/conflictText";
@@ -115,6 +115,7 @@ function SwapCard({ swap }: { swap: Swap }) {
     onSuccess: () => {
       toast(t("toast.swapUpdated"));
       void queryClient.invalidateQueries({ queryKey: swapKeys.all });
+      void queryClient.invalidateQueries({ queryKey: keys.inbox });
       // An approved swap changes the schedule itself.
       void queryClient.invalidateQueries({ queryKey: runKeys.latest });
       void queryClient.invalidateQueries({ queryKey: ["my-shifts"] });

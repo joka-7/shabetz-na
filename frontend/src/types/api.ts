@@ -142,6 +142,8 @@ export interface Job {
 export interface PersonSkill {
   skill_id: number;
   level_id: number;
+  /** Last day it counts (YYYY-MM-DD); null for a skill that never lapses. */
+  expires_on?: string | null;
 }
 
 export interface Person {
@@ -161,7 +163,7 @@ export interface Settings {
   rotation_anchor_date: string | null;
   organization_name: string;
   timezone: string;
-  week_start: number;
+  fairness_carry_over: boolean;
   setup_completed: boolean;
 }
 
@@ -353,6 +355,8 @@ export interface TimeOff {
   status: TimeOffStatus;
   review_note: string | null;
   created_at: string | null;
+  /** On approval: shifts the person still holds in the published schedule then. */
+  published_shifts?: { calendar_date: string; job_name: string; template_name: string }[];
 }
 
 export interface Capabilities {

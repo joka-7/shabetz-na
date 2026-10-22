@@ -35,6 +35,11 @@ free database has no expiry.
 4. **Blueprint Name**: type `shabetz`.
 5. Render asks for **SHABETZ_DATABASE_URL**: paste the Neon connection
    string from step 1, exactly as copied.
+   It also asks for **ALLOWED_EMAILS**: the email addresses allowed to sign
+   in, separated by commas (for example `me@gmail.com,colleague@gmail.com`).
+   **Left empty, nobody can sign in at all** — the site stays shut rather
+   than open to anyone. Type `*` only if you really want anyone with a
+   Google account to be able to sign up.
 6. Click **Apply** (or **Deploy Blueprint**). The first build takes about
    5–10 minutes. When the **shabetz** service shows **Live** in green, it is
    ready.
@@ -85,7 +90,8 @@ new one. Either works.
    | `SHABETZ_FIREBASE_PROJECT_ID` | `projectId` |
    | `SHABETZ_FIREBASE_APP_ID` | `appId` |
 
-   Paste only what is inside the quotes.
+   Paste only what is inside the quotes. `ALLOWED_EMAILS` (step 2) still
+   decides who may get in: a Google account that is not on it is refused.
 3. **Save, rebuild, and deploy**. After a few minutes the service is **Live**
    again.
 
@@ -148,6 +154,11 @@ Nothing to do. When a change is merged into `main` on GitHub, Render rebuilds
 and updates the site by itself, in a few minutes. Data stays.
 
 ## If something goes wrong
+
+- **"This account is not allowed to use this site."** The address is not in
+  **ALLOWED_EMAILS** (Render → **shabetz** → **Environment**). Add it,
+  separated by a comma, and save; the change applies after the redeploy.
+  Taking an address off the list signs that person out on their next click.
 
 - **The deploy failed.** Open the web service → **Events** → the failed deploy
   → **Logs**. Copy the last lines and send them to whoever supports you.

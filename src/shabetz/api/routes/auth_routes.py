@@ -55,12 +55,12 @@ router = APIRouter(prefix="/api", tags=["auth"])
 def _issue_session(
     response: Response, db: DbSession, user: User, settings: Settings, request: Request
 ) -> SessionOut:
-    session_row = create_session(
+    session_row, token = create_session(
         db, user, settings.session_ttl_hours, request.headers.get("user-agent")
     )
     response.set_cookie(
         settings.cookie_name,
-        session_row.id,
+        token,
         httponly=True,
         secure=settings.cookie_secure,
         samesite="lax",
@@ -126,7 +126,7 @@ def bootstrap_admin(
     if not bootstrap_is_open(db, settings):
         raise Conflict("Setup has already been completed")
 
-    address = client_address(request)
+    address = client_address(request, settings)
     if throttle.is_blocked(address):
         raise TooManyRequests(throttle.retry_after_seconds(address))
 
@@ -150,9 +150,12 @@ def bootstrap_admin(
             full_name=payload.full_name,
             password=payload.password,
             project_name=payload.organization_name,
+            allowed=settings.email_is_allowed,
         )
     except WeakPassword as exc:
         raise UnprocessableConfig(str(exc)) from exc
+    except auth_service.NotAllowed as exc:
+        raise Forbidden(str(exc)) from exc
     except auth_service.AuthError as exc:
         raise Conflict(str(exc)) from exc
 
@@ -170,7 +173,7 @@ def login(
 ) -> SessionOut:
     # Checked before the password is verified, so a blocked address's guesses
     # never reach the account's own lockout counter.
-    address = client_address(request)
+    address = client_address(request, settings)
     if throttle.is_blocked(address):
         raise TooManyRequests(throttle.retry_after_seconds(address))
 
@@ -181,6 +184,7 @@ def login(
             payload.password,
             max_attempts=settings.login_max_attempts,
             lockout_minutes=settings.login_lockout_minutes,
+            allowed=settings.email_is_allowed,
         )
     except auth_service.AccountLocked as exc:
         throttle.record_failure(address)
@@ -257,7 +261,7 @@ def complete_recovery(
     # Whatever tripped the address throttle on the way here is resolved now.
     throttle = getattr(request.app.state, "login_throttle", None)
     if throttle is not None:
-        throttle.clear(client_address(request))
+        throttle.clear(client_address(request, settings))
     return _issue_session(response, db, user, settings, request)
 
 
@@ -310,7 +314,7 @@ def firebase_sign_in(
     throttle: FailureThrottle = Depends(login_throttle),
 ) -> SessionOut:
     """Exchange a Firebase ID token for a session, creating the account if new."""
-    address = client_address(request)
+    address = client_address(request, settings)
     if throttle.is_blocked(address):
         raise TooManyRequests(throttle.retry_after_seconds(address))
     try:
@@ -325,6 +329,7 @@ def firebase_sign_in(
             email=identity.email,
             email_verified=identity.email_verified,
             full_name=identity.full_name,
+            allowed=settings.email_is_allowed,
         )
     except auth_service.AuthError as exc:
         raise Forbidden(str(exc)) from exc

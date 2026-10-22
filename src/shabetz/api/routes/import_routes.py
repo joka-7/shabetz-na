@@ -11,6 +11,7 @@ import re
 from datetime import date
 
 from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 from sqlalchemy import select
@@ -132,7 +133,9 @@ async def read_uploaded_table(
     if len(data) > MAX_UPLOAD_BYTES:
         raise ApiError("FILE_TOO_LARGE", "The file is larger than 5 MB", 413)
     try:
-        rows = read_table(data, file.filename or "")
+        # Parsing a workbook is slow, blocking work; on the event loop it
+        # would stall every other request until it finished.
+        rows = await run_in_threadpool(read_table, data, file.filename or "")
     except TableError as exc:
         raise ApiError(exc.code.upper(), str(exc), 422) from exc
     return TableOut(rows=rows)

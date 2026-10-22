@@ -169,18 +169,25 @@ class Person:
     skill_ranks: Mapping[int, int] = field(default_factory=dict)
     working_weekdays: frozenset[int] = field(default_factory=frozenset)
     time_off: tuple[TimeOffPeriod, ...] = ()
+    # The last day a qualification counts, for those that lapse (a licence,
+    # a certificate). Skills not listed never expire.
+    skill_expiry: Mapping[int, date] = field(default_factory=dict)
 
-    def meets(self, requirement: SkillRequirement) -> bool:
+    def meets(self, requirement: SkillRequirement, on: date | None = None) -> bool:
         """Whether this person holds the skill at or above the required rank.
 
         Comparison is by ``rank``, never by level name, so administrators may
-        name and reorder the proficiency ladder freely.
+        name and reorder the proficiency ladder freely. Given ``on``, a skill
+        that has lapsed by that day does not count.
         """
         rank = self.skill_ranks.get(requirement.skill_id)
-        return rank is not None and rank >= requirement.min_rank
+        if rank is None or rank < requirement.min_rank:
+            return False
+        expires = self.skill_expiry.get(requirement.skill_id)
+        return on is None or expires is None or on <= expires
 
-    def meets_all(self, requirements: Sequence[SkillRequirement]) -> bool:
-        return all(self.meets(r) for r in requirements)
+    def meets_all(self, requirements: Sequence[SkillRequirement], on: date | None = None) -> bool:
+        return all(self.meets(r, on) for r in requirements)
 
     def is_available_on(self, day: date) -> bool:
         if day.weekday() not in self.working_weekdays:

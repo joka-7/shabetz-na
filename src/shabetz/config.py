@@ -6,7 +6,7 @@ import secrets
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, PrivateAttr, field_validator
+from pydantic import AliasChoices, Field, PrivateAttr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -25,7 +25,9 @@ def normalize_database_url(url: str) -> str:
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="SHABETZ_", env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_prefix="SHABETZ_", env_file=".env", extra="ignore", populate_by_name=True
+    )
 
     environment: Literal["dev", "test", "prod"] = "dev"
 
@@ -77,6 +79,27 @@ class Settings(BaseSettings):
     smtp_starttls: bool = True
 
     cors_origins: list[str] = Field(default_factory=list)
+
+    # Who may sign up or sign in to a hosted server: comma-separated email
+    # addresses, compared case-insensitively. "*" lets anyone in. Left empty,
+    # a production server lets nobody in, so forgetting it cannot quietly
+    # open a private site to the world. The desktop app ignores it.
+    allowed_emails: str = Field(
+        default="",
+        validation_alias=AliasChoices("allowed_emails", "SHABETZ_ALLOWED_EMAILS", "ALLOWED_EMAILS"),
+    )
+
+    # How many reverse proxies sit in front of the server, each appending the
+    # address it received the request from to X-Forwarded-For. The visitor's
+    # real address is that many entries from the right; everything further
+    # left was written by the visitor and can say anything. 0 means no proxy:
+    # the socket's own peer address is used. Render is 1; Vercel in front of
+    # Render is 2.
+    trusted_proxy_hops: int = Field(default=0, ge=0, le=10)
+
+    # Longest schedule one request may generate. Generation runs inside the
+    # request, so an unbounded range would tie up a worker indefinitely.
+    max_schedule_days: int = Field(default=366, ge=1, le=3660)
     max_upload_bytes: int = 5 * 1024 * 1024
 
     # The per-address limit must stay below the per-account one. Then guessing
@@ -108,6 +131,19 @@ class Settings(BaseSettings):
             "projectId": self.firebase_project_id,
             "appId": self.firebase_app_id,
         }
+
+    def email_is_allowed(self, email: str) -> bool:
+        """Whether this address may sign up or sign in here."""
+        if self.deployment == "desktop":
+            # One computer, its owner's own accounts.
+            return True
+        listed = {part.strip().lower() for part in self.allowed_emails.split(",") if part.strip()}
+        if "*" in listed:
+            return True
+        if not listed:
+            # Fail closed in production; development and tests stay open.
+            return self.environment != "prod"
+        return email.strip().lower() in listed
 
     @property
     def email_enabled(self) -> bool:

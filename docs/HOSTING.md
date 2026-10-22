@@ -24,7 +24,9 @@ Create a `.env` file from `.env.example`. The values that matter:
 | `SHABETZ_DATABASE_URL` | PostgreSQL: the URL exactly as your host shows it (`postgres://…` or `postgresql://…`). MySQL: `mysql+pymysql://USER:PASS@HOST:3306/DB?charset=utf8mb4` — keep `charset=utf8mb4` |
 | `SHABETZ_SECRET_KEY` | A long random string, kept the same across restarts. Generate one with `python -c "import secrets; print(secrets.token_urlsafe(48))"`. |
 | `SHABETZ_COOKIE_SECURE` | `true` (the image sets this). Only turn it off for plain-http testing. |
-| `SHABETZ_FORWARDED_ALLOW_IPS` | The address of your reverse proxy. **Required for correct sign-in throttling** — without it every visitor looks like the proxy, and one person's failed sign-ins throttle everyone. |
+| `SHABETZ_FORWARDED_ALLOW_IPS` | The address of your reverse proxy, so the server knows requests arrived over HTTPS. |
+| `SHABETZ_ALLOWED_EMAILS` (or `ALLOWED_EMAILS`) | Comma-separated addresses allowed to sign up or sign in. **Empty in production lets nobody in**; `*` lets anyone in. Checked on every request, so removing an address ends its sessions. |
+| `SHABETZ_TRUSTED_PROXY_HOPS` | How many proxies sit in front of the server (usually `1`). **Required for correct sign-in throttling** — the visitor's address is read that many entries from the right of `X-Forwarded-For`. Too low and every visitor looks like the proxy, so one person's failed sign-ins throttle everyone; too high and a visitor can forge their address. |
 
 **Google sign-in** (recommended): set `SHABETZ_FIREBASE_API_KEY`,
 `SHABETZ_FIREBASE_AUTH_DOMAIN`, `SHABETZ_FIREBASE_PROJECT_ID` and
@@ -71,11 +73,16 @@ Then bring everyone else in under **Configuration → Members**.
   http nobody can stay signed in.
 - **Sign-in throttling:** repeated failed sign-ins from one address are slowed
   down before they can lock the targeted account, so an attacker cannot lock
-  your administrators out. This depends on `SHABETZ_FORWARDED_ALLOW_IPS` being
+  your administrators out. This depends on `SHABETZ_TRUSTED_PROXY_HOPS` being
   set correctly (above).
 - **Keep two administrators.** The last administrator cannot be removed or
   demoted, but a second one is what lets you recover a forgotten password.
-- **Back up the MySQL database** with your host's tools or `mysqldump`.
+- **Back up the database.** `shabetz backup --folder backups` writes a dump
+  with `pg_dump` (PostgreSQL) or `mysqldump` (MySQL), which must be installed;
+  run it from a scheduled job. Restore with `pg_restore` or the `mysql` client.
+- **Housekeeping** runs on every start: sessions and invite links that ended
+  over 30 days ago are deleted. `shabetz cleanup --keep-drafts 20` also prunes
+  old unpublished schedules (published ones are never touched).
 
 ## Without Docker
 

@@ -12,12 +12,14 @@ from ...auth.rbac import can_view_all_assignments
 from ...config import Settings
 from ...db import models as orm
 from ...db.base import utcnow
+from ...domain.enums import SwapStatus
 from ...exporters.base import ExporterUnavailable, ExportFormat
 from ...exporters.renderers import render
 from ...repositories.db_repo import DbSchedulingRepository
 from ...services.notifications import send_email
 from ...services.orchestration import JobOrchestrationService
 from ...services.schedule_edit import Conflict, EditError, ScheduleEditor, SlotKey
+from ...services.settings_service import load_settings, project_today
 from ..deps import (
     ProjectContext,
     get_db,
@@ -76,9 +78,15 @@ def generate(
     payload: GenerateRequest,
     db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
+    settings: Settings = Depends(settings_dep),
 ) -> ScheduleRunOut:
     if payload.end_date < payload.start_date:
         raise UnprocessableConfig("End date must not precede start date")
+    days = (payload.end_date - payload.start_date).days + 1
+    if days > settings.max_schedule_days:
+        raise UnprocessableConfig(
+            f"A schedule can cover at most {settings.max_schedule_days} days; this range is {days}"
+        )
 
     service = JobOrchestrationService(db, ctx.project_id)
     schedule_id, result, params = service.generate(
@@ -454,6 +462,29 @@ def undo(
 
 # ----------------------------------------------------------------- publishing
 
+REPLACED_NOTE = "The schedule this was asked against was replaced"
+
+
+def close_swaps_for_replaced_schedules(
+    db: DbSession, project_id: int, current_schedule_id: str | None
+) -> None:
+    """Cancel open swap requests made against any schedule but the current one.
+
+    A swap is about a shift in the published schedule. Once another schedule
+    replaces it, approving the request would edit a schedule nobody can see
+    while reporting it as done.
+    """
+    query = select(orm.SwapRequest).where(
+        orm.SwapRequest.project_id == project_id,
+        orm.SwapRequest.status.in_((SwapStatus.AWAITING_COLLEAGUE, SwapStatus.AWAITING_MANAGER)),
+    )
+    if current_schedule_id is not None:
+        query = query.where(orm.SwapRequest.schedule_id != current_schedule_id)
+    for row in db.scalars(query):
+        row.status = SwapStatus.CANCELLED
+        row.review_note = REPLACED_NOTE
+        row.reviewed_at = utcnow()
+
 
 @router.post("/runs/{schedule_id}/publish", response_model=PublishOut)
 def publish(
@@ -465,6 +496,10 @@ def publish(
     settings: Settings = Depends(settings_dep),
 ) -> PublishOut:
     """Make this schedule visible to staff, and optionally tell them by email."""
+    # Held until commit, so two publishes in the same project run one after
+    # the other; without it both could see nothing else published and leave
+    # two schedules current.
+    db.execute(select(orm.Project.id).where(orm.Project.id == ctx.project_id).with_for_update())
     run = _load_run(db, schedule_id, ctx)
     run.published_at = utcnow()
     run.published_by = ctx.user.id
@@ -478,6 +513,7 @@ def publish(
     ):
         other.published_at = None
         other.published_by = None
+    close_swaps_for_replaced_schedules(db, ctx.project_id, schedule_id)
     _audit_edit(db, ctx, schedule_id, "publish")
     db.flush()
 
@@ -521,8 +557,13 @@ def unpublish(
     settings: Settings = Depends(settings_dep),
 ) -> PublishOut:
     run = _load_run(db, schedule_id, ctx)
+    was_published = run.published_at is not None
     run.published_at = None
     run.published_by = None
+    # Staff can no longer see the shifts these were about. Withdrawing a draft
+    # that was never published leaves the current schedule's swaps alone.
+    if was_published:
+        close_swaps_for_replaced_schedules(db, ctx.project_id, None)
     _audit_edit(db, ctx, schedule_id, "unpublish")
     return PublishOut(published_at=None, email_configured=settings.email_enabled)
 
@@ -621,7 +662,7 @@ def division_status(
 ) -> dict:
     repo = DbSchedulingRepository(db, ctx.project_id)
     divisions = repo.load_divisions()
-    today = date.today()
+    today = project_today(load_settings(db, ctx.project_id))
     people = repo.load_people(today, today)
     counts: dict[int, int] = {}
     for person in people:

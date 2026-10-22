@@ -18,6 +18,7 @@ const BY_CODE: Record<string, MessageKey> = {
   TOO_MANY_ROWS: "error.tooManyRows",
   FILE_TOO_LARGE: "error.fileTooLarge",
   SCHEDULE_CONFLICT: "error.scheduleConflict",
+  STALE: "error.stale",
   BAD_BACKUP: "error.badBackup",
 };
 
@@ -39,6 +40,7 @@ const BY_MESSAGE: Record<string, MessageKey> = {
   "Incorrect or expired reset code": "error.resetCode",
   "No account uses that email address": "error.noSuchEmail",
   "That person is already on this shift": "error.alreadyOnShift",
+  "This account is not allowed to use this site": "error.notAllowed",
 };
 
 export function errorText(
@@ -48,6 +50,11 @@ export function errorText(
   if (error instanceof ApiError) {
     const key = BY_CODE[error.code] ?? BY_MESSAGE[error.message];
     if (key) return t(key);
+    // No JSON from the API at all: the host is waking the server, or a proxy
+    // gave up waiting for it.
+    if (error.code === "UNKNOWN" && [502, 503, 504].includes(error.status)) {
+      return t("error.serverUnavailable");
+    }
     if (error.message) return error.message;
   }
   return t("error.generic");
