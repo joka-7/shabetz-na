@@ -48,8 +48,8 @@ class ProjectRole(StrEnum):
     different role in each project it belongs to."""
 
     ADMIN = "ADMIN"  # everything, including members, invites and the project itself
+    VIEWER = "VIEWER"  # sees every schedule read-only; changes nothing
     COLLABORATOR = "COLLABORATOR"  # configuration, schedules and time-off review
-    VIEWER = "VIEWER"  # sees everything an editor does, changes nothing
     STAFF = "STAFF"  # own shifts and own time off
 
 
@@ -58,6 +58,13 @@ class TimeOffStatus(StrEnum):
     APPROVED = "APPROVED"
     DENIED = "DENIED"
     CANCELLED = "CANCELLED"
+
+
+class AttendanceStatus(StrEnum):
+    """Whether someone is actually there on a given day."""
+
+    PRESENT = "PRESENT"
+    ABSENT = "ABSENT"
 
 
 class SwapStatus(StrEnum):

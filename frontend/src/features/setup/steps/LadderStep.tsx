@@ -6,11 +6,14 @@ import { EmptyState, Spinner } from "@/components/ui";
 import { useI18n } from "@/i18n";
 import type { BulkResult, ProficiencyLevel } from "@/types/api";
 import { EditableName, MutationError, PasteList, Row, RowList, StepShell } from "./parts";
+import { useEnsureYesNo } from "./yesNo";
 
 export function LadderStep() {
   const { t } = useI18n();
   const { data: levels, isLoading } = useLevels();
   const [name, setName] = useState("");
+  const [wantLevels, setWantLevels] = useState(false);
+  const ensureYesNo = useEnsureYesNo();
 
   // Offered as a starting point only; the names and depth are entirely yours.
   const suggested = t("ladder.suggested").split("|");
@@ -39,8 +42,47 @@ export function LadderStep() {
     setName("");
   }
 
+  const count = levels?.length ?? 0;
+  const withLevels = count > 1 || wantLevels;
+
+  const choice = (active: boolean, disabled: boolean, onClick: () => void, title: string, hint: string) => (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={active}
+      disabled={disabled}
+      onClick={onClick}
+      className={`flex-1 rounded-lg border p-3 text-start disabled:opacity-50 ${
+        active
+          ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950"
+          : "border-slate-200 hover:border-slate-300 dark:border-slate-700"
+      }`}
+    >
+      <span className="block text-sm font-semibold">{title}</span>
+      <span className="block text-xs text-slate-500">{hint}</span>
+    </button>
+  );
+
   return (
     <StepShell title={t("section.ladder")} intro={t("ladder.intro")}>
+      <div role="radiogroup" aria-label={t("ladder.modeHeading")} className="flex flex-col gap-2 sm:flex-row">
+        {choice(
+          !withLevels,
+          count > 1,
+          () => {
+            setWantLevels(false);
+            void ensureYesNo();
+          },
+          t("ladder.modeYesNo"),
+          count > 1 ? t("ladder.modeNeedRemove") : t("ladder.modeYesNoHint"),
+        )}
+        {choice(withLevels, false, () => setWantLevels(true), t("ladder.modeLevels"), t("ladder.modeLevelsHint"))}
+      </div>
+
+      {!withLevels ? (
+        <p className="text-sm text-slate-500">{t("ladder.simpleNote")}</p>
+      ) : (
+      <>
       <form onSubmit={submit} className="flex gap-2">
         <input
           className="input"
@@ -107,6 +149,8 @@ export function LadderStep() {
       )}
 
       <p className="text-xs text-slate-500">{t("ladder.removalNote")}</p>
+      </>
+      )}
     </StepShell>
   );
 }

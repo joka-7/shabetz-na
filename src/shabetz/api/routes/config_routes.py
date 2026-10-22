@@ -80,7 +80,7 @@ def owned(db: DbSession, model: type[Scoped], row_id: int, ctx: ProjectContext) 
 
 @router.get("/divisions", response_model=list[DivisionOut])
 def list_divisions(
-    db: DbSession = Depends(get_db), ctx: ProjectContext = Depends(project_member)
+    db: DbSession = Depends(get_db, scope="function"), ctx: ProjectContext = Depends(project_member)
 ) -> list[orm.Division]:
     return list(
         db.scalars(
@@ -94,7 +94,7 @@ def list_divisions(
 @router.post("/divisions", response_model=DivisionOut, status_code=status.HTTP_201_CREATED)
 def create_division(
     payload: DivisionIn,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> orm.Division:
     row = orm.Division(project_id=ctx.project_id, **payload.model_dump())
@@ -108,7 +108,7 @@ def create_division(
 def update_division(
     division_id: int,
     payload: DivisionIn,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> orm.Division:
     row = owned(db, orm.Division, division_id, ctx)
@@ -124,7 +124,7 @@ def update_division(
 @router.delete("/divisions/{division_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_division(
     division_id: int,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> None:
     row = owned(db, orm.Division, division_id, ctx)
@@ -148,7 +148,7 @@ def delete_division(
 
 @router.get("/proficiency-levels", response_model=list[ProficiencyLevelOut])
 def list_levels(
-    db: DbSession = Depends(get_db), ctx: ProjectContext = Depends(project_member)
+    db: DbSession = Depends(get_db, scope="function"), ctx: ProjectContext = Depends(project_member)
 ) -> list[orm.ProficiencyLevel]:
     return list(
         db.scalars(
@@ -167,7 +167,7 @@ def list_levels(
 )
 def create_level(
     payload: ProficiencyLevelIn,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> orm.ProficiencyLevel:
     clash = db.scalar(
@@ -189,7 +189,7 @@ def create_level(
 def update_level(
     level_id: int,
     payload: ProficiencyLevelIn,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> orm.ProficiencyLevel:
     row = owned(db, orm.ProficiencyLevel, level_id, ctx)
@@ -214,7 +214,7 @@ def update_level(
 @router.delete("/proficiency-levels/{level_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_level(
     level_id: int,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> None:
     row = owned(db, orm.ProficiencyLevel, level_id, ctx)
@@ -236,7 +236,7 @@ def delete_level(
 
 @router.get("/skills", response_model=list[SkillOut])
 def list_skills(
-    db: DbSession = Depends(get_db), ctx: ProjectContext = Depends(project_member)
+    db: DbSession = Depends(get_db, scope="function"), ctx: ProjectContext = Depends(project_member)
 ) -> list[orm.Skill]:
     return list(
         db.scalars(
@@ -250,7 +250,7 @@ def list_skills(
 @router.post("/skills", response_model=SkillOut, status_code=status.HTTP_201_CREATED)
 def create_skill(
     payload: SkillIn,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> orm.Skill:
     row = orm.Skill(project_id=ctx.project_id, **payload.model_dump())
@@ -264,7 +264,7 @@ def create_skill(
 def update_skill(
     skill_id: int,
     payload: SkillIn,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> orm.Skill:
     row = owned(db, orm.Skill, skill_id, ctx)
@@ -280,27 +280,23 @@ def update_skill(
 @router.delete("/skills/{skill_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_skill(
     skill_id: int,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> None:
-    """Retire a skill. Refused while an active job still requires it.
-
-    People lose the skill with it: a qualification nothing can ask for is only
-    noise on their record. Soft-deleted, like divisions, and adding the same
-    name again brings it back.
-    """
     row = owned(db, orm.Skill, skill_id, ctx)
     if row is None or not row.is_active:
         raise NotFound("Skill not found")
     required = db.scalar(
-        select(orm.Job.name)
-        .join(orm.JobSkillRequirement, orm.JobSkillRequirement.job_id == orm.Job.id)
+        select(orm.JobSkillRequirement)
+        .join(orm.Job, orm.Job.id == orm.JobSkillRequirement.job_id)
         .where(orm.JobSkillRequirement.skill_id == skill_id, orm.Job.is_active.is_(True))
-        .limit(1)
     )
     if required is not None:
-        raise Conflict(f"Skill is still required by the job '{required}'")
-    db.execute(delete(orm.PersonSkill).where(orm.PersonSkill.skill_id == skill_id))
+        raise Conflict("Skill is still required by a job")
+    # People simply lose the skill; the row itself is kept (soft delete) so
+    # historical schedules stay renderable.
+    for held in db.scalars(select(orm.PersonSkill).where(orm.PersonSkill.skill_id == skill_id)):
+        db.delete(held)
     row.is_active = False
     _audit(db, ctx, "skill", skill_id, "delete")
 
@@ -310,7 +306,7 @@ def delete_skill(
 
 @router.get("/shift-templates", response_model=list[ShiftTemplateOut])
 def list_templates(
-    db: DbSession = Depends(get_db), ctx: ProjectContext = Depends(project_member)
+    db: DbSession = Depends(get_db, scope="function"), ctx: ProjectContext = Depends(project_member)
 ) -> list[orm.ShiftTemplate]:
     return list(
         db.scalars(
@@ -329,7 +325,7 @@ def list_templates(
 )
 def create_template(
     payload: ShiftTemplateIn,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> orm.ShiftTemplate:
     row = orm.ShiftTemplate(project_id=ctx.project_id, **payload.model_dump())
@@ -346,7 +342,7 @@ def create_template(
 )
 def split_day(
     payload: SplitDayRequest,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> list[orm.ShiftTemplate]:
     """Generate evenly divided windows.
@@ -375,7 +371,7 @@ def split_day(
 def update_template(
     template_id: int,
     payload: ShiftTemplateIn,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> orm.ShiftTemplate:
     """Changes apply to schedules generated from now on; past runs keep their times."""
@@ -392,7 +388,7 @@ def update_template(
 @router.delete("/shift-templates/{template_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_template(
     template_id: int,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> None:
     row = owned(db, orm.ShiftTemplate, template_id, ctx)
@@ -415,6 +411,7 @@ def _job_out(row: orm.Job) -> JobOut:
         required_people_per_shift=row.required_people_per_shift,
         division_policy=row.division_policy,
         priority=row.priority,
+        notes=row.notes,
         is_active=row.is_active,
         shift_template_ids=[link.shift_template_id for link in row.shift_links],
         requirements=[
@@ -447,7 +444,7 @@ def _load_job(db: DbSession, job_id: int, ctx: ProjectContext) -> orm.Job:
 
 @router.get("/jobs", response_model=list[JobOut])
 def list_jobs(
-    db: DbSession = Depends(get_db), ctx: ProjectContext = Depends(project_member)
+    db: DbSession = Depends(get_db, scope="function"), ctx: ProjectContext = Depends(project_member)
 ) -> list[JobOut]:
     rows = db.scalars(
         _jobs_query()
@@ -462,6 +459,7 @@ def _apply_job(db: DbSession, row: orm.Job, payload: JobIn, ctx: ProjectContext)
     row.required_people_per_shift = payload.required_people_per_shift
     row.division_policy = payload.division_policy
     row.priority = payload.priority
+    row.notes = (payload.notes or "").strip() or None
 
     for template_id in payload.shift_template_ids:
         if owned(db, orm.ShiftTemplate, template_id, ctx) is None:
@@ -481,7 +479,7 @@ def _apply_job(db: DbSession, row: orm.Job, payload: JobIn, ctx: ProjectContext)
 @router.post("/jobs", response_model=JobOut, status_code=status.HTTP_201_CREATED)
 def create_job(
     payload: JobIn,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> JobOut:
     row = orm.Job(
@@ -500,7 +498,7 @@ def create_job(
 def update_job(
     job_id: int,
     payload: JobIn,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> JobOut:
     row = _load_job(db, job_id, ctx)
@@ -513,7 +511,7 @@ def update_job(
 @router.delete("/jobs/{job_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_job(
     job_id: int,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> None:
     row = _load_job(db, job_id, ctx)
@@ -541,7 +539,7 @@ def _person_out(row: orm.Person) -> PersonOut:
 
 @router.get("/people", response_model=list[PersonOut])
 def list_people(
-    db: DbSession = Depends(get_db), ctx: ProjectContext = Depends(project_member)
+    db: DbSession = Depends(get_db, scope="function"), ctx: ProjectContext = Depends(project_member)
 ) -> list[PersonOut]:
     rows = db.scalars(
         select(orm.Person)
@@ -576,19 +574,37 @@ def _apply_person(db: DbSession, row: orm.Person, payload: PersonIn, ctx: Projec
     row.full_name = payload.full_name
     row.division_id = payload.division_id
     row.external_ref = payload.external_ref
-    row.working_days = [
-        orm.PersonWorkingDay(weekday=d) for d in sorted(set(payload.working_weekdays))
-    ]
-    row.skills = [
-        orm.PersonSkill(skill_id=s.skill_id, level_id=s.level_id, expires_on=s.expires_on)
-        for s in payload.skills
-    ]
+    # Changed in place rather than replaced: swapping whole collections makes
+    # the unit of work insert the new rows before it deletes the old ones, which
+    # trips the (person, weekday) and (person, skill) unique constraints.
+    wanted_days = set(payload.working_weekdays)
+    for day in [d for d in row.working_days if d.weekday not in wanted_days]:
+        row.working_days.remove(day)
+    have_days = {d.weekday for d in row.working_days}
+    for weekday in sorted(wanted_days - have_days):
+        row.working_days.append(orm.PersonWorkingDay(weekday=weekday))
+
+    wanted_skills = {s.skill_id: s for s in payload.skills}
+    for owned_skill in [s for s in row.skills if s.skill_id not in wanted_skills]:
+        row.skills.remove(owned_skill)
+    have_skills = {s.skill_id: s for s in row.skills}
+    for skill_id, wanted in wanted_skills.items():
+        existing = have_skills.get(skill_id)
+        if existing is None:
+            row.skills.append(
+                orm.PersonSkill(
+                    skill_id=skill_id, level_id=wanted.level_id, expires_on=wanted.expires_on
+                )
+            )
+        else:
+            existing.level_id = wanted.level_id
+            existing.expires_on = wanted.expires_on
 
 
 @router.post("/people", response_model=PersonOut, status_code=status.HTTP_201_CREATED)
 def create_person(
     payload: PersonIn,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> PersonOut:
     row = orm.Person(
@@ -605,7 +621,7 @@ def create_person(
 def update_person(
     person_id: int,
     payload: PersonIn,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> PersonOut:
     row = owned(db, orm.Person, person_id, ctx)
@@ -620,7 +636,7 @@ def update_person(
 @router.delete("/people/{person_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_person(
     person_id: int,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> None:
     row = owned(db, orm.Person, person_id, ctx)
@@ -675,7 +691,7 @@ def _settings_out(ctx: ProjectContext, settings: SchedulingSettings) -> Settings
 
 @router.get("/settings", response_model=SettingsOut)
 def get_settings_route(
-    db: DbSession = Depends(get_db), ctx: ProjectContext = Depends(project_member)
+    db: DbSession = Depends(get_db, scope="function"), ctx: ProjectContext = Depends(project_member)
 ) -> SettingsOut:
     return _settings_out(ctx, load_settings(db, ctx.project_id))
 
@@ -683,7 +699,7 @@ def get_settings_route(
 @router.put("/settings", response_model=SettingsOut)
 def put_settings(
     payload: SettingsIn,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> SettingsOut:
     current = load_settings(db, ctx.project_id)
@@ -697,7 +713,8 @@ def put_settings(
 
 @router.get("/feasibility", response_model=FeasibilityOut)
 def feasibility(
-    db: DbSession = Depends(get_db), ctx: ProjectContext = Depends(require_viewer)
+    db: DbSession = Depends(get_db, scope="function"),
+    ctx: ProjectContext = Depends(require_viewer),
 ) -> FeasibilityOut:
     report = JobOrchestrationService(db, ctx.project_id).feasibility()
     return FeasibilityOut.model_validate(report)

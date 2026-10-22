@@ -3,7 +3,7 @@ import { pathForTab, tabFromPath } from "./tabRoute";
 
 describe("tab routes", () => {
   it("round-trip every tab through its path", () => {
-    for (const tab of ["dashboard", "timeoff", "swaps", "config"] as const) {
+    for (const tab of ["dashboard", "timeoff", "swaps", "attendance", "tasks", "config"] as const) {
       expect(tabFromPath(pathForTab(tab))).toBe(tab);
     }
   });

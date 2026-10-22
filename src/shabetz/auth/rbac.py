@@ -33,7 +33,7 @@ def can_generate_schedule(role: ProjectRole) -> bool:
 
 
 def can_view_all_assignments(role: ProjectRole) -> bool:
-    """Every schedule, draft or published, and the whole roster -- read only for a viewer."""
+    """Everyone's shifts, drafts included. Viewers get this read-only."""
     return at_least(role, ProjectRole.VIEWER)
 
 

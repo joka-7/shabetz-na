@@ -5,6 +5,7 @@ import { keys, useConfigMutation, useSkills } from "@/api/queries";
 import { EmptyState, Spinner } from "@/components/ui";
 import { useI18n } from "@/i18n";
 import type { BulkResult, Skill } from "@/types/api";
+import { useEnsureYesNo } from "./yesNo";
 import { EditableName, MutationError, PasteList, Row, RowList, StepShell } from "./parts";
 
 export function SkillsStep() {
@@ -22,16 +23,21 @@ export function SkillsStep() {
     [keys.skills, keys.jobs, keys.people],
   );
 
-  // Refused while a job still requires the skill; people lose it with it.
   const remove = useConfigMutation(
     (id: number) => api.del(`/api/config/skills/${id}`),
-    [keys.skills, keys.people],
+    [keys.skills, keys.jobs, keys.people],
   );
+
+  const ensureYesNo = useEnsureYesNo();
+  const addSkills = (names: string[]) => add.mutateAsync(names).then(async (result) => {
+    await ensureYesNo();
+    return result;
+  });
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
     if (!name.trim()) return;
-    add.mutate([name.trim()]);
+    void addSkills([name.trim()]).catch(() => undefined);
     setName("");
   }
 
@@ -54,7 +60,7 @@ export function SkillsStep() {
       <PasteList
         placeholder={t("skills.pastePlaceholder")}
         busy={add.isPending}
-        onSubmit={(names) => add.mutateAsync(names)}
+        onSubmit={addSkills}
       />
 
       <MutationError error={add.error ?? update.error ?? remove.error} />

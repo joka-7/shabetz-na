@@ -50,7 +50,7 @@ def calendar_status(ctx: ProjectContext = Depends(project_member)) -> CalendarLi
 
 @router.post("/me/calendar", response_model=CalendarLinkOut)
 def create_calendar_link(
-    db: DbSession = Depends(get_db), ctx: ProjectContext = Depends(project_member)
+    db: DbSession = Depends(get_db, scope="function"), ctx: ProjectContext = Depends(project_member)
 ) -> CalendarLinkOut:
     """A new feed address for this member in this project; any older one stops working."""
     token = secrets.token_urlsafe(TOKEN_BYTES)
@@ -61,7 +61,7 @@ def create_calendar_link(
 
 @router.delete("/me/calendar", status_code=status.HTTP_204_NO_CONTENT)
 def remove_calendar_link(
-    db: DbSession = Depends(get_db), ctx: ProjectContext = Depends(project_member)
+    db: DbSession = Depends(get_db, scope="function"), ctx: ProjectContext = Depends(project_member)
 ) -> None:
     ctx.member.calendar_token_hash = None
 
@@ -70,7 +70,7 @@ def remove_calendar_link(
 def calendar_feed(
     token: str,
     request: Request,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     settings: Settings = Depends(settings_dep),
     throttle: FailureThrottle = Depends(link_throttle),
 ) -> Response:

@@ -3,7 +3,7 @@ import { awayByDay, daysInRequest, monthGrid } from "./calendar";
 import type { TimeOff } from "@/types/api";
 
 const off = (start: string, end: string, status: TimeOff["status"]): TimeOff => ({
-  id: 1, person_id: 1, start_date: start, end_date: end, reason: null, status, review_note: null, created_at: null,
+  id: 1, person_id: 1, start_date: start, end_date: end, start_hour: null, end_hour: null, reason: null, status, review_note: null, created_at: null,
 });
 
 describe("calendar", () => {

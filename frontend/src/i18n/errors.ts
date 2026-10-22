@@ -19,6 +19,7 @@ const BY_CODE: Record<string, MessageKey> = {
   FILE_TOO_LARGE: "error.fileTooLarge",
   SCHEDULE_CONFLICT: "error.scheduleConflict",
   STALE: "error.stale",
+  BAD_BACKUP: "error.badBackup",
 };
 
 const BY_MESSAGE: Record<string, MessageKey> = {

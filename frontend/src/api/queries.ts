@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, request } from "./client";
 import type {
+  AttendanceRow,
   Assignment,
   Colleague,
   Division,
@@ -273,3 +274,16 @@ export const removeShiftPerson = (scheduleId: string, slot: SlotRef, personId: n
     })}`,
     { method: "DELETE" },
   );
+
+
+// --------------------------------------------------------------- attendance
+
+export const attendanceKey = (date: string) => ["attendance", date] as const;
+
+/** Who is there on a day, with approved leave alongside. */
+export const useAttendance = (date: string, enabled = true) =>
+  useQuery({
+    queryKey: attendanceKey(date),
+    enabled,
+    queryFn: () => api.get<AttendanceRow[]>(`/api/attendance?date=${encodeURIComponent(date)}`),
+  });

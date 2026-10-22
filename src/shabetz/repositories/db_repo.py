@@ -52,7 +52,12 @@ class DbSchedulingRepository(JobSchedulingRepository):
             # Only approved absence removes someone from the roster; a pending
             # request must never quietly change a schedule.
             absences = tuple(
-                TimeOffPeriod(start_date=t.start_date, end_date=t.end_date)
+                TimeOffPeriod(
+                    start_date=t.start_date,
+                    end_date=t.end_date,
+                    start_hour=t.start_hour,
+                    end_hour=t.end_hour,
+                )
                 for t in row.time_off
                 if t.status is TimeOffStatus.APPROVED
                 and t.end_date >= window_start

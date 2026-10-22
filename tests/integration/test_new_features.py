@@ -20,7 +20,8 @@ def test_a_viewer_sees_everything_and_changes_nothing(
     # Drafts, history and the whole roster, with qualifications.
     assert viewer.get("/api/schedule/runs").status_code == 200
     assert viewer.get(f"/api/schedule/runs/{run_id}").json()["assignments"]
-    assert viewer.get(f"/api/schedule/runs/{run_id}/history").status_code == 200
+    # Edit history is a manager's tool.
+    assert viewer.get(f"/api/schedule/runs/{run_id}/history").status_code == 403
     assert viewer.get("/api/config/people").json()[0]["working_weekdays"]
     assert viewer.get("/api/config/feasibility").status_code == 200
 

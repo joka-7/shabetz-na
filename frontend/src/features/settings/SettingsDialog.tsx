@@ -1,12 +1,21 @@
 import { useEffect } from "react";
-import { FolderGit2, Github, Globe, Mail, MessageSquare, X } from "lucide-react";
+import { BookOpen, FolderGit2, Github, Globe, Mail, MessageSquare, X } from "lucide-react";
 import { LanguageSwitch } from "@/components/ui";
 import { useI18n } from "@/i18n";
+import { useSession } from "@/hooks/useSession";
+import { GetTheApp } from "./GetTheApp";
 import { CalendarLink } from "./CalendarLink";
 
 /** Language switcher and the project's credit links, out of the header/footer and into one place. */
-export function SettingsDialog({ onClose }: { onClose: () => void }) {
+export function SettingsDialog({
+  onClose,
+  onOpenGuide,
+}: {
+  onClose: () => void;
+  onOpenGuide: () => void;
+}) {
   const { t } = useI18n();
+  const { capabilities } = useSession();
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => event.key === "Escape" && onClose();
@@ -38,6 +47,28 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         </div>
 
         <CalendarLink />
+
+        <div>
+          <h3 className="mb-1.5 text-xs font-semibold text-slate-500">{t("settings.helpHeading")}</h3>
+          <button
+            className="btn-ghost"
+            onClick={() => {
+              onClose();
+              onOpenGuide();
+            }}
+          >
+            <BookOpen className="h-4 w-4" aria-hidden />
+            {t("settings.showGuide")}
+          </button>
+        </div>
+
+        {/* The desktop app is already installed; this is for the website. */}
+        {capabilities?.deployment !== "desktop" && (
+          <div>
+            <h3 className="mb-1.5 text-xs font-semibold text-slate-500">{t("getapp.heading")}</h3>
+            <GetTheApp />
+          </div>
+        )}
 
         <div>
           <h3 className="mb-1.5 text-xs font-semibold text-slate-500">{t("settings.linksHeading")}</h3>

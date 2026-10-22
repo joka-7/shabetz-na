@@ -18,6 +18,15 @@ describe("what each role may do", () => {
     expect(can.generate(project("STAFF"))).toBe(false);
   });
 
+  it("lets a viewer see the whole schedule but change nothing", () => {
+    expect(can.viewSchedule(project("VIEWER"))).toBe(true);
+    expect(can.viewSchedule(project("STAFF"))).toBe(false);
+    expect(can.generate(project("VIEWER"))).toBe(false);
+    expect(can.editConfig(project("VIEWER"))).toBe(false);
+    expect(can.reviewTimeOff(project("VIEWER"))).toBe(false);
+    expect(can.manageMembers(project("VIEWER"))).toBe(false);
+  });
+
   it("allows nothing outside a project", () => {
     expect(can.editConfig(null)).toBe(false);
     expect(can.manageMembers(null)).toBe(false);

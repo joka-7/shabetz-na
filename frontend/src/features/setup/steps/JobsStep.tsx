@@ -337,6 +337,7 @@ function RequirementBuilder({
             ))}
           </select>
         </div>
+        {levels.length > 1 && (
         <div>
           <label className="label" htmlFor="req-level">{t("jobs.atLeastLevel")}</label>
           <select
@@ -350,6 +351,7 @@ function RequirementBuilder({
             ))}
           </select>
         </div>
+        )}
         <button className="btn-ghost" type="button" onClick={add}>
           <Plus className="h-4 w-4" aria-hidden />
           {t("jobs.addRule")}
@@ -369,7 +371,7 @@ function RequirementBuilder({
                     count: requirement.required_count,
                     skill: nameOf(requirement.skill_id),
                   })}{" "}
-              ≥ {levelOf(requirement.min_level_id)}
+              {levels.length > 1 && <>≥ {levelOf(requirement.min_level_id)}</>}
               <button
                 type="button"
                 onClick={() => onChange(requirements.filter((_, i) => i !== index))}

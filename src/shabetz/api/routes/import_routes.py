@@ -7,12 +7,18 @@ as it is, and the people import previews before it writes anything.
 
 from __future__ import annotations
 
+import re
+from datetime import date
+
 from fastapi import APIRouter, Depends, File, UploadFile
 from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import JSONResponse
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
 from ...db import models as orm
+from ...imports.backup import Backup, export_project, merge_backup
 from ...imports.catalog import ensure_divisions, ensure_levels, ensure_skills, name_key
 from ...imports.people import (
     Column,
@@ -25,6 +31,10 @@ from ...imports.tables import MAX_UPLOAD_BYTES, TableError, read_table
 from ..deps import ProjectContext, get_db, require_editor
 from ..errors import ApiError, UnprocessableConfig
 from ..schemas import (
+    BackupCountsOut,
+    BackupImportIn,
+    BackupImportOut,
+    BackupProblemOut,
     BulkNamesIn,
     BulkResultOut,
     BulkTemplatesIn,
@@ -42,7 +52,7 @@ router = APIRouter(prefix="/api/config", tags=["configuration"])
 @router.post("/divisions/bulk", response_model=BulkResultOut)
 def bulk_divisions(
     payload: BulkNamesIn,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> BulkResultOut:
     """Add divisions to the end of the rotation, in the order given."""
@@ -55,7 +65,7 @@ def bulk_divisions(
 @router.post("/skills/bulk", response_model=BulkResultOut)
 def bulk_skills(
     payload: BulkNamesIn,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> BulkResultOut:
     result = ensure_skills(db, ctx.project_id, payload.names)
@@ -67,7 +77,7 @@ def bulk_skills(
 @router.post("/proficiency-levels/bulk", response_model=BulkResultOut)
 def bulk_levels(
     payload: BulkNamesIn,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> BulkResultOut:
     """Add rungs above the current top of the ladder, weakest first."""
@@ -80,7 +90,7 @@ def bulk_levels(
 @router.post("/shift-templates/bulk", response_model=BulkResultOut)
 def bulk_templates(
     payload: BulkTemplatesIn,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> BulkResultOut:
     """Add shift windows, skipping any whose name is already in use."""
@@ -155,7 +165,7 @@ def _plan_out(plan: ImportPlan) -> PeopleImportOut:
 @router.post("/import/people", response_model=PeopleImportOut)
 def import_people(
     payload: PeopleImportIn,
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_editor),
 ) -> PeopleImportOut:
     """Preview a roster import, or with ``apply`` perform it.
@@ -178,3 +188,47 @@ def import_people(
         for person in apply_people_import(db, ctx.project_id, plan):
             _audit(db, ctx, "person", person.id, "import")
     return _plan_out(plan)
+
+
+@router.get("/backup")
+def download_backup(
+    db: DbSession = Depends(get_db, scope="function"), ctx: ProjectContext = Depends(require_editor)
+) -> JSONResponse:
+    """The whole project as one file: configuration, people and time off."""
+    slug = re.sub(r"[^A-Za-z0-9]+", "-", ctx.project.name).strip("-") or "project"
+    filename = f"shabetz-{slug}-{date.today().isoformat()}.json"
+    return JSONResponse(
+        export_project(db, ctx.project_id),
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/backup/import", response_model=BackupImportOut)
+def import_backup(
+    payload: BackupImportIn,
+    db: DbSession = Depends(get_db, scope="function"),
+    ctx: ProjectContext = Depends(require_editor),
+) -> BackupImportOut:
+    """Preview, or with ``apply`` perform, bringing this project in line with a backup.
+
+    Both run the same merge; the preview is rolled back, so what it reports is
+    exactly what the import then does.
+    """
+    try:
+        backup = Backup.model_validate(payload.backup)
+    except ValidationError as exc:
+        raise ApiError("BAD_BACKUP", "This is not a Shabetz backup file", 422) from exc
+    plan = merge_backup(db, ctx.project_id, backup)
+    if payload.apply:
+        _audit(db, ctx, "project", ctx.project_id, "import_backup")
+        plan.applied = True
+    else:
+        db.rollback()
+    return BackupImportOut(
+        applied=plan.applied,
+        counts={
+            entity: BackupCountsOut(created=c.created, updated=c.updated, unchanged=c.unchanged)
+            for entity, c in plan.counts.items()
+        },
+        problems=[BackupProblemOut(code=p.code, value=p.value) for p in plan.problems],
+    )

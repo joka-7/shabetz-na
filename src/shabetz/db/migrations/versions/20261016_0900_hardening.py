@@ -1,7 +1,7 @@
 """hardening: schedule edit versions, hashed session ids, a session expiry index
 
 Revision ID: 3e9b6d2c7f15
-Revises: a41d7f3c9e20
+Revises: c63f9b2e5d48
 Create Date: 2026-10-16 09:00:00
 
 Session ids become the SHA-256 of the cookie's token, so a copy of the
@@ -18,7 +18,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision = "3e9b6d2c7f15"
-down_revision = "a41d7f3c9e20"
+down_revision = "c63f9b2e5d48"
 branch_labels = None
 depends_on = None
 

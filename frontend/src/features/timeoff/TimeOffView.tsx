@@ -17,6 +17,18 @@ const STATUS_TONES: Record<TimeOffStatus, string> = {
   CANCELLED: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
 };
 
+/** "09:30" → 9.5 */
+function toHours(time: string): number {
+  const [h, m] = time.split(":").map(Number);
+  return (h ?? 0) + (m ?? 0) / 60;
+}
+
+/** 9.5 → "09:30" */
+function clock(hours: number): string {
+  const total = Math.round(hours * 60);
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
 export function TimeOffView() {
   const { t, tn, formatDate, dir, weekdayOrder, weekdayShort } = useI18n();
   const { project } = useSession();
@@ -27,6 +39,8 @@ export function TimeOffView() {
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const [reason, setReason] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [personId, setPersonId] = useState<number | null>(null);
   const today = new Date();
   const [cursor, setCursor] = useState({ year: today.getFullYear(), month: today.getMonth() });
@@ -56,13 +70,21 @@ export function TimeOffView() {
 
   const personName = (id: number) =>
     people?.find((person) => person.id === id)?.full_name ?? `#${id}`;
-  const range = (request: TimeOff) =>
-    `${formatDate(request.start_date)} ${dir === "rtl" ? "←" : "→"} ${formatDate(request.end_date)}`;
+  const range = (request: TimeOff) => {
+    const dates = `${formatDate(request.start_date)} ${dir === "rtl" ? "←" : "→"} ${formatDate(request.end_date)}`;
+    return request.start_hour === null || request.end_hour === null
+      ? dates
+      : `${dates} · ${clock(request.start_hour)}–${clock(request.end_hour)}`;
+  };
 
   function send(event: React.FormEvent) {
     event.preventDefault();
     if (!start || !end) return;
+    // Hours are optional, but only meaningful as a pair.
+    if (Boolean(startTime) !== Boolean(endTime)) return;
     submit.mutate({
+      start_hour: startTime ? toHours(startTime) : undefined,
+      end_hour: endTime ? toHours(endTime) : undefined,
       // A reviewer may record an absence for anyone; everyone else may only
       // request their own, and the server refuses anything else regardless.
       person_id: reviewer ? personId : undefined,
@@ -186,6 +208,17 @@ export function TimeOffView() {
                   <label className="label" htmlFor="timeoff-end">{t("dashboard.to")}</label>
                   <input id="timeoff-end" className="input" type="date" value={end} required onChange={(event) => setEnd(event.target.value)} />
                 </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="label" htmlFor="timeoff-from-time">{t("timeoff.fromTime")}</label>
+                  <input id="timeoff-from-time" className="input" type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} />
+                </div>
+                <div>
+                  <label className="label" htmlFor="timeoff-to-time">{t("timeoff.toTime")}</label>
+                  <input id="timeoff-to-time" className="input" type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} />
+                </div>
+                <p className="col-span-2 text-xs text-slate-500">{t("timeoff.hoursHint")}</p>
               </div>
               <div>
                 <label className="label" htmlFor="timeoff-reason">{t("timeoff.reason")}</label>

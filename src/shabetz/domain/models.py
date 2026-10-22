@@ -145,10 +145,17 @@ class Job:
 
 @dataclass(frozen=True, slots=True)
 class TimeOffPeriod:
-    """An approved absence.  Both endpoints are inclusive."""
+    """An approved absence.  Both endpoints are inclusive.
+
+    With no hours the person is away all day.  With ``start_hour`` and
+    ``end_hour`` they are away only between those clock hours, on every day of
+    the range.
+    """
 
     start_date: date
     end_date: date
+    start_hour: float | None = None
+    end_hour: float | None = None
 
     def covers(self, day: date) -> bool:
         return self.start_date <= day <= self.end_date
@@ -186,6 +193,31 @@ class Person:
         if day.weekday() not in self.working_weekdays:
             return False
         return not any(period.covers(day) for period in self.time_off)
+
+    def is_available_for(self, slot: ShiftSlot) -> bool:
+        """Whether this person is free for the whole of ``slot``.
+
+        Unlike :meth:`is_available_on` this honours part-day absences: a
+        morning off only rules out the shifts that overlap that morning.
+        """
+        if slot.calendar_date.weekday() not in self.working_weekdays:
+            return False
+        for period in self.time_off:
+            if period.start_hour is None or period.end_hour is None:
+                if period.covers(slot.calendar_date):
+                    return False
+                continue
+            # A slot may run past midnight into the next calendar day.
+            for offset in (0, 1):
+                if not period.covers(slot.calendar_date + timedelta(days=offset)):
+                    continue
+                base = (slot.day_index + offset) * HOURS_PER_DAY
+                if (
+                    slot.start_abs < base + period.end_hour - EPS
+                    and base + period.start_hour < slot.end_abs - EPS
+                ):
+                    return False
+        return True
 
 
 @dataclass(frozen=True, slots=True)

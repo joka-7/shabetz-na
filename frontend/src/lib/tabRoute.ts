@@ -7,12 +7,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-export type Tab = "dashboard" | "config" | "timeoff" | "swaps";
+export type Tab = "dashboard" | "attendance" | "tasks" | "config" | "timeoff" | "swaps";
 
 const PATHS: Record<Tab, string> = {
   dashboard: "/",
   timeoff: "/time-off",
   swaps: "/swaps",
+  attendance: "/attendance",
+  tasks: "/tasks",
   config: "/configuration",
 };
 

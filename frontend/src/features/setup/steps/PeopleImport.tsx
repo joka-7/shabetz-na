@@ -14,6 +14,7 @@ import {
 } from "@/lib/importing";
 import type { ImportProblem, ImportRow, PeopleImport as ImportResult } from "@/types/api";
 import { MutationError, WeekdayPicker, useDefaultWeek } from "./parts";
+import { useEnsureYesNo } from "./yesNo";
 
 /**
  * Bringing a roster in from a spreadsheet.
@@ -28,6 +29,7 @@ export function PeopleImport({ onClose }: { onClose: () => void }) {
   const { data: skills } = useSkills();
   const { data: levels } = useLevels();
   const defaultWeek = useDefaultWeek();
+  const ensureYesNo = useEnsureYesNo();
 
   const [table, setTable] = useState<string[][] | null>(null);
   const [pasted, setPasted] = useState("");
@@ -45,15 +47,17 @@ export function PeopleImport({ onClose }: { onClose: () => void }) {
       api.upload<{ rows: string[][] }>("/api/config/import/table", file),
   });
   const run = useConfigMutation(
-    (apply: boolean) =>
-      api.post<ImportResult>("/api/config/import/people", {
+    async (apply: boolean) => {
+      if (columns.some((c) => c.role === "skill")) await ensureYesNo();
+      return api.post<ImportResult>("/api/config/import/people", {
         columns,
         rows: body,
         default_division_id: resolvedDivision,
         default_weekdays: defaultDays,
         apply,
-      }),
-    [keys.people, keys.divisions, keys.skills],
+      });
+    },
+    [keys.people, keys.divisions, keys.skills, keys.levels],
   );
 
   const width = table ? Math.max(...table.map((row) => row.length)) : 0;

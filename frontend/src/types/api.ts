@@ -5,6 +5,18 @@
  * from the live OpenAPI schema; CI fails on a diff.
  */
 
+export type AttendanceStatus = "PRESENT" | "ABSENT";
+
+export interface AttendanceRow {
+  person_id: number;
+  full_name: string;
+  division_id: number;
+  status: AttendanceStatus | null;
+  note: string | null;
+  on_leave: boolean;
+  leave_reason: string | null;
+}
+
 export type ProjectRole = "ADMIN" | "COLLABORATOR" | "VIEWER" | "STAFF";
 export type DivisionPolicy =
   | "ACTIVE_DIVISION_ONLY"
@@ -121,6 +133,7 @@ export interface Job {
   required_people_per_shift: number;
   division_policy: DivisionPolicy;
   priority: number | null;
+  notes?: string | null;
   is_active: boolean;
   shift_template_ids: number[];
   requirements: Requirement[];
@@ -335,6 +348,9 @@ export interface TimeOff {
   person_id: number;
   start_date: string;
   end_date: string;
+  /** Clock hours (0–24) of a part-day absence; null for whole days. */
+  start_hour: number | null;
+  end_hour: number | null;
   reason: string | null;
   status: TimeOffStatus;
   review_note: string | null;
@@ -390,4 +406,16 @@ export interface PeopleImport {
   rows: ImportRow[];
   new_divisions: string[];
   new_skills: string[];
+}
+
+export interface BackupCounts {
+  created: number;
+  updated: number;
+  unchanged: number;
+}
+
+export interface BackupImportResult {
+  applied: boolean;
+  counts: Record<string, BackupCounts>;
+  problems: { code: string; value: string }[];
 }

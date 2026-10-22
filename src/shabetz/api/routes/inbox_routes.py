@@ -26,7 +26,7 @@ class InboxOut(BaseModel):
 
 @router.get("/inbox", response_model=InboxOut)
 def inbox(
-    db: DbSession = Depends(get_db), ctx: ProjectContext = Depends(project_member)
+    db: DbSession = Depends(get_db, scope="function"), ctx: ProjectContext = Depends(project_member)
 ) -> InboxOut:
     def count(query) -> int:  # type: ignore[no-untyped-def]
         return db.scalar(select(func.count()).select_from(query.subquery())) or 0
@@ -71,7 +71,7 @@ class ActivityOut(BaseModel):
 
 @router.get("/project/activity", response_model=list[ActivityOut])
 def activity(
-    db: DbSession = Depends(get_db),
+    db: DbSession = Depends(get_db, scope="function"),
     ctx: ProjectContext = Depends(require_project_admin),
     limit: int = Query(default=100, ge=1, le=500),
     before: int | None = Query(default=None, description="Page back from this entry id."),

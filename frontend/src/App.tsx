@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarDays,
+  ListChecks,
+  UserCheck,
   FolderOpen,
   LayoutDashboard,
   Repeat,
@@ -15,7 +17,10 @@ import { LoginPage } from "@/features/auth/LoginPage";
 import { SetupWizard } from "@/features/setup/SetupWizard";
 import { ConfigView } from "@/features/config/ConfigView";
 import { DashboardView } from "@/features/dashboard/DashboardView";
+import { GuideDialog, guideSeen } from "@/features/guide/GuideDialog";
 import { SettingsDialog } from "@/features/settings/SettingsDialog";
+import { TasksView } from "@/features/tasks/TasksView";
+import { AttendanceView } from "@/features/attendance/AttendanceView";
 import { SwapsView } from "@/features/swaps/SwapsView";
 import { TimeOffView } from "@/features/timeoff/TimeOffView";
 import { InvitePage, inviteTokenFromPath } from "@/features/projects/InvitePage";
@@ -56,6 +61,8 @@ export function App() {
   // from the server, so finishing it once is remembered across reloads.
   const [wizardReopened, setWizardReopened] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  // Opens by itself on a first-time setup, and on request from Settings.
+  const [showGuide, setShowGuide] = useState(false);
 
   const editor = can.editConfig(project);
   const settings = useQuery({
@@ -70,7 +77,14 @@ export function App() {
     timeoff: inbox.data?.time_off,
   };
 
-  if (loading || !capabilities || (editor && settings.isLoading)) {
+  const firstSetup = editor && settings.data?.setup_completed === false;
+  useEffect(() => {
+    if (firstSetup && !guideSeen()) setShowGuide(true);
+  }, [firstSetup]);
+
+  // The sign-in page does not wait for the server (it may be asleep); only a
+  // signed-in session needs the server's answers before anything can show.
+  if (loading || (user && !capabilities) || (editor && settings.isLoading)) {
     return (
       <div className="mx-auto max-w-5xl space-y-3 p-8">
         <Skeleton className="h-8 w-52" />
@@ -82,7 +96,7 @@ export function App() {
 
   // No account exists yet: the only thing anyone can do is create the first
   // administrator, and that route closes permanently once they have.
-  if (!capabilities.setup_complete) {
+  if (capabilities && !capabilities.setup_complete) {
     return <LoginPage needsSetup />;
   }
 
@@ -99,14 +113,18 @@ export function App() {
   }
 
   if (!user) return <LoginPage needsSetup={false} />;
+  if (!capabilities) return null; // unreachable: handled by the loading state above
 
   if (!project) return <ProjectsPage />;
 
   // A fresh project opens in the wizard rather than an empty dashboard.
   if (editor && (wizardReopened || settings.data?.setup_completed === false)) {
     return (
+      <>
+      {showGuide && <GuideDialog onClose={() => setShowGuide(false)} />}
       <SetupWizard
         firstRun={settings.data?.setup_completed === false}
+        onShowGuide={() => setShowGuide(true)}
         onFinished={async () => {
           await api.post("/api/setup/complete");
           await queryClient.invalidateQueries({ queryKey: keys.settings });
@@ -115,11 +133,14 @@ export function App() {
           void refreshProjects();
         }}
       />
+      </>
     );
   }
 
   const tabs: { id: Tab; label: string; icon: typeof LayoutDashboard; show: boolean }[] = [
-    { id: "dashboard", label: can.viewAll(project) ? t("nav.schedule") : t("nav.myShifts"), icon: LayoutDashboard, show: true },
+    { id: "dashboard", label: can.viewSchedule(project) ? t("nav.schedule") : t("nav.myShifts"), icon: LayoutDashboard, show: true },
+    { id: "attendance", label: t("nav.attendance"), icon: UserCheck, show: can.viewSchedule(project) },
+    { id: "tasks", label: t("nav.tasks"), icon: ListChecks, show: editor },
     { id: "timeoff", label: t("nav.timeOff"), icon: CalendarDays, show: true },
     { id: "swaps", label: t("nav.swaps"), icon: Repeat, show: true },
     { id: "config", label: t("nav.configuration"), icon: Settings2, show: editor },
@@ -221,6 +242,8 @@ export function App() {
       <main key={project.id} className="mx-auto max-w-7xl p-4 pb-28 sm:pb-4">
         {/* A staff member following a link to configuration lands on their shifts. */}
         {(tab === "dashboard" || (tab === "config" && !editor)) && <DashboardView />}
+        {tab === "attendance" && <AttendanceView />}
+        {tab === "tasks" && editor && <TasksView />}
         {tab === "timeoff" && <TimeOffView />}
         {tab === "swaps" && <SwapsView />}
         {tab === "config" && editor && <ConfigView />}
@@ -230,7 +253,10 @@ export function App() {
         <span className="text-xs">{t("footer.credit")}</span>
       </footer>
 
-      {showSettings && <SettingsDialog onClose={() => setShowSettings(false)} />}
+      {showSettings && (
+        <SettingsDialog onClose={() => setShowSettings(false)} onOpenGuide={() => setShowGuide(true)} />
+      )}
+      {showGuide && <GuideDialog onClose={() => setShowGuide(false)} />}
     </div>
   );
 }

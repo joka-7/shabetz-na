@@ -25,6 +25,15 @@ Excel or CSV file, or pasted straight out of a spreadsheet, with a preview of
 every row before anything is saved. Divisions, skills, levels and shift windows
 accept a pasted list the same way.
 
+## Screenshots
+
+| Schedule | Timeline | Configuration and feasibility |
+| :-: | :-: | :-: |
+| ![Schedule dashboard with coverage totals and the division on duty each day](docs/screenshots/en-schedule.png) | ![Timeline matrix, one row per shift window and one column per day](docs/screenshots/en-timeline.png) | ![Division rotation order and the feasibility check](docs/screenshots/en-config.png) |
+| ![The schedule dashboard in Hebrew](docs/screenshots/he-schedule.png) | ![The timeline matrix in Hebrew](docs/screenshots/he-timeline.png) | ![The configuration screen in Hebrew](docs/screenshots/he-config.png) |
+
+Shown with the example project from `shabetz seed-demo`.
+
 ## Two ways to run it
 
 | | For | Data |

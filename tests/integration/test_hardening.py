@@ -265,7 +265,7 @@ def test_a_skill_can_be_deleted_once_no_job_requires_it(admin: Actor) -> None:
     assert job.status_code == 201, job.text
 
     refused = admin.delete(f"/api/config/skills/{skill}")
-    assert refused.status_code == 409 and "'J'" in refused.json()["detail"]
+    assert refused.status_code == 409 and "still required" in refused.json()["detail"]
 
     assert admin.delete(f"/api/config/jobs/{job.json()['id']}").status_code == 204
     assert admin.delete(f"/api/config/skills/{skill}").status_code == 204
