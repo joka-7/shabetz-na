@@ -131,7 +131,7 @@ jobs:
           Compress-Archive -Path dist/Shabetz/* `
             -DestinationPath "dist/Shabetz-Portable-${{ steps.version.outputs.value }}.zip"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: Shabetz-Windows-${{ steps.version.outputs.value }}
           path: |
