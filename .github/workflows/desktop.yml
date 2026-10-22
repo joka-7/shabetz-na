@@ -46,7 +46,7 @@ jobs:
           if (Test-Path src/shabetz/web) { Remove-Item -Recurse -Force src/shabetz/web }
           Copy-Item -Recurse frontend/dist src/shabetz/web
 
-      - uses: astral-sh/setup-uv@v4
+      - uses: astral-sh/setup-uv@v7
 
       - run: uv sync --extra desktop --extra build
 
