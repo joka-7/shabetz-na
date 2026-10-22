@@ -12,7 +12,7 @@
     "e2e": "playwright test"
   },
   "dependencies": {
-    "@firebase/app": "^0.16.2",
+    "@firebase/app": "^0.16.3",
     "@firebase/auth": "^1.13.6",
     "@fontsource/heebo": "^5.3.0",
     "@fontsource/inter": "^5.3.0",
