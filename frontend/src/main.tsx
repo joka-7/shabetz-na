@@ -8,6 +8,16 @@ import { App } from "./App";
 import { SessionProvider } from "@/hooks/useSession";
 import { I18nProvider } from "@/i18n";
 import "./index.css";
+// Bundled rather than fetched from Google: works offline in the desktop app,
+// and visitors' addresses are not handed to a third party on every page view.
+import "@fontsource/inter/400.css";
+import "@fontsource/inter/500.css";
+import "@fontsource/inter/600.css";
+import "@fontsource/inter/700.css";
+import "@fontsource/heebo/400.css";
+import "@fontsource/heebo/500.css";
+import "@fontsource/heebo/600.css";
+import "@fontsource/heebo/700.css";
 
 const queryClient = new QueryClient({
   // A request that never reached the server has no message of its own, so no
@@ -48,3 +58,13 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     </I18nProvider>
   </React.StrictMode>,
 );
+
+// The installed app's offline shell; only in a built app, where the files it
+// caches exist.
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {
+      // Optional: without it the app simply needs the network, as before.
+    });
+  });
+}

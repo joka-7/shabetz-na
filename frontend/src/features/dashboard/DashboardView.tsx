@@ -56,10 +56,12 @@ export function DashboardView() {
   const [editing, setEditing] = useState<EditTarget | null>(null);
   const [keepLocked, setKeepLocked] = useState(true);
   const canEdit = can.generate(project);
+  // A viewer sees what an editor sees, with every control to change it hidden.
+  const canView = can.viewAll(project);
 
   // The schedule lives on the server, so a reload shows the latest one --
   // including any changes made to it by hand.
-  const latest = useLatestRun(canEdit);
+  const latest = useLatestRun(canView);
   const generate = useMutation<ScheduleRun, unknown, void>({
     mutationFn: () => generateSchedule(start, end, keepLocked),
     onSuccess: (created) => queryClient.setQueryData(runKeys.latest, created),
@@ -86,7 +88,7 @@ export function DashboardView() {
   };
 
   // Staff do not plan; they see their own shifts once a schedule is published.
-  if (!canEdit) return <MyShiftsView />;
+  if (!canView) return <MyShiftsView />;
 
   return (
     <>
@@ -163,7 +165,7 @@ export function DashboardView() {
 
       {run && (
         <>
-          <PublishBar run={run} />
+          {canEdit && <PublishBar run={run} />}
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <StatCard label={t("stat.shifts")} value={run.summary.total_assignments} />

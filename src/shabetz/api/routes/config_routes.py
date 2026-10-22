@@ -12,14 +12,16 @@ from __future__ import annotations
 from typing import TypeVar
 
 from fastapi import APIRouter, Depends, status
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import selectinload
 
+from ...auth.rbac import can_view_all_assignments
 from ...db import models as orm
+from ...domain.enums import SwapStatus, TimeOffStatus
 from ...services.orchestration import JobOrchestrationService
 from ...services.settings_service import SchedulingSettings, load_settings, save_settings
-from ..deps import ProjectContext, get_db, project_member, require_editor
+from ..deps import ProjectContext, get_db, project_member, require_editor, require_viewer
 from ..errors import Conflict, NotFound, UnprocessableConfig
 from ..schemas import (
     DivisionIn,
@@ -275,6 +277,34 @@ def update_skill(
     return row
 
 
+@router.delete("/skills/{skill_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_skill(
+    skill_id: int,
+    db: DbSession = Depends(get_db),
+    ctx: ProjectContext = Depends(require_editor),
+) -> None:
+    """Retire a skill. Refused while an active job still requires it.
+
+    People lose the skill with it: a qualification nothing can ask for is only
+    noise on their record. Soft-deleted, like divisions, and adding the same
+    name again brings it back.
+    """
+    row = owned(db, orm.Skill, skill_id, ctx)
+    if row is None or not row.is_active:
+        raise NotFound("Skill not found")
+    required = db.scalar(
+        select(orm.Job.name)
+        .join(orm.JobSkillRequirement, orm.JobSkillRequirement.job_id == orm.Job.id)
+        .where(orm.JobSkillRequirement.skill_id == skill_id, orm.Job.is_active.is_(True))
+        .limit(1)
+    )
+    if required is not None:
+        raise Conflict(f"Skill is still required by the job '{required}'")
+    db.execute(delete(orm.PersonSkill).where(orm.PersonSkill.skill_id == skill_id))
+    row.is_active = False
+    _audit(db, ctx, "skill", skill_id, "delete")
+
+
 # ----------------------------------------------------------- shift templates
 
 
@@ -502,7 +532,10 @@ def _person_out(row: orm.Person) -> PersonOut:
         external_ref=row.external_ref,
         is_active=row.is_active,
         working_weekdays=sorted(d.weekday for d in row.working_days),
-        skills=[PersonSkillIn(skill_id=s.skill_id, level_id=s.level_id) for s in row.skills],
+        skills=[
+            PersonSkillIn(skill_id=s.skill_id, level_id=s.level_id, expires_on=s.expires_on)
+            for s in row.skills
+        ],
     )
 
 
@@ -516,7 +549,20 @@ def list_people(
         .options(selectinload(orm.Person.skills), selectinload(orm.Person.working_days))
         .order_by(orm.Person.full_name)
     ).all()
-    return [_person_out(row) for row in rows]
+    if can_view_all_assignments(ctx.role):
+        return [_person_out(row) for row in rows]
+    # Staff see who their colleagues are, not their qualifications or which
+    # days they work: names are what the staff screens show.
+    return [
+        PersonOut(
+            id=row.id,
+            full_name=row.full_name,
+            division_id=row.division_id,
+            external_ref=None,
+            is_active=True,
+        )
+        for row in rows
+    ]
 
 
 def _apply_person(db: DbSession, row: orm.Person, payload: PersonIn, ctx: ProjectContext) -> None:
@@ -533,7 +579,10 @@ def _apply_person(db: DbSession, row: orm.Person, payload: PersonIn, ctx: Projec
     row.working_days = [
         orm.PersonWorkingDay(weekday=d) for d in sorted(set(payload.working_weekdays))
     ]
-    row.skills = [orm.PersonSkill(skill_id=s.skill_id, level_id=s.level_id) for s in payload.skills]
+    row.skills = [
+        orm.PersonSkill(skill_id=s.skill_id, level_id=s.level_id, expires_on=s.expires_on)
+        for s in payload.skills
+    ]
 
 
 @router.post("/people", response_model=PersonOut, status_code=status.HTTP_201_CREATED)
@@ -578,6 +627,41 @@ def delete_person(
     if row is None:
         raise NotFound("Person not found")
     row.is_active = False
+    # Nothing left open may still wait on someone who has left the roster.
+    db.execute(
+        update(orm.SwapRequest)
+        .where(
+            orm.SwapRequest.project_id == ctx.project_id,
+            (orm.SwapRequest.from_person_id == person_id)
+            | (orm.SwapRequest.to_person_id == person_id),
+            orm.SwapRequest.status.in_(
+                (SwapStatus.AWAITING_COLLEAGUE, SwapStatus.AWAITING_MANAGER)
+            ),
+        )
+        .values(status=SwapStatus.CANCELLED, review_note="Removed from the roster")
+        .execution_options(synchronize_session=False)
+    )
+    db.execute(
+        update(orm.TimeOff)
+        .where(
+            orm.TimeOff.project_id == ctx.project_id,
+            orm.TimeOff.person_id == person_id,
+            orm.TimeOff.status == TimeOffStatus.PENDING,
+        )
+        .values(status=TimeOffStatus.CANCELLED)
+        .execution_options(synchronize_session=False)
+    )
+    # The account stays a member of the project, but no longer speaks for
+    # this person.
+    db.execute(
+        update(orm.ProjectMember)
+        .where(
+            orm.ProjectMember.project_id == ctx.project_id,
+            orm.ProjectMember.person_id == person_id,
+        )
+        .values(person_id=None)
+        .execution_options(synchronize_session=False)
+    )
     _audit(db, ctx, "person", person_id, "delete")
 
 
@@ -613,7 +697,7 @@ def put_settings(
 
 @router.get("/feasibility", response_model=FeasibilityOut)
 def feasibility(
-    db: DbSession = Depends(get_db), ctx: ProjectContext = Depends(project_member)
+    db: DbSession = Depends(get_db), ctx: ProjectContext = Depends(require_viewer)
 ) -> FeasibilityOut:
     report = JobOrchestrationService(db, ctx.project_id).feasibility()
     return FeasibilityOut.model_validate(report)

@@ -10,6 +10,7 @@ import { SkillsStep } from "@/features/setup/steps/SkillsStep";
 import { useI18n } from "@/i18n";
 import type { MessageKey } from "@/i18n";
 import { can, useSession } from "@/hooks/useSession";
+import { ActivityLog } from "./ActivityLog";
 import { MembersAdmin } from "./MembersAdmin";
 
 /**
@@ -33,6 +34,7 @@ const SECTIONS: readonly {
   { id: "people", label: "section.people", Component: PeopleStep },
   { id: "rules", label: "section.rules", Component: RulesStep },
   { id: "members", label: "section.members", Component: MembersAdmin, adminOnly: true },
+  { id: "activity", label: "section.activity", Component: ActivityLog, adminOnly: true },
 ];
 
 export function ConfigView() {
@@ -73,7 +75,7 @@ export function ConfigView() {
         {/* Any structural change alters what can be staffed, so the verdict
             sits alongside the editors rather than only in the wizard. Members
             are the exception: they change who may sign in, not staffing. */}
-        {section.id !== "members" && (
+        {section.id !== "members" && section.id !== "activity" && (
           <div className="card">
             <h2 className="label">{t("feasibility.heading")}</h2>
             <FeasibilityPanel />

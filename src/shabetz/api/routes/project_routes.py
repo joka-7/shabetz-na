@@ -12,7 +12,7 @@ import hashlib
 import secrets
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy import delete, or_, select, update
 from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import joinedload
@@ -20,6 +20,7 @@ from sqlalchemy.orm import joinedload
 from ...auth import service as auth_service
 from ...auth.passwords import WeakPassword
 from ...auth.rbac import at_least
+from ...auth.throttle import FailureThrottle
 from ...config import Settings
 from ...db import models as orm
 from ...db.base import utcnow
@@ -27,13 +28,15 @@ from ...db.models import Project, ProjectInvite, ProjectMember, User
 from ...domain.enums import ProjectRole
 from ..deps import (
     ProjectContext,
+    client_address,
     current_user,
     get_db,
+    link_throttle,
     project_member,
     require_project_admin,
     settings_dep,
 )
-from ..errors import Conflict, NotFound, UnprocessableConfig
+from ..errors import Conflict, NotFound, TooManyRequests, UnprocessableConfig
 from ..schemas import (
     InviteCreatedOut,
     InviteIn,
@@ -363,18 +366,29 @@ def revoke_invite(
     _audit(db, ctx, "invite", invite_id, "revoke")
 
 
-def _find_invite(db: DbSession, token: str) -> ProjectInvite:
+def _find_invite(
+    db: DbSession, token: str, throttle: FailureThrottle, address: str
+) -> ProjectInvite:
+    if throttle.is_blocked(address):
+        raise TooManyRequests(throttle.retry_after_seconds(address))
     invite = db.scalar(select(ProjectInvite).where(ProjectInvite.token_hash == _hash(token)))
     # Expired, used and unknown links all look the same from outside.
     if invite is None or not _usable(invite):
+        throttle.record_failure(address)
         raise NotFound("This invite link is not valid any more")
     return invite
 
 
 @router.get("/invites/{token}", response_model=InvitePreviewOut)
-def preview_invite(token: str, db: DbSession = Depends(get_db)) -> InvitePreviewOut:
+def preview_invite(
+    token: str,
+    request: Request,
+    db: DbSession = Depends(get_db),
+    settings: Settings = Depends(settings_dep),
+    throttle: FailureThrottle = Depends(link_throttle),
+) -> InvitePreviewOut:
     """What the link is for, shown before signing in to accept it."""
-    invite = _find_invite(db, token)
+    invite = _find_invite(db, token, throttle, client_address(request, settings))
     project = db.get(Project, invite.project_id)
     assert project is not None
     return InvitePreviewOut(project_name=project.name, role=invite.role)
@@ -382,9 +396,14 @@ def preview_invite(token: str, db: DbSession = Depends(get_db)) -> InvitePreview
 
 @router.post("/invites/{token}/accept", response_model=ProjectOut)
 def accept_invite(
-    token: str, db: DbSession = Depends(get_db), user: User = Depends(current_user)
+    token: str,
+    request: Request,
+    db: DbSession = Depends(get_db),
+    user: User = Depends(current_user),
+    settings: Settings = Depends(settings_dep),
+    throttle: FailureThrottle = Depends(link_throttle),
 ) -> ProjectOut:
-    invite = _find_invite(db, token)
+    invite = _find_invite(db, token, throttle, client_address(request, settings))
     # Counted with a conditional update, so two people opening a single-use
     # link at the same moment cannot both get in.
     claimed = db.execute(

@@ -63,7 +63,15 @@ class DbSchedulingRepository(JobSchedulingRepository):
                     id=row.id,
                     full_name=row.full_name,
                     division_id=row.division_id,
-                    skill_ranks={s.skill_id: s.level.rank for s in row.skills},
+                    # A skill that lapsed before the window opens is no use in it.
+                    skill_ranks={
+                        s.skill_id: s.level.rank
+                        for s in row.skills
+                        if s.expires_on is None or s.expires_on >= window_start
+                    },
+                    skill_expiry={
+                        s.skill_id: s.expires_on for s in row.skills if s.expires_on is not None
+                    },
                     working_weekdays=frozenset(d.weekday for d in row.working_days),
                     time_off=absences,
                 )

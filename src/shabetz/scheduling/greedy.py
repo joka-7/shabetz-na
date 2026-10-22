@@ -15,7 +15,7 @@ each pinned by a named test in ``tests/unit/test_greedy_scheduler.py``:
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import date, timedelta
 
 from ..domain.enums import AssignmentRole, DivisionPolicy
@@ -42,8 +42,9 @@ class SimpleGreedyScheduler(SchedulingStrategy):
         jobs: Sequence[Job],
         params: ScheduleParams,
         locked: Sequence[Assignment] = (),
+        prior_load: Mapping[int, int] | None = None,
     ) -> ScheduleResult:
-        state = SchedulerState(people, params.rest_period_hours)
+        state = SchedulerState(people, params.rest_period_hours, prior_load)
         known = {person.id: person for person in people}
         # Anyone no longer on the roster, or outside the window, cannot be kept.
         pinned: dict[tuple[int, int, date], list[Assignment]] = defaultdict(list)
@@ -219,7 +220,7 @@ class SimpleGreedyScheduler(SchedulingStrategy):
                 person
                 for person in tier
                 if person.id not in taken
-                and person.meets_all(requirements)
+                and person.meets_all(requirements, slot.calendar_date)
                 and state.can_work(person, slot)
             ]
             if eligible:

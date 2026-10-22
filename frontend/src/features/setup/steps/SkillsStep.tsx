@@ -22,6 +22,12 @@ export function SkillsStep() {
     [keys.skills, keys.jobs, keys.people],
   );
 
+  // Refused while a job still requires the skill; people lose it with it.
+  const remove = useConfigMutation(
+    (id: number) => api.del(`/api/config/skills/${id}`),
+    [keys.skills, keys.people],
+  );
+
   function submit(event: React.FormEvent) {
     event.preventDefault();
     if (!name.trim()) return;
@@ -51,7 +57,7 @@ export function SkillsStep() {
         onSubmit={(names) => add.mutateAsync(names)}
       />
 
-      <MutationError error={add.error ?? update.error} />
+      <MutationError error={add.error ?? update.error ?? remove.error} />
 
       {isLoading ? (
         <Spinner />
@@ -60,7 +66,11 @@ export function SkillsStep() {
       ) : (
         <RowList>
           {skills.map((skill) => (
-            <Row key={skill.id} deleteLabel={t("common.removeNamed", { name: skill.name })}>
+            <Row
+              key={skill.id}
+              deleteLabel={t("common.removeNamed", { name: skill.name })}
+              onDelete={() => remove.mutate(skill.id)}
+            >
               <EditableName
                 value={skill.name}
                 label={t("common.editNamed", { name: skill.name })}

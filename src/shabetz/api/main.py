@@ -9,14 +9,17 @@ from ..config import get_settings
 from .errors import install_handlers
 from .routes import (
     auth_routes,
+    calendar_routes,
     config_routes,
     import_routes,
+    inbox_routes,
     meta_routes,
     project_routes,
     schedule_routes,
     swap_routes,
     timeoff_routes,
 )
+from .security import SecurityHeadersMiddleware
 from .static import find_static_dir, mount_frontend
 
 
@@ -42,12 +45,16 @@ def create_app() -> FastAPI:
             allow_headers=["*"],
         )
 
+    app.add_middleware(SecurityHeadersMiddleware, settings=settings)
+
     install_handlers(app)
     for module in (
         meta_routes,
         auth_routes,
+        calendar_routes,
         config_routes,
         import_routes,
+        inbox_routes,
         schedule_routes,
         swap_routes,
         timeoff_routes,

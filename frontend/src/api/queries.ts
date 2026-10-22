@@ -38,7 +38,25 @@ export const keys = {
   timeOff: ["time-off"] as const,
   members: ["members"] as const,
   invites: ["invites"] as const,
+  inbox: ["inbox"] as const,
 };
+
+export interface Inbox {
+  swaps: number;
+  time_off: number;
+}
+
+/** What is waiting on this member, for the badges on the tabs. */
+export const useInbox = (enabled: boolean) =>
+  useQuery({
+    queryKey: keys.inbox,
+    queryFn: () => api.get<Inbox>("/api/inbox"),
+    enabled,
+    // Colleagues' requests arrive without this page doing anything, so look
+    // again now and then, and whenever the person comes back to the tab.
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+  });
 
 export const useDivisions = () =>
   useQuery({ queryKey: keys.divisions, queryFn: () => api.get<Division[]>("/api/config/divisions") });
@@ -94,7 +112,7 @@ export function useConfigMutation<TArgs, TResult>(
   return useMutation({
     mutationFn: fn,
     onSuccess: () => {
-      for (const key of [...invalidate, keys.feasibility]) {
+      for (const key of [...invalidate, keys.feasibility, keys.inbox]) {
         void queryClient.invalidateQueries({ queryKey: key });
       }
     },

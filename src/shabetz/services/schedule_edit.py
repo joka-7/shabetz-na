@@ -160,7 +160,7 @@ class ScheduleEditor:
         needed = list(job.blanket_requirements)
         if requirement_id is not None:
             needed += [r for r in job.requirements if r.id == requirement_id]
-        if not person.meets_all(needed):
+        if not person.meets_all(needed, key.calendar_date):
             add(
                 WarningKind.MISSING_SKILL,
                 f"{name} does not meet the skill requirements for {job.name}",

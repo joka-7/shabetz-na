@@ -106,6 +106,9 @@ class ProjectMember(Base):
         ForeignKey("people.id", ondelete="SET NULL"), default=None
     )
     created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+    # SHA-256 of the secret in this member's calendar feed address. The feed is
+    # fetched by calendar apps that cannot sign in, so the address is the key.
+    calendar_token_hash: Mapped[str | None] = mapped_column(String(64), unique=True, default=None)
 
     project: Mapped[Project] = relationship(back_populates="members")
     user: Mapped[User] = relationship(back_populates="memberships")
@@ -147,10 +150,16 @@ class Session(Base):
 
     Chosen over stateless tokens because a role change or a revocation must take
     effect on the very next request, which a self-contained token cannot offer.
+
+    ``id`` is the SHA-256 of the token in the visitor's cookie, never the token
+    itself, so a copy of the database does not hand out live sessions.
     """
 
     __tablename__ = "sessions"
-    __table_args__ = TABLE_ARGS
+    __table_args__ = (
+        Index("ix_sessions_expires_at", "expires_at"),
+        TABLE_ARGS,
+    )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
@@ -342,6 +351,8 @@ class PersonSkill(Base):
     person_id: Mapped[int] = mapped_column(ForeignKey("people.id", ondelete="CASCADE"))
     skill_id: Mapped[int] = mapped_column(ForeignKey("skills.id", ondelete="RESTRICT"))
     level_id: Mapped[int] = mapped_column(ForeignKey("proficiency_levels.id", ondelete="RESTRICT"))
+    # The last day the qualification counts; empty for one that never lapses.
+    expires_on: Mapped[date | None] = mapped_column(Date, default=None)
 
     person: Mapped[Person] = relationship(back_populates="skills")
     skill: Mapped[Skill] = relationship()
@@ -427,6 +438,12 @@ class ScheduleRun(Base):
     published_by: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), default=None
     )
+    # Bumped on every write, and every write requires the value it read. Two
+    # people editing at once: the second save matches no row and is refused,
+    # instead of silently overwriting the first person's change.
+    version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+
+    __mapper_args__ = {"version_id_col": version}
 
 
 class SwapRequest(Base):

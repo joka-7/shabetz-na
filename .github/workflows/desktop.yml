@@ -1,7 +1,18 @@
 name: Windows desktop app
 
 on:
+  # A full Windows build is slow; on pull requests it runs only when something
+  # the executable is built from changes. Every push to main still builds it.
   pull_request:
+    paths:
+      - "packaging/**"
+      - "src/shabetz/desktop.py"
+      - "src/shabetz/db/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "frontend/package.json"
+      - "frontend/package-lock.json"
+      - ".github/workflows/desktop.yml"
   push:
     branches: ["main"]
     tags: ["v*"]

@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from typing import Annotated, Literal
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ..domain.enums import (
     DivisionPolicy,
@@ -240,6 +241,8 @@ class JobOut(BaseModel):
 class PersonSkillIn(BaseModel):
     skill_id: int
     level_id: int
+    # The last day it counts, for a qualification that lapses.
+    expires_on: date | None = None
 
 
 class PersonIn(BaseModel):
@@ -267,8 +270,17 @@ class SettingsIn(BaseModel):
     rotation_block_days: int = Field(default=2, ge=1, le=365)
     rotation_anchor_date: date | None = None
     organization_name: str = ""
-    timezone: str = "UTC"
-    week_start: int = Field(default=0, ge=0, le=6)
+    timezone: str = Field(default="UTC", max_length=64)
+    fairness_carry_over: bool = False
+
+    @field_validator("timezone")
+    @classmethod
+    def _known_zone(cls, name: str) -> str:
+        try:
+            ZoneInfo(name)
+        except (ZoneInfoNotFoundError, ValueError) as exc:
+            raise ValueError(f"Unknown time zone: {name}") from exc
+        return name
 
 
 class SettingsOut(SettingsIn):
@@ -560,6 +572,12 @@ class TimeOffReview(BaseModel):
     note: str | None = None
 
 
+class PublishedShiftOut(BaseModel):
+    calendar_date: date
+    job_name: str
+    template_name: str
+
+
 class TimeOffOut(BaseModel):
     model_config = ORM
     id: int
@@ -570,6 +588,9 @@ class TimeOffOut(BaseModel):
     status: TimeOffStatus
     review_note: str | None = None
     created_at: datetime | None = None
+    # Filled when approving: shifts this person still holds in the published
+    # schedule during the absence, which someone now has to cover.
+    published_shifts: list[PublishedShiftOut] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------- meta

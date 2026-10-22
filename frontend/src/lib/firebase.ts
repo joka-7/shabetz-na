@@ -19,8 +19,8 @@ const CANCELLED = new Set([
 
 export async function googleIdToken(config: FirebaseWebConfig): Promise<string> {
   const [{ initializeApp, getApps }, auth] = await Promise.all([
-    import("firebase/app"),
-    import("firebase/auth"),
+    import("@firebase/app"),
+    import("@firebase/auth"),
   ]);
   const app = getApps()[0] ?? initializeApp(config);
   const firebaseAuth = auth.getAuth(app);

@@ -12,6 +12,10 @@ export const he: Record<keyof typeof en, string> = {
   "toast.withdrawn": "נמשך מהעובדים",
   "toast.undone": "השינוי בוטל",
   "toast.swapUpdated": "בקשת ההחלפה עודכנה",
+  "toast.timeOffClash_one":
+    "אושר. בסידור שפורסם עדיין רשומה משמרת אחת באותם ימים — צריך לשבץ מישהו אחר.",
+  "toast.timeOffClash_other":
+    "אושר. בסידור שפורסם עדיין רשומות {count} משמרות באותם ימים — צריך לשבץ אחרים.",
   "common.add": "הוספה",
   "common.cancel": "ביטול",
   "common.close": "סגירה",
@@ -72,9 +76,11 @@ export const he: Record<keyof typeof en, string> = {
 
   "role.ADMIN": "מנהל",
   "role.COLLABORATOR": "שותף",
+  "role.VIEWER": "צופה",
   "role.STAFF": "עובד",
   "roleHint.ADMIN": "הכול, כולל ניהול חברים וקישורי הזמנה",
   "roleHint.COLLABORATOR": "עריכת אנשים, תפקידים והגדרות, הפקת סידורים ואישור היעדרויות; ללא ניהול חברים",
+  "roleHint.VIEWER": "צפייה בכל הסידורים, ברשימת האנשים ובכל הבקשות, בלי לשנות דבר",
   "roleHint.STAFF": "צפייה במשמרות שלו ובקשת היעדרות לעצמו",
 
   "section.divisions": "מחלקות",
@@ -86,6 +92,12 @@ export const he: Record<keyof typeof en, string> = {
   "section.rules": "כללים",
   "section.review": "סיכום ובדיקה",
   "section.members": "חברים והזמנות",
+  "section.activity": "פעילות",
+  "activity.title": "פעילות",
+  "activity.intro": "מי שינה מה בפרויקט, מהחדש לישן.",
+  "activity.empty": "עדיין לא שונה דבר",
+  "activity.someone": "חשבון שהוסר",
+  "activity.more": "הצגת ישנים יותר",
 
   // ------------------------------------------------------------------- wizard
   "wizard.loading": "טוען הגדרות…",
@@ -206,6 +218,8 @@ export const he: Record<keyof typeof en, string> = {
   "people.division": "מחלקה",
   "people.worksOn": "עובד בימים",
   "people.skillLevel": "רמה ב{skill}",
+  "people.skillExpires": "בתוקף עד (להשאיר ריק אם לא פג)",
+  "people.skillExpiresNamed": "{skill} בתוקף עד",
   "people.add": "הוספת אדם",
   "people.noDivisionsHint":
     "כדי להוסיף אנשים אחד־אחד צריך קודם להגדיר מחלקות. ייבוא יכול ליצור אותן תוך כדי.",
@@ -292,6 +306,11 @@ export const he: Record<keyof typeof en, string> = {
   "rules.anchorHint":
     "קבעו תאריך כדי שהמחזור יישאר יציב. אם יישאר ריק, המחזור נמדד מהיום הראשון של כל תקופה שתפיקו.",
   "rules.orgName": "שם הארגון",
+  "rules.carryOver": "איזון משמרות בין סידורים",
+  "rules.carryOverHint":
+    "סופר את המשמרות של כל אחד בארבעת השבועות שלפני הסידור החדש, כך שמי שעבד הכי הרבה לאחרונה ייבחר אחרון.",
+  "rules.timezone": "אזור זמן",
+  "rules.timezoneHint": "קובע מהו \"היום\" לספירת כוח האדם ולבדיקת ההיתכנות.",
   "rules.save": "שמירת הכללים",
 
   // -------------------------------------------------------------- feasibility
@@ -625,6 +644,9 @@ export const he: Record<keyof typeof en, string> = {
 
   // ------------------------------------------------------------------- errors
   "error.generic": "משהו השתבש. נסו שוב.",
+  "error.stale": "מישהו אחר שינה את הסידור הזה ממש עכשיו. טענו מחדש ונסו שוב.",
+  "error.notAllowed": "לחשבון הזה אין הרשאה להשתמש באתר.",
+  "error.serverUnavailable": "השרת עולה או עמוס. המתינו דקה ונסו שוב.",
   "error.duplicateName": "השם הזה כבר בשימוש.",
   "error.tooManyAttempts": "יותר מדי ניסיונות כושלים מהכתובת הזו; נסו שוב מאוחר יותר.",
   "error.oldExcel": "קובצי ‎.xls‎ ישנים אינם נתמכים; שמרו את הקובץ כ־‎.xlsx‎ או ‎.csv‎ קודם.",
@@ -652,7 +674,20 @@ export const he: Record<keyof typeof en, string> = {
   "footer.credit": "נבנה על ידי joka-7",
 
   // -------------------------------------------------------------------- settings
+  "nav.waiting_one": "פריט אחד ממתין לך",
+  "nav.waiting_other": "{count} ממתינים לך",
   "settings.heading": "הגדרות",
   "settings.languageHeading": "שפה",
   "settings.linksHeading": "קישורים",
+  "calendar.heading": "המשמרות שלי ביומן",
+  "calendar.intro":
+    "מנויים פעם אחת ביומן Google, ביומן של Apple או ב-Outlook, ושינויים שמתפרסמים מופיעים שם מעצמם.",
+  "calendar.create": "קבלת כתובת היומן שלי",
+  "calendar.replace": "יצירת כתובת חדשה",
+  "calendar.remove": "כיבוי",
+  "calendar.copy": "העתקה",
+  "calendar.copied": "הועתק",
+  "calendar.open": "פתיחה באפליקציית היומן",
+  "calendar.private":
+    "כל מי שיש לו את הכתובת הזאת יכול לראות את המשמרות שלך. היא מוצגת רק עכשיו; יצירת כתובת חדשה מבטלת אותה.",
 };

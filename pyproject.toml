@@ -21,6 +21,8 @@ dependencies = [
     "openpyxl>=3.1",
     "defusedxml>=0.7",
     "psycopg[binary]>=3.2",
+    # Time zone data for Windows, which ships none for zoneinfo to read.
+    "tzdata>=2024.1",
 ]
 
 [project.optional-dependencies]

@@ -13,6 +13,10 @@ export const en = {
   "toast.withdrawn": "Withdrawn from staff",
   "toast.undone": "Change undone",
   "toast.swapUpdated": "Swap request updated",
+  "toast.timeOffClash_one":
+    "Approved. They still have {count} shift in the published schedule then — reassign it.",
+  "toast.timeOffClash_other":
+    "Approved. They still have {count} shifts in the published schedule then — reassign them.",
   "common.add": "Add",
   "common.cancel": "Cancel",
   "common.close": "Close",
@@ -73,10 +77,12 @@ export const en = {
 
   "role.ADMIN": "Administrator",
   "role.COLLABORATOR": "Collaborator",
+  "role.VIEWER": "Viewer",
   "role.STAFF": "Staff",
   "roleHint.ADMIN": "Everything, including members and invite links",
   "roleHint.COLLABORATOR":
     "Edit people, jobs and settings, generate schedules and review time off; cannot manage members",
+  "roleHint.VIEWER": "See every schedule, the roster and all requests; change nothing",
   "roleHint.STAFF": "See own shifts and request own time off",
 
   "section.divisions": "Divisions",
@@ -88,6 +94,12 @@ export const en = {
   "section.rules": "Rules",
   "section.review": "Review",
   "section.members": "Members",
+  "section.activity": "Activity",
+  "activity.title": "Activity",
+  "activity.intro": "Who changed what in this project, newest first.",
+  "activity.empty": "Nothing has changed yet",
+  "activity.someone": "A removed account",
+  "activity.more": "Show older",
 
   // ------------------------------------------------------------------- wizard
   "wizard.loading": "Loading configuration…",
@@ -211,6 +223,8 @@ export const en = {
   "people.division": "Division",
   "people.worksOn": "Works on",
   "people.skillLevel": "{skill} level",
+  "people.skillExpires": "Valid until (leave empty if it never lapses)",
+  "people.skillExpiresNamed": "{skill} valid until",
   "people.add": "Add person",
   "people.noDivisionsHint":
     "To add people one at a time, define divisions first. An import can create them as it goes.",
@@ -298,6 +312,11 @@ export const en = {
   "rules.anchorHint":
     "Pin this to keep the cycle stable. Left empty, it is measured from the first day of whichever period you generate.",
   "rules.orgName": "Organization name",
+  "rules.carryOver": "Balance shifts across schedules",
+  "rules.carryOverHint":
+    "Counts each person's shifts in the four weeks before a new schedule, so whoever worked most lately is picked last.",
+  "rules.timezone": "Time zone",
+  "rules.timezoneHint": "Decides what \"today\" is for head counts and the feasibility check.",
   "rules.save": "Save rules",
 
   // -------------------------------------------------------------- feasibility
@@ -641,6 +660,9 @@ export const en = {
 
   // ------------------------------------------------------------------- errors
   "error.generic": "Something went wrong. Please try again.",
+  "error.stale": "Someone else changed this schedule a moment ago. Reload and try again.",
+  "error.notAllowed": "This account is not allowed to use this site.",
+  "error.serverUnavailable": "The server is starting up or busy. Wait a minute and try again.",
   "error.duplicateName": "That name is already in use.",
   "error.tooManyAttempts": "Too many failed attempts from this address; try again later.",
   "error.oldExcel": "Old .xls workbooks are not supported; save it as .xlsx or .csv first.",
@@ -668,7 +690,20 @@ export const en = {
   "footer.credit": "Built by joka-7",
 
   // -------------------------------------------------------------------- settings
+  "nav.waiting_one": "{count} waiting for you",
+  "nav.waiting_other": "{count} waiting for you",
   "settings.heading": "Settings",
   "settings.languageHeading": "Language",
   "settings.linksHeading": "Links",
+  "calendar.heading": "My shifts in my calendar",
+  "calendar.intro":
+    "Subscribe once in Google Calendar, Apple Calendar or Outlook; published changes show up there by themselves.",
+  "calendar.create": "Get my calendar address",
+  "calendar.replace": "Make a new address",
+  "calendar.remove": "Turn off",
+  "calendar.copy": "Copy",
+  "calendar.copied": "Copied",
+  "calendar.open": "Open in calendar app",
+  "calendar.private":
+    "Anyone with this address can see your shifts. It is shown only now; making a new one stops this one working.",
 } as const;

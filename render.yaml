@@ -32,6 +32,11 @@ services:
       # given; the app picks its driver itself.
       - key: SHABETZ_DATABASE_URL
         sync: false
+      # Who may sign up or sign in: comma-separated email addresses. Left
+      # empty, nobody can -- the site fails closed rather than open. "*"
+      # lets anyone in.
+      - key: ALLOWED_EMAILS
+        sync: false
       # Generated once by Render and kept the same between deploys.
       - key: SHABETZ_SECRET_KEY
         generateValue: true
@@ -53,10 +58,16 @@ services:
       # a free service restarts whenever it wakes.
       - key: SHABETZ_SETUP_TOKEN
         generateValue: true
-      # The app is reachable only through Render's proxy, which reports the
-      # visitor's real address. Needed for per-address sign-in throttling.
+      # The app is reachable only through Render's proxy. Trusting it lets the
+      # server see that requests arrived over HTTPS.
       - key: SHABETZ_FORWARDED_ALLOW_IPS
         value: "*"
+      # Render's proxy appends the visitor's address to X-Forwarded-For; it is
+      # the last entry, and anything before it was written by the visitor. The
+      # sign-in throttle reads that one entry, so a forged header cannot
+      # dodge it. With the Vercel front end in front of Render, set this to 2.
+      - key: SHABETZ_TRUSTED_PROXY_HOPS
+        value: "1"
       # One server process. Sign-in throttling is kept in memory, so with
       # several processes each would count failures separately; one is plenty
       # for an organisation's roster, and fits the free plan's memory.

@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm.exc import StaleDataError
 
 
 class ApiError(Exception):
@@ -73,9 +74,39 @@ def install_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(IntegrityError)
     async def _handle_integrity(_: Request, exc: IntegrityError) -> JSONResponse:
-        # Nearly always a unique name: two divisions or skills called the same.
-        # A 409 lets the page say so instead of reporting a server fault.
+        # Usually a unique name: two divisions or skills called the same. A 409
+        # lets the page say so instead of reporting a server fault. Anything
+        # else -- a row still referenced elsewhere, say -- must not be
+        # reported as a duplicate name.
+        if is_unique_violation(exc):
+            content = {"code": "DUPLICATE", "detail": "That name is already in use"}
+        else:
+            content = {
+                "code": "CONFLICT",
+                "detail": "That change conflicts with data that depends on it",
+            }
+        return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=content)
+
+    @app.exception_handler(StaleDataError)
+    async def _handle_stale(_: Request, exc: StaleDataError) -> JSONResponse:
+        # Someone else saved the same schedule between our read and our write.
         return JSONResponse(
             status_code=status.HTTP_409_CONFLICT,
-            content={"code": "DUPLICATE", "detail": "That name is already in use"},
+            content={
+                "code": "STALE",
+                "detail": "Someone else changed this schedule a moment ago; reload and try again",
+            },
         )
+
+
+def is_unique_violation(exc: IntegrityError) -> bool:
+    """Whether the database refused a duplicate, as opposed to another constraint."""
+    orig = exc.orig
+    # PostgreSQL's SQLSTATE, MySQL's error number, then SQLite's wording.
+    if getattr(orig, "sqlstate", None) == "23505":
+        return True
+    args = getattr(orig, "args", ())
+    if args and args[0] == 1062:
+        return True
+    text = str(orig).lower()
+    return "unique" in text or "duplicate" in text

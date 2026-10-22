@@ -213,6 +213,38 @@ def _configure_logging(directory: Path) -> None:
     )
 
 
+BACKUP_FOLDER = "backups"
+
+
+def _back_up(directory: Path) -> None:
+    """Copy the database aside on every launch, before any migration touches it.
+
+    Everything the organisation has lives in one file on one computer; the
+    last ten launches' copies are what a mistake or a broken upgrade is
+    undone from.
+    """
+    database = directory / "shabetz.db"
+    if not database.exists():
+        return
+    from .services.maintenance import backup_sqlite
+
+    try:
+        log.info("Backed up to %s", backup_sqlite(database, directory / BACKUP_FOLDER))
+    except Exception:  # never stop the app from opening over a backup
+        log.exception("Backup failed")
+
+
+def _clean_up() -> None:
+    from .db.session import session_scope
+    from .services.maintenance import cleanup
+
+    try:
+        with session_scope() as db:
+            cleanup(db)
+    except Exception:
+        log.exception("Cleanup failed")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog=APP_NAME)
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
@@ -255,7 +287,9 @@ def main(argv: list[str] | None = None) -> int:
     from .api.main import create_app
     from .db.migrate import upgrade_to_head
 
+    _back_up(directory)
     upgrade_to_head(database_url)
+    _clean_up()
 
     port = pick_port(args.port)
     server = uvicorn.Server(

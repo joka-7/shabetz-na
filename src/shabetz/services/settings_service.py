@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from sqlalchemy.orm import Session as DbSession
 
 from ..db.models import Project
@@ -23,8 +24,27 @@ class SchedulingSettings(BaseModel):
     rotation_anchor_date: date | None = None
     organization_name: str = ""
     timezone: str = "UTC"
-    week_start: int = Field(default=0, ge=0, le=6)
+    # Count each person's shifts in the four weeks before a new schedule, from
+    # the published one, so whoever worked most lately is picked last.
+    fairness_carry_over: bool = False
     setup_completed: bool = False
+
+
+def zone(name: str) -> ZoneInfo:
+    """The project's time zone, falling back to UTC for a name this machine lacks."""
+    try:
+        return ZoneInfo(name or "UTC")
+    except (ZoneInfoNotFoundError, ValueError):
+        return ZoneInfo("UTC")
+
+
+def project_today(settings: SchedulingSettings) -> date:
+    """Today's date where the organisation is, not where the server is.
+
+    A hosted server runs on UTC, which in Israel turns into tomorrow two or
+    three hours early.
+    """
+    return datetime.now(zone(settings.timezone)).date()
 
 
 def load_settings(db: DbSession, project_id: int) -> SchedulingSettings:

@@ -49,6 +49,7 @@ class ProjectRole(StrEnum):
 
     ADMIN = "ADMIN"  # everything, including members, invites and the project itself
     COLLABORATOR = "COLLABORATOR"  # configuration, schedules and time-off review
+    VIEWER = "VIEWER"  # sees everything an editor does, changes nothing
     STAFF = "STAFF"  # own shifts and own time off
 
 

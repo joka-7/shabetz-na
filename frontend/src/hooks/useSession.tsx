@@ -230,7 +230,7 @@ export function useSession(): SessionState {
   return context;
 }
 
-const RANK: Record<ProjectRole, number> = { STAFF: 0, COLLABORATOR: 1, ADMIN: 2 };
+const RANK: Record<ProjectRole, number> = { STAFF: 0, VIEWER: 1, COLLABORATOR: 2, ADMIN: 3 };
 const atLeast = (project: Project | null, role: ProjectRole) =>
   project !== null && RANK[project.role] >= RANK[role];
 
@@ -243,4 +243,6 @@ export const can = {
   manageMembers: (project: Project | null) => atLeast(project, "ADMIN"),
   generate: (project: Project | null) => atLeast(project, "COLLABORATOR"),
   reviewTimeOff: (project: Project | null) => atLeast(project, "COLLABORATOR"),
+  /** Every schedule and the whole roster, read only for a viewer. */
+  viewAll: (project: Project | null) => atLeast(project, "VIEWER"),
 };

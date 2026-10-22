@@ -6,6 +6,7 @@ import os
 import random
 import secrets
 from datetime import date, timedelta
+from pathlib import Path
 
 import typer
 from sqlalchemy import select
@@ -56,7 +57,9 @@ def serve(
     host: str = typer.Option("0.0.0.0", help="Address to listen on."),
     # Hosts such as Render choose the port and pass it in $PORT.
     port: int = typer.Option(8000, envvar="PORT", help="Port to listen on."),
-    workers: int = typer.Option(2, envvar="WEB_CONCURRENCY", help="Worker processes."),
+    # One by default: the sign-in throttle lives in process memory, so each
+    # extra worker would multiply the number of guesses it allows.
+    workers: int = typer.Option(1, envvar="WEB_CONCURRENCY", help="Worker processes."),
     migrate: bool = typer.Option(True, help="Apply database migrations before starting."),
     forwarded_allow_ips: str = typer.Option(
         "127.0.0.1",
@@ -77,6 +80,11 @@ def serve(
     settings = get_settings()
     if migrate:
         upgrade_to_head(settings.database_url)
+
+    from .services.maintenance import cleanup as run_cleanup
+
+    with session_scope() as db:
+        run_cleanup(db)
 
     with session_scope() as db:
         # With Google sign-in everyone signs up for themselves.
@@ -317,6 +325,85 @@ def seed_demo(
         f"{shifts} windows and {len(jobs)} jobs.",
         fg="green",
     )
+
+
+@app.command("cleanup")
+def cleanup_command(
+    keep_drafts: int | None = typer.Option(
+        None,
+        min=0,
+        help="Also delete unpublished schedules beyond this many per project, newest kept.",
+    ),
+) -> None:
+    """Delete sessions and invite links that ended over 30 days ago."""
+    from .services.maintenance import cleanup
+
+    with session_scope() as db:
+        report = cleanup(db, keep_drafts=keep_drafts)
+    typer.secho(
+        f"Removed {report.sessions} sessions, {report.invites} invite links "
+        f"and {report.drafts} draft schedules.",
+        fg="green",
+    )
+
+
+@app.command("backup")
+def backup_command(
+    folder: Path = typer.Option(Path("backups"), help="Where to write the backup."),
+    keep: int = typer.Option(10, min=1, help="SQLite only: how many backups to keep."),
+) -> None:
+    """Write a backup of the database: a copy for SQLite, a dump for the others.
+
+    PostgreSQL and MySQL are dumped with their own tools (pg_dump, mysqldump),
+    which must be installed. Restore with pg_restore or the mysql client.
+    """
+    import shutil
+    import subprocess
+
+    from sqlalchemy.engine import make_url
+
+    from .config import get_settings
+    from .services.maintenance import backup_sqlite
+
+    url = make_url(get_settings().database_url)
+    folder.mkdir(parents=True, exist_ok=True)
+    stamp = date.today().isoformat() + "-" + secrets.token_hex(3)
+    if url.get_backend_name() == "sqlite":
+        target = backup_sqlite(Path(url.database or ""), folder, keep=keep)
+    elif url.get_backend_name() == "postgresql":
+        tool = shutil.which("pg_dump")
+        if tool is None:
+            typer.secho("pg_dump is not installed.", fg="red")
+            raise typer.Exit(1)
+        target = folder / f"shabetz-{stamp}.dump"
+        plain = url.set(drivername="postgresql").render_as_string(hide_password=False)
+        subprocess.run([tool, "--format=custom", f"--file={target}", plain], check=True)
+    elif url.get_backend_name() == "mysql":
+        tool = shutil.which("mysqldump")
+        if tool is None:
+            typer.secho("mysqldump is not installed.", fg="red")
+            raise typer.Exit(1)
+        target = folder / f"shabetz-{stamp}.sql"
+        with target.open("wb") as out:
+            subprocess.run(
+                [
+                    tool,
+                    "--single-transaction",
+                    f"--host={url.host or '127.0.0.1'}",
+                    f"--port={url.port or 3306}",
+                    f"--user={url.username or ''}",
+                    str(url.database or ""),
+                ],
+                # The password goes through the environment, not the command
+                # line, where other users of the machine could read it.
+                env={**os.environ, "MYSQL_PWD": url.password or ""},
+                stdout=out,
+                check=True,
+            )
+    else:
+        typer.secho(f"No backup method for {url.get_backend_name()}.", fg="red")
+        raise typer.Exit(1)
+    typer.secho(f"Backup written to {target}", fg="green")
 
 
 PROJECT_OPTION = typer.Option(None, help="Project id; may be left out when only one exists.")

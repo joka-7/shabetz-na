@@ -4,6 +4,7 @@ import { api } from "@/api/client";
 import { keys, useConfigMutation, usePeople, useTimeOff } from "@/api/queries";
 import { can, useSession } from "@/hooks/useSession";
 import { Avatar, EmptyState, Spinner } from "@/components/ui";
+import { useToast } from "@/components/Toasts";
 import { awayByDay, daysInRequest, monthGrid } from "@/lib/calendar";
 import { useI18n } from "@/i18n";
 import { MutationError } from "@/features/setup/steps/parts";
@@ -30,13 +31,26 @@ export function TimeOffView() {
   const today = new Date();
   const [cursor, setCursor] = useState({ year: today.getFullYear(), month: today.getMonth() });
 
+  const { toast } = useToast();
+  // An approved absence does not move anyone off the published schedule, so
+  // say which shifts are now left without their person.
+  const warnClashes = (row: TimeOff) => {
+    const count = row.published_shifts?.length ?? 0;
+    if (count) toast(tn("toast.timeOffClash", count), "error");
+  };
   const submit = useConfigMutation(
-    (payload: unknown) => api.post<TimeOff>("/api/time-off", payload),
+    (payload: unknown) => api.post<TimeOff>("/api/time-off", payload).then((row) => {
+      warnClashes(row);
+      return row;
+    }),
     [keys.timeOff],
   );
   const review = useConfigMutation(
     ({ id, action }: { id: number; action: "approve" | "deny" | "cancel" }) =>
-      api.post<TimeOff>(`/api/time-off/${id}/${action}`, {}),
+      api.post<TimeOff>(`/api/time-off/${id}/${action}`, {}).then((row) => {
+        warnClashes(row);
+        return row;
+      }),
     [keys.timeOff],
   );
 

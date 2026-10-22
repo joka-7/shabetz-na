@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import timedelta
 
 from sqlalchemy import func, select
@@ -24,6 +25,22 @@ class AuthError(Exception):
 
 class AccountLocked(AuthError):
     pass
+
+
+class NotAllowed(AuthError):
+    """The address is not on this site's allowlist."""
+
+
+EmailCheck = Callable[[str], bool]
+
+
+def _anyone(_: str) -> bool:
+    return True
+
+
+def assert_allowed(email: str, allowed: EmailCheck) -> None:
+    if not allowed(email):
+        raise NotAllowed("This account is not allowed to use this site")
 
 
 def user_count(db: DbSession) -> int:
@@ -70,11 +87,18 @@ def create_project(db: DbSession, owner: User, name: str) -> Project:
 
 
 def bootstrap_first_admin(
-    db: DbSession, *, email: str, full_name: str, password: str, project_name: str = ""
+    db: DbSession,
+    *,
+    email: str,
+    full_name: str,
+    password: str,
+    project_name: str = "",
+    allowed: EmailCheck = _anyone,
 ) -> User:
     """The first account, and the project it administers."""
     if setup_is_complete(db):
         raise AuthError("Setup has already been completed")
+    assert_allowed(email, allowed)
     user = create_user(db, email=email, full_name=full_name, password=password)
     create_project(db, user, project_name)
     return user
@@ -142,8 +166,18 @@ def set_password(db: DbSession, user: User, password: str) -> None:
 
 
 def authenticate_password(
-    db: DbSession, email: str, password: str, *, max_attempts: int, lockout_minutes: int
+    db: DbSession,
+    email: str,
+    password: str,
+    *,
+    max_attempts: int,
+    lockout_minutes: int,
+    allowed: EmailCheck = _anyone,
 ) -> User:
+    # Before the password is even looked at, and with the same answer as a
+    # wrong password, so the list cannot be probed for who is on it.
+    if not allowed(email):
+        raise NotAllowed("Invalid email or password")
     user = _find_by_email(db, email)
     if user is None or not user.is_active:
         raise AuthError("Invalid email or password")
@@ -172,7 +206,13 @@ def authenticate_password(
 
 
 def authenticate_firebase(
-    db: DbSession, *, uid: str, email: str, email_verified: bool, full_name: str
+    db: DbSession,
+    *,
+    uid: str,
+    email: str,
+    email_verified: bool,
+    full_name: str,
+    allowed: EmailCheck = _anyone,
 ) -> User:
     """Sign in with a Google account verified by Firebase, signing up if new.
 
@@ -183,6 +223,8 @@ def authenticate_firebase(
     """
     if not email_verified:
         raise AuthError("This Google account has no verified email address")
+    # Checked before an account is created, so a refused address leaves no row.
+    assert_allowed(email, allowed)
 
     user = db.scalar(select(User).where(User.firebase_uid == uid))
     if user is None:

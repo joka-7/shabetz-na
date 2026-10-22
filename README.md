@@ -32,6 +32,11 @@ accept a pasted list the same way.
 | **Windows desktop app** | One computer, no technical setup. Download an installer, double-click, done. See [docs/INSTALL-WINDOWS.md](docs/INSTALL-WINDOWS.md). | SQLite, in the user's own folder |
 | **Hosted website** | People signing in from anywhere with their own accounts. On Render in about 15 minutes: [docs/RENDER.md](docs/RENDER.md). Any other host: [docs/HOSTING.md](docs/HOSTING.md). | PostgreSQL or MySQL |
 
+A hosted site only lets in the accounts listed in `ALLOWED_EMAILS`
+(comma-separated). With the list empty, a production server lets nobody in,
+so a forgotten setting leaves the site shut rather than open; `*` opens it to
+anyone. The desktop app has no such list: it only ever runs on one computer.
+
 Both are the same application. The installer is built by GitHub Actions on
 Windows (`.github/workflows/desktop.yml`); pushing a `v*` tag publishes it as a
 release.

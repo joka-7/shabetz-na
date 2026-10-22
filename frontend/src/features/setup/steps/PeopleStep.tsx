@@ -36,6 +36,8 @@ export function PeopleStep() {
   const [divisionId, setDivisionId] = useState<number | null>(null);
   const [weekdays, setWeekdays] = useState<number[]>(defaultWeek);
   const [personSkills, setPersonSkills] = useState<Record<number, number>>({});
+  // Last day each qualification counts, for those that lapse; absent = never.
+  const [skillExpiry, setSkillExpiry] = useState<Record<number, string>>({});
   // Opened straight away while the roster is empty: that is when a spreadsheet
   // saves the most typing.
   const [importing, setImporting] = useState<boolean | null>(null);
@@ -75,6 +77,7 @@ export function PeopleStep() {
       skills: Object.entries(personSkills).map(([skill_id, level_id]) => ({
         skill_id: Number(skill_id),
         level_id,
+        expires_on: skillExpiry[Number(skill_id)] || null,
       })),
     };
     if (editing) update.mutate({ id: editing.id, ...payload });
@@ -88,6 +91,11 @@ export function PeopleStep() {
     setDivisionId(person.division_id);
     setWeekdays(person.working_weekdays);
     setPersonSkills(Object.fromEntries(person.skills.map((s) => [s.skill_id, s.level_id])));
+    setSkillExpiry(
+      Object.fromEntries(
+        person.skills.filter((s) => s.expires_on).map((s) => [s.skill_id, s.expires_on!]),
+      ),
+    );
     document.getElementById("person-name")?.scrollIntoView({ block: "center" });
   }
 
@@ -95,6 +103,7 @@ export function PeopleStep() {
     setEditing(null);
     setFullName("");
     setPersonSkills({});
+    setSkillExpiry({});
     setWeekdays(defaultWeek);
   }
 
@@ -146,7 +155,7 @@ export function PeopleStep() {
               <legend className="label">{t("section.skills")}</legend>
               <div className="grid gap-2 sm:grid-cols-2">
                 {skills!.map((skill) => (
-                  <div key={skill.id} className="flex items-center gap-2">
+                  <div key={skill.id} className="flex flex-wrap items-center gap-2">
                     <span className="flex-1 truncate text-sm">{skill.name}</span>
                     <select
                       className="input w-36"
@@ -166,6 +175,18 @@ export function PeopleStep() {
                         <option key={level.id} value={level.id}>{level.name}</option>
                       ))}
                     </select>
+                    {personSkills[skill.id] !== undefined && (
+                      <input
+                        type="date"
+                        className="input w-40"
+                        title={t("people.skillExpires")}
+                        aria-label={t("people.skillExpiresNamed", { skill: skill.name })}
+                        value={skillExpiry[skill.id] ?? ""}
+                        onChange={(event) =>
+                          setSkillExpiry((current) => ({ ...current, [skill.id]: event.target.value }))
+                        }
+                      />
+                    )}
                   </div>
                 ))}
               </div>
