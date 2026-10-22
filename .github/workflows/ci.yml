@@ -37,7 +37,7 @@ jobs:
       SHABETZ_DATABASE_URL: mysql+pymysql://shabetz:shabetz@127.0.0.1:3306/shabetz?charset=utf8mb4
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: astral-sh/setup-uv@v4
         with:
@@ -100,7 +100,7 @@ jobs:
       SHABETZ_DATABASE_URL: postgresql://shabetz:shabetz@127.0.0.1:5432/shabetz
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: astral-sh/setup-uv@v4
         with:
@@ -137,7 +137,7 @@ jobs:
   frontend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
@@ -165,7 +165,7 @@ jobs:
     # The built app in a real browser: sign in, generate, change a shift, undo.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: astral-sh/setup-uv@v4
         with:
@@ -205,7 +205,7 @@ jobs:
     # discovered at runtime.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: astral-sh/setup-uv@v4
       - uses: actions/setup-node@v4
@@ -235,7 +235,7 @@ jobs:
     # run it, to prove it serves and cannot be claimed without its setup code.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Build
         run: docker build -t shabetz-server .
