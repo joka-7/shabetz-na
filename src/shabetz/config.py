@@ -80,6 +80,16 @@ class Settings(BaseSettings):
 
     cors_origins: list[str] = Field(default_factory=list)
 
+    # Encrypts people's names, emails, notes and schedules in the database, so
+    # that anyone with access to the database alone sees ciphertext. At least
+    # 32 characters; generate one with `shabetz generate-data-key` and keep a
+    # copy somewhere safe: without it the encrypted data cannot be read again.
+    # Left empty, nothing is encrypted and the app works as it always has.
+    data_key: str = ""
+    # Earlier keys, comma-separated, kept only so data sealed with them can still
+    # be read while it is re-encrypted with the current one.
+    old_data_keys: str = ""
+
     # Who may sign up or sign in to a hosted server: comma-separated email
     # addresses, compared case-insensitively. "*" lets anyone in. Left empty,
     # a production server lets nobody in, so forgetting it cannot quietly

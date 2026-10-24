@@ -545,8 +545,9 @@ def list_people(
         select(orm.Person)
         .where(orm.Person.project_id == ctx.project_id, orm.Person.is_active.is_(True))
         .options(selectinload(orm.Person.skills), selectinload(orm.Person.working_days))
-        .order_by(orm.Person.full_name)
     ).all()
+    # Names are stored encrypted, so the database cannot sort them.
+    rows = sorted(rows, key=lambda r: (r.full_name.casefold(), r.id))
     if can_view_all_assignments(ctx.role):
         return [_person_out(row) for row in rows]
     # Staff see who their colleagues are, not their qualifications or which

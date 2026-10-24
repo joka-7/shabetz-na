@@ -98,8 +98,9 @@ def colleagues(
             orm.Person.is_active.is_(True),
             orm.Person.id != (ctx.member.person_id or -1),
         )
-        .order_by(orm.Person.full_name)
     ).all()
+    # Names are stored encrypted, so the database cannot sort them.
+    rows = sorted(rows, key=lambda r: (r[1].casefold(), r[0]))
     return [ColleagueOut(person_id=pid, name=name) for pid, name in rows]
 
 

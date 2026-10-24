@@ -11,7 +11,7 @@ from pathlib import Path
 import typer
 from sqlalchemy import select
 
-from .auth.service import bootstrap_first_admin, setup_is_complete
+from .auth.service import bootstrap_first_admin, find_user_by_email, setup_is_complete
 from .db import models as orm
 from .db.session import session_scope
 from .domain.enums import DivisionPolicy, ProjectRole
@@ -52,6 +52,46 @@ def generate_setup_code() -> str:
     return "-".join(chars[i : i + 4] for i in range(0, 12, 4))
 
 
+def _apply_encryption_setting(settings) -> None:  # type: ignore[no-untyped-def]
+    """Bring the stored data in line with SHABETZ_DATA_KEY before serving anything.
+
+    With a key, any personal data still stored plain (or under an older key) is
+    encrypted now, so turning the setting on needs no separate step. Without
+    one, refuse to start if the database holds encrypted data: the site would
+    otherwise come up and fail on every page instead of saying why.
+    """
+    from . import crypto
+    from .services.maintenance import has_encrypted_data, rewrite_stored
+
+    try:
+        cipher = crypto.configure_from_settings(settings)
+    except crypto.DataKeyError as exc:
+        typer.secho(f"SHABETZ_DATA_KEY: {exc}", fg="red")
+        raise typer.Exit(1) from exc
+    with session_scope() as db:
+        if cipher is not None:
+            changed = rewrite_stored(db)
+            typer.secho(
+                f"Personal data is encrypted (key {cipher.key_id})"
+                + (f"; encrypted {changed} existing rows." if changed else "."),
+                fg="green",
+            )
+        elif has_encrypted_data(db):
+            typer.secho(
+                "The database holds encrypted data but SHABETZ_DATA_KEY is not set. "
+                "Set it to the key the data was encrypted with. Nothing was changed.",
+                fg="red",
+                bold=True,
+            )
+            raise typer.Exit(1)
+        elif settings.environment == "prod":
+            typer.secho(
+                "Warning: SHABETZ_DATA_KEY is not set, so names, emails, notes and "
+                "schedules are stored unencrypted. See docs/PRIVACY.md.",
+                fg="yellow",
+            )
+
+
 @app.command("serve")
 def serve(
     host: str = typer.Option("0.0.0.0", help="Address to listen on."),
@@ -85,6 +125,8 @@ def serve(
 
     with session_scope() as db:
         run_cleanup(db)
+
+    _apply_encryption_setting(settings)
 
     with session_scope() as db:
         # With Google sign-in everyone signs up for themselves.
@@ -169,7 +211,7 @@ def seed_demo(
     with session_scope() as db:
         owner_user = None
         if owner:
-            owner_user = db.scalar(select(orm.User).where(orm.User.email == owner.strip().lower()))
+            owner_user = find_user_by_email(db, owner)
             if owner_user is None:
                 typer.secho(f"No account for {owner}.", fg="red")
                 raise typer.Exit(1)
@@ -325,6 +367,78 @@ def seed_demo(
         f"{shifts} windows and {len(jobs)} jobs.",
         fg="green",
     )
+
+
+@app.command("generate-data-key")
+def generate_data_key() -> None:
+    """Print a new random key for SHABETZ_DATA_KEY. Keep a copy somewhere safe."""
+    from . import crypto
+
+    typer.echo(crypto.generate_key())
+    typer.secho(
+        "Store this where you will not lose it (a password manager). Without it, "
+        "data encrypted with it can never be read again.",
+        fg="yellow",
+        err=True,
+    )
+
+
+@app.command("encrypt-data")
+def encrypt_data() -> None:
+    """Encrypt personal data in the database with SHABETZ_DATA_KEY.
+
+    Also re-encrypts data sealed with an older key (listed in SHABETZ_OLD_DATA_KEYS)
+    under the current one, which is how a key is rotated. Safe to run again.
+    """
+    from . import crypto
+    from .config import get_settings
+    from .services.maintenance import rewrite_stored
+
+    settings = get_settings()
+    if not settings.data_key:
+        typer.secho("Set SHABETZ_DATA_KEY first (shabetz generate-data-key).", fg="red")
+        raise typer.Exit(1)
+    cipher = crypto.configure_from_settings(settings)
+    with session_scope() as db:
+        changed = rewrite_stored(db)
+    typer.secho(f"Done: {changed} rows now sealed with key {cipher.key_id}.", fg="green")  # type: ignore[union-attr]
+
+
+@app.command("decrypt-data")
+def decrypt_data() -> None:
+    """Write everything back as plain text. Needs the key the data was sealed with."""
+    from . import crypto
+    from .config import get_settings
+    from .services.maintenance import rewrite_stored
+
+    settings = get_settings()
+    if not settings.data_key:
+        typer.secho("Set SHABETZ_DATA_KEY to the key the data is encrypted with.", fg="red")
+        raise typer.Exit(1)
+    crypto.configure_from_settings(settings)
+    with crypto.writing_plaintext(), session_scope() as db:
+        changed = rewrite_stored(db)
+    typer.secho(
+        f"Done: {changed} rows written as plain text. Remove SHABETZ_DATA_KEY to match.",
+        fg="green",
+    )
+
+
+@app.command("data-status")
+def data_status() -> None:
+    """Show whether personal data is encrypted, and how much is not yet."""
+    from . import crypto
+    from .config import get_settings
+    from .services.maintenance import has_encrypted_data, pending_encryption
+
+    settings = get_settings()
+    cipher = crypto.configure_from_settings(settings)
+    with session_scope() as db:
+        encrypted = has_encrypted_data(db)
+        todo = sum(len(ids) for ids in pending_encryption(db).values())
+    typer.echo(f"Key configured : {'yes (id ' + cipher.key_id + ')' if cipher else 'no'}")
+    typer.echo(f"Encrypted data : {'yes' if encrypted else 'no'}")
+    typer.echo(f"Rows to update : {todo}")
 
 
 @app.command("cleanup")

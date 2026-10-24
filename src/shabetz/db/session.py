@@ -10,6 +10,7 @@ from typing import Any
 from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 
+from .. import crypto
 from ..config import get_settings
 
 
@@ -35,6 +36,9 @@ def _configure_sqlite(engine: Engine) -> None:
 @lru_cache
 def get_engine() -> Engine:
     settings = get_settings()
+    # Whatever opens the database -- the server, the desktop app, a command --
+    # reads and writes it with the configured key.
+    crypto.configure_from_settings(settings)
     url = settings.database_url
     kwargs: dict[str, object] = {"pool_pre_ping": True, "future": True}
     if url.startswith("mysql"):

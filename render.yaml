@@ -32,6 +32,12 @@ services:
       # given; the app picks its driver itself.
       - key: SHABETZ_DATABASE_URL
         sync: false
+      # Encrypts names, emails, notes and schedules in the database. Optional:
+      # generate one with `shabetz generate-data-key`, KEEP A COPY ELSEWHERE
+      # (without it the data cannot be read again) and paste it here. See
+      # docs/PRIVACY.md. Left empty, nothing is encrypted.
+      - key: SHABETZ_DATA_KEY
+        sync: false
       # Who may sign up or sign in: comma-separated email addresses. Left
       # empty, nobody can -- the site fails closed rather than open. "*"
       # lets anyone in.
