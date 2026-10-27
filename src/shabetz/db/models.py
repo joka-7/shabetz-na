@@ -33,6 +33,7 @@ from ..domain.enums import (
     TimeOffStatus,
 )
 from .base import TABLE_ARGS, Base, StrEnumType, UtcDateTime, utcnow
+from .encrypted import EncryptedBlob, EncryptedJSON, EncryptedString, EncryptedText
 
 # MySQL gets LONGBLOB so a long horizon across a large roster is not capped at
 # BLOB's 64 KiB; other dialects fall back to their own large-binary type, which
@@ -43,6 +44,10 @@ PayloadBlob = LargeBinary().with_variant(LONGBLOB(), "mysql")
 NAME_LEN = 120
 LONG_NAME_LEN = 160
 EMAIL_LEN = 255
+# An email as it is stored once encrypted: base64 adds a third, the nonce, tag,
+# key id and prefix add about thirty characters more. Still within the index
+# limit on MySQL at four bytes a character.
+ENCRYPTED_EMAIL_LEN = 512
 TOKEN_LEN = 255
 
 
@@ -54,12 +59,17 @@ class User(Base):
     __table_args__ = TABLE_ARGS
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    email: Mapped[str] = mapped_column(String(EMAIL_LEN), unique=True)
+    email: Mapped[str] = mapped_column(
+        EncryptedString("users.email", ENCRYPTED_EMAIL_LEN), unique=True
+    )
+    # A keyed fingerprint of the address, used to find an account by email while
+    # the address itself is stored encrypted. Empty when encryption is off.
+    email_hash: Mapped[str | None] = mapped_column(String(64), unique=True, default=None)
     # Either credential may be absent: the website signs people in with Google
     # (through Firebase), the desktop app with a password.
     password_hash: Mapped[str | None] = mapped_column(String(TOKEN_LEN), default=None)
     firebase_uid: Mapped[str | None] = mapped_column(String(TOKEN_LEN), unique=True, default=None)
-    full_name: Mapped[str] = mapped_column(String(NAME_LEN))
+    full_name: Mapped[str] = mapped_column(EncryptedText("users.full_name"))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     failed_login_count: Mapped[int] = mapped_column(Integer, default=0)
     locked_until: Mapped[datetime | None] = mapped_column(UtcDateTime, default=None)
@@ -172,7 +182,9 @@ class Session(Base):
     csrf_token: Mapped[str] = mapped_column(String(64))
     expires_at: Mapped[datetime] = mapped_column(UtcDateTime)
     created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
-    user_agent: Mapped[str | None] = mapped_column(String(TOKEN_LEN), default=None)
+    user_agent: Mapped[str | None] = mapped_column(
+        EncryptedText("sessions.user_agent"), default=None
+    )
     revoked_at: Mapped[datetime | None] = mapped_column(UtcDateTime, default=None)
 
     user: Mapped[User] = relationship()
@@ -329,8 +341,10 @@ class Person(Base):
     project_id: Mapped[int] = mapped_column(
         ForeignKey("projects.id", ondelete="CASCADE"), index=True
     )
-    external_ref: Mapped[str | None] = mapped_column(String(NAME_LEN), default=None)
-    full_name: Mapped[str] = mapped_column(String(LONG_NAME_LEN))
+    external_ref: Mapped[str | None] = mapped_column(
+        EncryptedText("people.external_ref"), default=None
+    )
+    full_name: Mapped[str] = mapped_column(EncryptedText("people.full_name"))
     division_id: Mapped[int] = mapped_column(ForeignKey("divisions.id", ondelete="RESTRICT"))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
@@ -405,7 +419,7 @@ class TimeOff(Base):
     # Clock hours of a part-day absence; both NULL means the whole day.
     start_hour: Mapped[float | None] = mapped_column(Float, default=None)
     end_hour: Mapped[float | None] = mapped_column(Float, default=None)
-    reason: Mapped[str | None] = mapped_column(Text, default=None)
+    reason: Mapped[str | None] = mapped_column(EncryptedText("time_off.reason"), default=None)
     status: Mapped[TimeOffStatus] = mapped_column(
         StrEnumType(TimeOffStatus, length=20), default=TimeOffStatus.PENDING
     )
@@ -416,7 +430,9 @@ class TimeOff(Base):
         ForeignKey("users.id", ondelete="SET NULL"), default=None
     )
     reviewed_at: Mapped[datetime | None] = mapped_column(UtcDateTime, default=None)
-    review_note: Mapped[str | None] = mapped_column(Text, default=None)
+    review_note: Mapped[str | None] = mapped_column(
+        EncryptedText("time_off.review_note"), default=None
+    )
     created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
 
     person: Mapped[Person] = relationship(back_populates="time_off", foreign_keys=[person_id])
@@ -442,7 +458,7 @@ class ScheduleRun(Base):
     )
     params_json: Mapped[dict] = mapped_column(JSON)
     summary_json: Mapped[dict] = mapped_column(JSON)
-    payload_gz: Mapped[bytes] = mapped_column(PayloadBlob)
+    payload_gz: Mapped[bytes] = mapped_column(EncryptedBlob("schedule_runs.payload_gz"))
     created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
     # A schedule is a private draft until published; only then can staff see it.
     published_at: Mapped[datetime | None] = mapped_column(UtcDateTime, default=None)
@@ -474,7 +490,7 @@ class Attendance(Base):
     person_id: Mapped[int] = mapped_column(ForeignKey("people.id", ondelete="CASCADE"))
     calendar_date: Mapped[date] = mapped_column(Date)
     status: Mapped[AttendanceStatus] = mapped_column(StrEnumType(AttendanceStatus, length=16))
-    note: Mapped[str | None] = mapped_column(Text, default=None)
+    note: Mapped[str | None] = mapped_column(EncryptedText("attendance.note"), default=None)
     marked_by: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), default=None
     )
@@ -506,7 +522,7 @@ class SwapRequest(Base):
     status: Mapped[SwapStatus] = mapped_column(
         StrEnumType(SwapStatus, length=24), default=SwapStatus.AWAITING_COLLEAGUE
     )
-    note: Mapped[str | None] = mapped_column(Text, default=None)
+    note: Mapped[str | None] = mapped_column(EncryptedText("swap_requests.note"), default=None)
     requested_by: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), default=None
     )
@@ -514,7 +530,9 @@ class SwapRequest(Base):
         ForeignKey("users.id", ondelete="SET NULL"), default=None
     )
     reviewed_at: Mapped[datetime | None] = mapped_column(UtcDateTime, default=None)
-    review_note: Mapped[str | None] = mapped_column(Text, default=None)
+    review_note: Mapped[str | None] = mapped_column(
+        EncryptedText("swap_requests.review_note"), default=None
+    )
     created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
 
 
@@ -535,6 +553,10 @@ class AuditLog(Base):
     entity_type: Mapped[str] = mapped_column(String(64))
     entity_id: Mapped[str | None] = mapped_column(String(64), default=None)
     action: Mapped[str] = mapped_column(String(32))
-    before_json: Mapped[dict | None] = mapped_column(JSON, default=None)
-    after_json: Mapped[dict | None] = mapped_column(JSON, default=None)
+    before_json: Mapped[dict | None] = mapped_column(
+        EncryptedJSON("audit_log.before_json"), default=None
+    )
+    after_json: Mapped[dict | None] = mapped_column(
+        EncryptedJSON("audit_log.after_json"), default=None
+    )
     at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)

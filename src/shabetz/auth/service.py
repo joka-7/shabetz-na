@@ -5,9 +5,10 @@ from __future__ import annotations
 from collections.abc import Callable
 from datetime import timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import String, func, or_, select, type_coerce
 from sqlalchemy.orm import Session as DbSession
 
+from .. import crypto
 from ..db.base import utcnow
 from ..db.models import Project, ProjectMember, User
 from ..domain.enums import ProjectRole
@@ -63,8 +64,10 @@ def create_user(
     password: str | None = None,
     firebase_uid: str | None = None,
 ) -> User:
+    cipher = crypto.sealing_cipher()
     user = User(
         email=email.strip().lower(),
+        email_hash=cipher.email_hash(email) if cipher else None,
         full_name=full_name.strip()[:120] or email.strip().lower(),
         password_hash=hash_password(password) if password else None,
         firebase_uid=firebase_uid,
@@ -104,8 +107,22 @@ def bootstrap_first_admin(
     return user
 
 
-def _find_by_email(db: DbSession, email: str) -> User | None:
-    return db.scalar(select(User).where(User.email == email.strip().lower()))
+def find_user_by_email(db: DbSession, email: str) -> User | None:
+    """The account for an address, whether or not addresses are stored encrypted.
+
+    The database cannot compare an encrypted column, so an account is found by
+    the keyed fingerprint kept beside it. Accounts from before encryption was
+    switched on carry no fingerprint yet and are matched on the plain address;
+    ``type_coerce`` keeps that comparison from being encrypted itself.
+    """
+    wanted = email.strip().lower()
+    plain = type_coerce(User.email, String) == wanted
+    cipher = crypto.active()
+    condition = or_(User.email_hash.in_(cipher.email_hashes(wanted)), plain) if cipher else plain
+    return db.scalar(select(User).where(condition))
+
+
+_find_by_email = find_user_by_email
 
 
 class LastAdminError(Exception):

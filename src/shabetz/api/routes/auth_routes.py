@@ -216,14 +216,18 @@ def start_recovery(
     if not settings.password_recovery_enabled:
         raise NotFound()
     directory = Path(settings.data_dir)
-    admins = db.scalars(
-        select(User.email)
-        .join(ProjectMember, ProjectMember.user_id == User.id)
-        .where(ProjectMember.role == ProjectRole.ADMIN, User.is_active.is_(True))
-        .distinct()
-        .order_by(User.email)
-    ).all()
-    path = recovery.write_code_file(directory, codes.issue(), list(admins))
+    # Distinct and sorted here: each address is encrypted differently every time
+    # it is stored, so the database can neither de-duplicate nor order them.
+    admins = sorted(
+        set(
+            db.scalars(
+                select(User.email)
+                .join(ProjectMember, ProjectMember.user_id == User.id)
+                .where(ProjectMember.role == ProjectRole.ADMIN, User.is_active.is_(True))
+            )
+        )
+    )
+    path = recovery.write_code_file(directory, codes.issue(), admins)
     recovery.open_for_user(path)
     return RecoveryStartOut(file_path=str(path))
 

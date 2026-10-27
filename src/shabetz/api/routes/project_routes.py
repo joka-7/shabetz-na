@@ -188,8 +188,9 @@ def list_members(
         .join(User)
         .where(ProjectMember.project_id == ctx.project_id)
         .options(joinedload(ProjectMember.user))
-        .order_by(User.email)
     ).all()
+    # Addresses are stored encrypted, so the database cannot sort them.
+    members = sorted(members, key=lambda m: (m.user.email.casefold(), m.id))
     return [_member_out(m) for m in members]
 
 

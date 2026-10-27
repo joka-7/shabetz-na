@@ -145,9 +145,7 @@ def export_project(db: Session, project_id: int) -> dict:
         )
     ).all()
     people = db.scalars(
-        active(orm.Person)
-        .order_by(orm.Person.full_name)
-        .options(
+        active(orm.Person).options(
             selectinload(orm.Person.skills).selectinload(orm.PersonSkill.skill),
             selectinload(orm.Person.skills).selectinload(orm.PersonSkill.level),
             selectinload(orm.Person.working_days),
@@ -155,6 +153,8 @@ def export_project(db: Session, project_id: int) -> dict:
             selectinload(orm.Person.time_off),
         )
     ).all()
+    # Names are stored encrypted, so the database cannot sort them.
+    people = sorted(people, key=lambda p: (p.full_name.casefold(), p.id))
 
     return {
         "format": FORMAT,

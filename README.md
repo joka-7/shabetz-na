@@ -50,6 +50,19 @@ Both are the same application. The installer is built by GitHub Actions on
 Windows (`.github/workflows/desktop.yml`); pushing a `v*` tag publishes it as a
 release.
 
+## Privacy: who can see people's data
+
+On a hosted site, names, emails, notes and schedules can be **encrypted in the
+database** by setting `SHABETZ_DATA_KEY`. Someone with access to the database
+alone (hosting staff, a leaked connection string, a stolen backup) then sees
+ciphertext. Whoever controls the application's settings, where the key lives, can
+still read the data, because the app has to. Hiding it from the server too needs
+end-to-end encryption, which is only a design so far
+([docs/E2EE-DESIGN.md](docs/E2EE-DESIGN.md)).
+
+Exactly what is and is not encrypted, how to turn it on, **why you must keep a
+copy of the key**, and how to rotate it are in [docs/PRIVACY.md](docs/PRIVACY.md).
+
 ## Quick start (development)
 
 ```bash

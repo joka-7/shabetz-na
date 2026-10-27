@@ -25,6 +25,7 @@ Create a `.env` file from `.env.example`. The values that matter:
 | `SHABETZ_SECRET_KEY` | A long random string, kept the same across restarts. Generate one with `python -c "import secrets; print(secrets.token_urlsafe(48))"`. |
 | `SHABETZ_COOKIE_SECURE` | `true` (the image sets this). Only turn it off for plain-http testing. |
 | `SHABETZ_FORWARDED_ALLOW_IPS` | The address of your reverse proxy, so the server knows requests arrived over HTTPS. |
+| `SHABETZ_DATA_KEY` | Optional. Encrypts personal data in the database (names, emails, notes, schedules), so someone with database access alone sees ciphertext. Generate with `shabetz generate-data-key` and **keep a copy: without it the data cannot be read again.** See [PRIVACY.md](PRIVACY.md). |
 | `SHABETZ_ALLOWED_EMAILS` (or `ALLOWED_EMAILS`) | Comma-separated addresses allowed to sign up or sign in. **Empty in production lets nobody in**; `*` lets anyone in. Checked on every request, so removing an address ends its sessions. |
 | `SHABETZ_TRUSTED_PROXY_HOPS` | How many proxies sit in front of the server (usually `1`). **Required for correct sign-in throttling** — the visitor's address is read that many entries from the right of `X-Forwarded-For`. Too low and every visitor looks like the proxy, so one person's failed sign-ins throttle everyone; too high and a visitor can forge their address. |
 

@@ -33,10 +33,12 @@ def _clean(note: str | None) -> str | None:
 
 def _rows(db: DbSession, ctx: ProjectContext, day: date) -> list[AttendanceRowOut]:
     people = db.scalars(
-        select(orm.Person)
-        .where(orm.Person.project_id == ctx.project_id, orm.Person.is_active.is_(True))
-        .order_by(orm.Person.full_name)
+        select(orm.Person).where(
+            orm.Person.project_id == ctx.project_id, orm.Person.is_active.is_(True)
+        )
     ).all()
+    # Names are stored encrypted, so the database cannot sort them.
+    people = sorted(people, key=lambda p: (p.full_name.casefold(), p.id))
     marks = {
         row.person_id: row
         for row in db.scalars(

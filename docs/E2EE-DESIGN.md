@@ -2,6 +2,11 @@
 
 Status: **design only, no code.** Nothing here is built until it is approved.
 
+> **Already built, and a different guarantee:** encryption at rest
+> ([PRIVACY.md](PRIVACY.md)) hides personal data from anyone with access to the
+> *database alone*, using a key held by the application. This document is about
+> the stronger goal of hiding it from the server as well, which that does not do.
+
 Goal: the server (Render), the database (Neon) and whoever operates them hold
 only **ciphertext** for schedule content. They keep the routing metadata needed
 to deliver it: project ids, member ids, timestamps and sizes.

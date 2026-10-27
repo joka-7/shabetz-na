@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .. import crypto
 from ..config import get_settings
 from .errors import install_handlers
 from .routes import (
@@ -26,6 +27,7 @@ from .static import find_static_dir, mount_frontend
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    crypto.configure_from_settings(settings)
     app = FastAPI(
         title="Shabetz scheduling",
         version="0.1.0",
