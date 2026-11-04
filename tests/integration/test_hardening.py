@@ -199,6 +199,14 @@ def test_responses_carry_security_headers(client: TestClient) -> None:
     assert "strict-transport-security" not in response.headers
 
 
+def test_script_policy_allows_webassembly_but_not_eval(client: TestClient) -> None:
+    """libsodium needs to compile WebAssembly; JavaScript eval must stay blocked."""
+    policy = client.get("/api/meta/health").headers["content-security-policy"]
+    script_src = next(part for part in policy.split("; ") if part.startswith("script-src "))
+    assert "'wasm-unsafe-eval'" in script_src.split()
+    assert "'unsafe-eval'" not in script_src.split()
+
+
 # --------------------------------------------------------------- sessions
 
 

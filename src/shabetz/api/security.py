@@ -25,7 +25,9 @@ DOCS_PREFIXES = ("/docs", "/redoc")
 
 def content_security_policy(settings: Settings) -> str:
     """What the page may load: itself, plus Google's sign-in when it is on."""
-    script = ["'self'"]
+    # libsodium (end-to-end encryption keys) runs as WebAssembly. This allows
+    # compiling WebAssembly only; JavaScript eval stays blocked.
+    script = ["'self'", "'wasm-unsafe-eval'"]
     connect = ["'self'"]
     frame = ["'none'"]
     if settings.firebase_enabled:

@@ -5,6 +5,7 @@ import { useI18n } from "@/i18n";
 import { useSession } from "@/hooks/useSession";
 import { GetTheApp } from "./GetTheApp";
 import { CalendarLink } from "./CalendarLink";
+import { EncryptionKeys } from "./EncryptionKeys";
 
 /** Language switcher and the project's credit links, out of the header/footer and into one place. */
 export function SettingsDialog({
@@ -47,6 +48,9 @@ export function SettingsDialog({
         </div>
 
         <CalendarLink />
+
+        {/* One computer, one user: the desktop app has no server to hide data from. */}
+        {capabilities?.deployment !== "desktop" && <EncryptionKeys />}
 
         <div>
           <h3 className="mb-1.5 text-xs font-semibold text-slate-500">{t("settings.helpHeading")}</h3>

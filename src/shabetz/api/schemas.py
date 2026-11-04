@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import base64
+import re
 from datetime import date, datetime
 from typing import Annotated, Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 from ..domain.enums import (
     AttendanceStatus,
@@ -705,3 +707,71 @@ class AttendanceRowOut(BaseModel):
     note: str | None = None
     on_leave: bool = False
     leave_reason: str | None = None
+
+
+# ------------------------------------------------ end-to-end encryption keys
+
+# Byte sizes of libsodium's X25519 key, Argon2id salt, and a secretbox holding a
+# 32-byte key (24-byte nonce + 32 bytes + 16-byte tag). Checked exactly, so a
+# malformed upload is refused instead of stored and found unopenable later.
+PUBLIC_KEY_BYTES = 32
+KDF_SALT_BYTES = 16
+WRAPPED_KEY_BYTES = 24 + 32 + 16
+# Argon2id cost bounds: libsodium's "interactive" floor, and a ceiling a phone
+# can still compute.
+KDF_OPSLIMIT_RANGE = (2, 10)
+KDF_MEMLIMIT_RANGE = (64 * 1024 * 1024, 1024 * 1024 * 1024)
+_BASE64URL = re.compile(r"[A-Za-z0-9_-]+")
+
+
+def _base64url(value: str, size: int, field: str) -> str:
+    """Accept only libsodium's canonical encoding (URL-safe, unpadded) of ``size`` bytes.
+
+    Python's decoder skips characters outside the alphabet and tolerates stray
+    trailing bits; libsodium's does not. So the length, the alphabet and a
+    decode/re-encode round trip are all checked, or a value libsodium cannot
+    open would be stored.
+    """
+    if len(value) != (size * 4 + 2) // 3 or not _BASE64URL.fullmatch(value):
+        raise ValueError(f"{field} must be {size} bytes in unpadded URL-safe base64")
+    decoded = base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
+    if base64.urlsafe_b64encode(decoded).rstrip(b"=").decode() != value:
+        raise ValueError(f"{field} is not canonical base64")
+    return value
+
+
+class MemberKeyWraps(BaseModel):
+    """The two wrapped copies of a secret key and how the passphrase one was derived."""
+
+    wrapped_sk_passphrase: str
+    wrapped_sk_recovery: str
+    kdf_salt: str
+    kdf_opslimit: int = Field(ge=KDF_OPSLIMIT_RANGE[0], le=KDF_OPSLIMIT_RANGE[1])
+    kdf_memlimit: int = Field(ge=KDF_MEMLIMIT_RANGE[0], le=KDF_MEMLIMIT_RANGE[1])
+
+    @field_validator("wrapped_sk_passphrase", "wrapped_sk_recovery")
+    @classmethod
+    def _wrapped(cls, value: str, info: ValidationInfo) -> str:
+        return _base64url(value, WRAPPED_KEY_BYTES, info.field_name or "wrapped key")
+
+    @field_validator("kdf_salt")
+    @classmethod
+    def _salt(cls, value: str) -> str:
+        return _base64url(value, KDF_SALT_BYTES, "kdf_salt")
+
+
+class MemberKeyIn(MemberKeyWraps):
+    """A new key pair: the public key plus the wrapped secret key."""
+
+    public_key: str
+
+    @field_validator("public_key")
+    @classmethod
+    def _public(cls, value: str) -> str:
+        return _base64url(value, PUBLIC_KEY_BYTES, "public_key")
+
+
+class MemberKeyOut(MemberKeyIn):
+    model_config = ORM
+    created_at: datetime
+    updated_at: datetime

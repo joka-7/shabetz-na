@@ -15,6 +15,7 @@ from .routes import (
     config_routes,
     import_routes,
     inbox_routes,
+    key_routes,
     meta_routes,
     project_routes,
     schedule_routes,
@@ -63,6 +64,7 @@ def create_app() -> FastAPI:
         swap_routes,
         timeoff_routes,
         project_routes,
+        key_routes,
     ):
         app.include_router(module.router)
 
