@@ -7,7 +7,8 @@ ciphertext. Someone who controls the *application's* settings (where the key is)
 can still read everything, because the app has to.
 
 If that is not enough, see [E2EE-DESIGN.md](E2EE-DESIGN.md): end-to-end
-encryption would hide the data from the server too, at a much higher cost.
+encryption hides the data from the server too. It is being built in steps; so
+far members can create their own keys, and no project data uses them yet.
 
 ## Who can see what
 
@@ -54,6 +55,10 @@ Anyone with database access can still see the *shape* of the data:
 - Configuration names: division, skill, proficiency level, shift window and job
   names, project (organisation) names and settings.
 - Password hashes (Argon2, so not reversible) and hashed session ids.
+- End-to-end encryption keys (`member_keys`): public keys, and secret keys that
+  the browser wrapped under the member's encryption passphrase and recovery
+  code before upload. These are useless without the passphrase or code, which
+  never reach the server.
 
 Because people's names are encrypted, those ids cannot be tied back to a name
 without the key.

@@ -560,3 +560,36 @@ class AuditLog(Base):
         EncryptedJSON("audit_log.after_json"), default=None
     )
     at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+
+
+class MemberKey(Base):
+    """An account's end-to-end encryption key pair, as the server may hold it.
+
+    The public key is stored as is. The secret key never arrives in the clear:
+    the browser wraps it twice before upload, once under a key derived from the
+    member's passphrase (Argon2id, with the salt and cost stored here) and once
+    under their recovery code, so the server holds two ciphertexts it cannot
+    open. See docs/E2EE-DESIGN.md §2.
+
+    All binary values are base64 text, in the encoding libsodium's browser
+    build produces, so the row round-trips to the client unchanged.
+    """
+
+    __tablename__ = "member_keys"
+    __table_args__ = TABLE_ARGS
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    public_key: Mapped[str] = mapped_column(String(64))
+    wrapped_sk_passphrase: Mapped[str] = mapped_column(String(TOKEN_LEN))
+    wrapped_sk_recovery: Mapped[str] = mapped_column(String(TOKEN_LEN))
+    kdf_salt: Mapped[str] = mapped_column(String(64))
+    kdf_opslimit: Mapped[int] = mapped_column(Integer)
+    kdf_memlimit: Mapped[int] = mapped_column(Integer)
+    # The wraps a rewrap replaced, kept so that an overwrite by a stolen
+    # session cannot destroy the only copy: an administrator can put them back.
+    # One generation is enough; each rewrap moves the current pair here.
+    previous_wraps: Mapped[dict | None] = mapped_column(JSON, default=None)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UtcDateTime, default=utcnow)

@@ -1,6 +1,24 @@
-# Shabetz: end-to-end encryption — design (draft for approval)
+# Shabetz: end-to-end encryption — design
 
-Status: **design only, no code.** Nothing here is built until it is approved.
+Status: **approved, scope A** (full), with the recommendations in §5: per-person
+extracts, a TypeScript port of the engine, a passphrase plus recovery code, and
+the §1.1 caveat accepted for the web app. Built in steps, as listed in §6.
+
+| Step | State |
+| :-- | :-- |
+| Member key pairs, passphrase and recovery code, unlock UI (`member_keys`, `/api/keys/me`, `frontend/src/lib/memberKeys.ts`, Settings → End-to-end encryption key) | **Built** |
+| Everything else in §6 | Not started |
+
+Step 1 notes: changing the passphrase rewraps only the passphrase copy, so the
+written-down recovery code keeps working; the replaced pair is kept in
+`previous_wraps` so an overwrite through a stolen session can be undone. The
+server accepts only canonical unpadded URL-safe base64 of the exact sizes. The
+recovery code is 120 bits (24 Crockford base32 characters, so
+it can be read aloud without I/L/O/U confusion) and is turned into a key with
+BLAKE2b, since it is random rather than chosen; the passphrase uses Argon2id at
+3 passes over 64 MiB. The unlocked key lives only in the tab's memory. The CSP
+allows `'wasm-unsafe-eval'` so libsodium's WebAssembly can compile; JavaScript
+`eval` stays blocked.
 
 > **Already built, and a different guarantee:** encryption at rest
 > ([PRIVACY.md](PRIVACY.md)) hides personal data from anyone with access to the
@@ -44,18 +62,24 @@ Without (3), Phase 2 protects against database leaks and casual operator
 access, but **not** against a determined operator who also controls the
 frontend deployment. This should be decided knowingly.
 
+A second limit: the encryption passphrase must not be the sign-in password.
+The server sees the sign-in password at every email/password sign-in, so a
+reused one would let the operator derive the passphrase key. The setup screen
+says so, and its fields opt out of the browser's password autofill so a saved
+sign-in password is not offered there.
+
 ---
 
 ## 2. Keys
 
 Library: **libsodium** (`libsodium-wrappers-sumo` in the browser,
-`PyNaCl` on the server only for tests). No home-made crypto.
+no crypto on the server, which only checks sizes). No home-made crypto.
 
 | Key | Type | Lives | Purpose |
 | :-- | :-- | :-- | :-- |
 | **Member key pair** `(pk_m, sk_m)` | X25519 (`crypto_box_keypair`) | `pk_m` on the server; `sk_m` only on the member's devices, and on the server only as `wrapped_sk` (below) | Receives wrapped project keys and sealed requests |
 | **Device unlock key** | derived with Argon2id (`crypto_pwhash`) from a passphrase, *or* a random key kept in IndexedDB as a non-extractable WebCrypto key | the device | Encrypts `sk_m` at rest on the device and on the server (`wrapped_sk`) so a new device can sign in with the passphrase |
-| **Recovery key** | 128-bit random, shown once as a 24-character code | printed or saved by the member | A second wrap of `sk_m` for when the passphrase is forgotten |
+| **Recovery key** | 120-bit random, shown once as a 24-character code | printed or saved by the member | A second wrap of `sk_m` for when the passphrase is forgotten |
 | **Project key** `K_p` (versioned) | 256-bit secretbox key (XChaCha20-Poly1305) | wrapped per member: `crypto_box_seal(K_p, pk_m)` | Encrypts all project content |
 | **Schedule key** `K_s` | 256-bit, one per published schedule | wrapped with `K_p`; also placed in a share link's URL fragment | Lets a link open exactly one schedule |
 | **Project inbox key pair** `(pk_in, sk_in)` | X25519 | `pk_in` public; `sk_in` encrypted with `K_p` | Staff seal time-off/swap requests to it; any manager can open them |
@@ -67,7 +91,8 @@ readable when managers change, and staff only need one public key.
 
 ```
 member_keys        (user_id, public_key, wrapped_sk_passphrase, wrapped_sk_recovery,
-                    kdf_salt, kdf_params, created_at)
+                    kdf_salt, kdf_opslimit, kdf_memlimit, previous_wraps,
+                    created_at, updated_at)
 project_key_wraps  (project_id, member_id, key_version, sealed_key, created_at)
 project_keys       (project_id, key_version, created_at, retired_at)
 encrypted_blobs    (id, project_id, kind, key_version, nonce, ciphertext, created_at, updated_at, version)
@@ -105,8 +130,8 @@ and blob storage with versioning.
 ## 4. Flows
 
 ### 4.1 First sign-in after the feature ships
-1. The browser generates `(pk_m, sk_m)` and asks for a passphrase (or offers device-only storage).
-2. It shows a recovery code once and makes the member confirm two of its characters.
+1. The browser generates `(pk_m, sk_m)` and asks for an encryption passphrase.
+2. It shows a recovery code once and makes the member type its last four characters back.
 3. It uploads `pk_m`, `wrapped_sk_passphrase` and `wrapped_sk_recovery`.
 
 ### 4.2 Creating a project
@@ -154,7 +179,7 @@ Projects not yet migrated keep working as today. A banner says which projects ar
 
 ---
 
-## 5. Open decisions for you
+## 5. Decisions (taken: the recommendation in each)
 
 1. **Do staff see the whole published schedule?** Today the server gives staff only their own shifts. Under E2EE, the simplest model hands staff `K_s`, which opens the whole schedule. Keeping today's privacy needs a per-person extract sealed to each member's `pk_m` at publish time. That's more work for the manager's browser, but straightforward. *Recommendation: per-person extracts, plus an optional whole-schedule share link.*
 2. **Engine: TypeScript port or Pyodide?** *Recommendation: TypeScript.*

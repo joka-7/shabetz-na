@@ -57,8 +57,9 @@ database** by setting `SHABETZ_DATA_KEY`. Someone with access to the database
 alone (hosting staff, a leaked connection string, a stolen backup) then sees
 ciphertext. Whoever controls the application's settings, where the key lives, can
 still read the data, because the app has to. Hiding it from the server too needs
-end-to-end encryption, which is only a design so far
-([docs/E2EE-DESIGN.md](docs/E2EE-DESIGN.md)).
+end-to-end encryption, which is being built in steps
+([docs/E2EE-DESIGN.md](docs/E2EE-DESIGN.md)). The first step is in: each member
+can create their own key under Settings. Nothing is encrypted with it yet.
 
 Exactly what is and is not encrypted, how to turn it on, **why you must keep a
 copy of the key**, and how to rotate it are in [docs/PRIVACY.md](docs/PRIVACY.md).
